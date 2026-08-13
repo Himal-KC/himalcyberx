@@ -1,26 +1,74 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --hcx-bg: #070b14;
+  --hcx-bg-secondary: #0d1424;
+  --hcx-card: #111a2c;
+  --hcx-text: #f4f7fb;
+  --hcx-text-secondary: #94a3b8;
+  --hcx-cyan: #00d9ff;
+  --hcx-green: #00e89d;
+  --hcx-red: #ff3b5c;
+  --hcx-orange: #ffb020;
+  --hcx-yellow: #facc15;
+  --hcx-border: rgba(148, 163, 184, 0.12);
+  --hcx-glow: rgba(0, 217, 255, 0.08);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-hcx-bg: var(--hcx-bg);
+  --color-hcx-bg-secondary: var(--hcx-bg-secondary);
+  --color-hcx-card: var(--hcx-card);
+  --color-hcx-text: var(--hcx-text);
+  --color-hcx-text-secondary: var(--hcx-text-secondary);
+  --color-hcx-cyan: var(--hcx-cyan);
+  --color-hcx-green: var(--hcx-green);
+  --color-hcx-red: var(--hcx-red);
+  --color-hcx-orange: var(--hcx-orange);
+  --color-hcx-yellow: var(--hcx-yellow);
+  --color-hcx-border: var(--hcx-border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-tech: var(--font-jetbrains-mono), var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--hcx-bg);
+  color: var(--hcx-text);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes radar-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+.animate-radar-sweep {
+  animation: radar-sweep 12s linear infinite;
+}
+
+.font-tech {
+  font-family: var(--font-tech);
 }
