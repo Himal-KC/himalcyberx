@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { AdminArticleRow } from "@/lib/supabase/types";
+import { articlePath } from "@/lib/articles";
 import { ArticleStatusBadge } from "@/components/admin/articles/ArticleStatusBadge";
 import { DeleteArticleButton } from "@/components/admin/articles/DeleteArticleButton";
 import { focusRing } from "@/lib/page-data";
@@ -11,6 +12,31 @@ function formatDate(value: string | null): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function ArticleRowActions({ article }: { article: AdminArticleRow }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <Link
+        href={articlePath(article.slug)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
+      >
+        View
+      </Link>
+      <Link
+        href={`/admin/articles/${article.id}/edit`}
+        className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
+      >
+        Edit
+      </Link>
+      <DeleteArticleButton
+        articleId={article.id}
+        articleTitle={article.title}
+      />
+    </div>
+  );
 }
 
 export function ArticlesTable({ articles }: { articles: AdminArticleRow[] }) {
@@ -79,18 +105,7 @@ export function ArticlesTable({ articles }: { articles: AdminArticleRow[] }) {
                   {formatDate(article.published_at)}
                 </td>
                 <td className="px-4 py-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Link
-                      href={`/admin/articles/${article.id}/edit`}
-                      className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
-                    >
-                      Edit
-                    </Link>
-                    <DeleteArticleButton
-                      articleId={article.id}
-                      articleTitle={article.title}
-                    />
-                  </div>
+                  <ArticleRowActions article={article} />
                 </td>
               </tr>
             ))}
@@ -129,17 +144,8 @@ export function ArticlesTable({ articles }: { articles: AdminArticleRow[] }) {
               </div>
             </dl>
 
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Link
-                href={`/admin/articles/${article.id}/edit`}
-                className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
-              >
-                Edit
-              </Link>
-              <DeleteArticleButton
-                articleId={article.id}
-                articleTitle={article.title}
-              />
+            <div className="mt-4">
+              <ArticleRowActions article={article} />
             </div>
           </article>
         ))}

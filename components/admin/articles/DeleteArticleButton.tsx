@@ -58,9 +58,9 @@ export function DeleteArticleButton({
           >
             <h2
               id="delete-article-title"
-              className="text-lg font-semibold text-hcx-text"
+              className="font-tech text-sm font-semibold uppercase tracking-[0.15em] text-hcx-red"
             >
-              Delete Article?
+              DELETE ARTICLE?
             </h2>
             <p className="mt-2 text-sm text-hcx-text-secondary">
               Are you sure you want to permanently delete:

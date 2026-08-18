@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Subscriber } from "@/lib/supabase/types";
 import { SubscriberStatusBadge } from "@/components/admin/subscribers/SubscriberStatusBadge";
-import { SubscriberStatusButton } from "@/components/admin/subscribers/SubscriberStatusButton";
+import { SubscriberRowActions } from "@/components/admin/subscribers/SubscriberRowActions";
 import { focusRing } from "@/lib/page-data";
 
 type StatusFilter = "all" | "active" | "unsubscribed";
@@ -31,6 +31,8 @@ interface SubscribersTableProps {
 export function SubscribersTable({ subscribers }: SubscribersTableProps) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [flashMessage, setFlashMessage] = useState<string | null>(null);
+  const [flashIsError, setFlashIsError] = useState(false);
 
   const filteredSubscribers = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -65,6 +67,20 @@ export function SubscribersTable({ subscribers }: SubscribersTableProps) {
 
   return (
     <div className="space-y-6">
+      {flashMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            flashIsError
+              ? "border-hcx-red/25 bg-hcx-red/10 text-hcx-red"
+              : "border-hcx-green/25 bg-hcx-green/10 text-hcx-green"
+          }`}
+        >
+          {flashMessage}
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-hcx-border bg-hcx-card p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.15em] text-hcx-text-secondary">
@@ -186,25 +202,13 @@ export function SubscribersTable({ subscribers }: SubscribersTableProps) {
                       {formatDate(subscriber.subscribed_at)}
                     </td>
                     <td className="px-4 py-4">
-                      {subscriber.status === "active" ? (
-                        <SubscriberStatusButton
-                          subscriberId={subscriber.id}
-                          subscriberEmail={subscriber.email}
-                          nextStatus="unsubscribed"
-                          label="Unsubscribe"
-                          confirmMessage="Mark this subscriber as unsubscribed?"
-                          className={`text-sm text-hcx-orange transition-opacity hover:opacity-80 ${focusRing}`}
-                        />
-                      ) : (
-                        <SubscriberStatusButton
-                          subscriberId={subscriber.id}
-                          subscriberEmail={subscriber.email}
-                          nextStatus="active"
-                          label="Reactivate"
-                          confirmMessage="Reactivate this subscriber?"
-                          className={`text-sm text-hcx-cyan transition-opacity hover:opacity-80 ${focusRing}`}
-                        />
-                      )}
+                      <SubscriberRowActions
+                        subscriber={subscriber}
+                        onSuccess={(message) => {
+                          setFlashIsError(false);
+                          setFlashMessage(message);
+                        }}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -241,25 +245,13 @@ export function SubscribersTable({ subscribers }: SubscribersTableProps) {
                 </dl>
 
                 <div className="mt-4">
-                  {subscriber.status === "active" ? (
-                    <SubscriberStatusButton
-                      subscriberId={subscriber.id}
-                      subscriberEmail={subscriber.email}
-                      nextStatus="unsubscribed"
-                      label="Unsubscribe"
-                      confirmMessage="Mark this subscriber as unsubscribed?"
-                      className={`text-sm text-hcx-orange transition-opacity hover:opacity-80 ${focusRing}`}
-                    />
-                  ) : (
-                    <SubscriberStatusButton
-                      subscriberId={subscriber.id}
-                      subscriberEmail={subscriber.email}
-                      nextStatus="active"
-                      label="Reactivate"
-                      confirmMessage="Reactivate this subscriber?"
-                      className={`text-sm text-hcx-cyan transition-opacity hover:opacity-80 ${focusRing}`}
-                    />
-                  )}
+                  <SubscriberRowActions
+                    subscriber={subscriber}
+                    onSuccess={(message) => {
+                      setFlashIsError(false);
+                      setFlashMessage(message);
+                    }}
+                  />
                 </div>
               </article>
             ))}

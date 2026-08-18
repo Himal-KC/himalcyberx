@@ -7,7 +7,19 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function AdminLoginPage() {
+interface AdminLoginPageProps {
+  searchParams: Promise<{ error?: string }>;
+}
+
+export default async function AdminLoginPage({
+  searchParams,
+}: AdminLoginPageProps) {
+  const { error } = await searchParams;
+  const initialError =
+    error === "unauthorized"
+      ? "You are not authorized to access HCX Admin."
+      : undefined;
+
   return (
     <div className="min-h-screen bg-[#070B14]">
       <div className="grid min-h-screen md:grid-cols-[2fr_3fr] lg:grid-cols-2">
@@ -27,7 +39,7 @@ export default function AdminLoginPage() {
               </p>
             </div>
 
-            <AdminLoginForm />
+            <AdminLoginForm initialError={initialError} />
           </div>
         </div>
       </div>

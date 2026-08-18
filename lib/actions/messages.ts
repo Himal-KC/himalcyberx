@@ -8,11 +8,14 @@ import {
 } from "@/lib/supabase/admin-session";
 import type { MessageStatus } from "@/lib/supabase/types";
 
-function buildMessageStatusUpdate(status: MessageStatus) {
+function buildMessageStatusUpdate(
+  status: MessageStatus,
+  existingReadAt: string | null,
+) {
   if (status === "read") {
     return {
       status,
-      read_at: new Date().toISOString(),
+      read_at: existingReadAt ?? new Date().toISOString(),
     };
   }
 
@@ -36,9 +39,33 @@ export async function updateMessageStatus(
     return { error: auth.error };
   }
 
+  const { data: existing, error: fetchError } = await auth.supabase
+    .from("messages")
+    .select("read_at")
+    .eq("id", messageId)
+    .maybeSingle();
+
+  if (fetchError) {
+    logSafeDbError("updateMessageStatus:fetch", auth.user.id, {
+      code: fetchError.code,
+      message: fetchError.message,
+    });
+
+    return {
+      error: formatDevErrorMessage(
+        fetchError,
+        "Unable to update message. Please try again.",
+      ),
+    };
+  }
+
+  if (!existing) {
+    return { error: "Message not found." };
+  }
+
   const { error } = await auth.supabase
     .from("messages")
-    .update(buildMessageStatusUpdate(status))
+    .update(buildMessageStatusUpdate(status, existing.read_at))
     .eq("id", messageId);
 
   if (error) {

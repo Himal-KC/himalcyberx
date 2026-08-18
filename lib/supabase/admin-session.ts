@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { User } from "@supabase/supabase-js";
+import { isAllowedAdminUser } from "@/lib/supabase/admin-access";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -108,6 +109,13 @@ export async function getAuthenticatedServerClient(
       ok: false,
       error: "Authenticated Supabase session not found on server.",
       authErrorMessage: authError?.message,
+    };
+  }
+
+  if (!isAllowedAdminUser(user)) {
+    return {
+      ok: false,
+      error: "You are not authorized to perform this admin action.",
     };
   }
 

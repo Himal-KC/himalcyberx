@@ -1,0 +1,86 @@
+-- HimalCyberX Security Hardening — RECOMMENDED RLS CHANGES
+-- =============================================================================
+-- DO NOT RUN AUTOMATICALLY. Review and apply manually in the Supabase SQL editor.
+-- This file does NOT disable RLS. It tightens admin policies for a single-admin CMS.
+--
+-- Current risk:
+--   Any Supabase user with the "authenticated" role can read/update/delete
+--   articles, categories, labs, tutorials, subscribers, messages, site_settings,
+--   and upload/delete storage objects — not only the HCX administrator.
+--
+-- Recommended approach (pick one):
+--   A) app_metadata.role = 'hcx_admin' on the single admin user (preferred)
+--   B) auth.jwt() ->> 'email' matches your admin email (simpler, less flexible)
+--
+-- Before applying:
+--   1. In Supabase Auth, set app_metadata on your admin user:
+--        { "role": "hcx_admin" }
+--   2. Set HCX_ADMIN_EMAIL in Vercel/hosting env (application layer, already supported)
+--   3. Replace broad "Authenticated users can ..." policies below
+-- =============================================================================
+
+-- Helper: true when JWT carries hcx_admin role
+-- CREATE OR REPLACE FUNCTION public.is_hcx_admin()
+-- RETURNS boolean
+-- LANGUAGE sql
+-- STABLE
+-- AS $$
+--   SELECT coalesce(
+--     (auth.jwt() -> 'app_metadata' ->> 'role') = 'hcx_admin',
+--     false
+--   );
+-- $$;
+
+-- ---------------------------------------------------------------------------
+-- EXAMPLE: Replace broad article admin policies
+-- ---------------------------------------------------------------------------
+-- DROP POLICY IF EXISTS "Authenticated users can read all articles" ON public.articles;
+-- DROP POLICY IF EXISTS "Authenticated users can insert articles" ON public.articles;
+-- DROP POLICY IF EXISTS "Authenticated users can update articles" ON public.articles;
+-- DROP POLICY IF EXISTS "Authenticated users can delete articles" ON public.articles;
+--
+-- CREATE POLICY "HCX admin can read all articles"
+-- ON public.articles FOR SELECT TO authenticated
+-- USING (public.is_hcx_admin());
+--
+-- CREATE POLICY "HCX admin can insert articles"
+-- ON public.articles FOR INSERT TO authenticated
+-- WITH CHECK (public.is_hcx_admin());
+--
+-- CREATE POLICY "HCX admin can update articles"
+-- ON public.articles FOR UPDATE TO authenticated
+-- USING (public.is_hcx_admin()) WITH CHECK (public.is_hcx_admin());
+--
+-- CREATE POLICY "HCX admin can delete articles"
+-- ON public.articles FOR DELETE TO authenticated
+-- USING (public.is_hcx_admin());
+
+-- ---------------------------------------------------------------------------
+-- Apply the same pattern to:
+--   public.categories
+--   public.labs
+--   public.tutorials
+--   public.subscribers  (admin SELECT/UPDATE only; keep public INSERT policy)
+--   public.messages     (admin SELECT/UPDATE only; keep public INSERT policy)
+--   public.site_settings (admin INSERT/UPDATE only; keep public SELECT policy)
+--   storage.objects     (article-images bucket upload/delete for hcx_admin only)
+-- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- Policies that are correctly scoped today (keep as-is):
+-- ---------------------------------------------------------------------------
+-- articles:  anon SELECT WHERE status = 'published'
+-- labs:      anon SELECT WHERE status = 'published'
+-- tutorials: anon SELECT WHERE status = 'published'
+-- subscribers: anon INSERT WITH CHECK (status = 'active' AND source IN (...))
+-- messages:  anon INSERT WITH CHECK (status = 'new')
+-- site_settings: anon SELECT (public branding/SEO — intentional)
+-- categories: anon SELECT (used for public article metadata)
+
+-- ---------------------------------------------------------------------------
+-- Optional hardening (review impact first):
+-- ---------------------------------------------------------------------------
+-- 1. Remove authenticated DELETE on subscribers if soft-unsubscribe is sufficient
+-- 2. Add CHECK constraints on message/subscriber field lengths at DB level
+-- 3. Rate-limit contact/newsletter via Supabase Edge Functions or Vercel middleware
+-- 4. Disable public sign-ups in Supabase Auth (invite-only admin account)

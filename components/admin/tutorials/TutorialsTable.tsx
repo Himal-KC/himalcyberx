@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Tutorial } from "@/lib/supabase/types";
+import { tutorialPath } from "@/lib/supabase/public-tutorials";
 import { DeleteTutorialButton } from "@/components/admin/tutorials/DeleteTutorialButton";
 import { TutorialStatusBadge } from "@/components/admin/tutorials/TutorialStatusBadge";
 import { focusRing } from "@/lib/page-data";
@@ -11,6 +12,31 @@ function formatDate(value: string | null): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function TutorialRowActions({ tutorial }: { tutorial: Tutorial }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <Link
+        href={tutorialPath(tutorial.slug)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
+      >
+        View
+      </Link>
+      <Link
+        href={`/admin/tutorials/${tutorial.id}/edit`}
+        className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
+      >
+        Edit
+      </Link>
+      <DeleteTutorialButton
+        tutorialId={tutorial.id}
+        tutorialTitle={tutorial.title}
+      />
+    </div>
+  );
 }
 
 export function TutorialsTable({ tutorials }: { tutorials: Tutorial[] }) {
@@ -85,18 +111,7 @@ export function TutorialsTable({ tutorials }: { tutorials: Tutorial[] }) {
                   {formatDate(tutorial.published_at)}
                 </td>
                 <td className="px-4 py-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Link
-                      href={`/admin/tutorials/${tutorial.id}/edit`}
-                      className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
-                    >
-                      Edit
-                    </Link>
-                    <DeleteTutorialButton
-                      tutorialId={tutorial.id}
-                      tutorialTitle={tutorial.title}
-                    />
-                  </div>
+                  <TutorialRowActions tutorial={tutorial} />
                 </td>
               </tr>
             ))}
@@ -143,17 +158,8 @@ export function TutorialsTable({ tutorials }: { tutorials: Tutorial[] }) {
               </div>
             </dl>
 
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Link
-                href={`/admin/tutorials/${tutorial.id}/edit`}
-                className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
-              >
-                Edit
-              </Link>
-              <DeleteTutorialButton
-                tutorialId={tutorial.id}
-                tutorialTitle={tutorial.title}
-              />
+            <div className="mt-4">
+              <TutorialRowActions tutorial={tutorial} />
             </div>
           </article>
         ))}

@@ -12,10 +12,14 @@ const adminInputClass =
 
 const adminLabelClass = "block text-sm font-medium text-[#F4F7FB]";
 
-export function AdminLoginForm() {
+export function AdminLoginForm({
+  initialError,
+}: {
+  initialError?: string;
+}) {
   const [state, formAction, isPending] = useActionState(
     signIn,
-    INITIAL_STATE,
+    initialError ? { error: initialError } : INITIAL_STATE,
   );
   const [showPassword, setShowPassword] = useState(false);
 

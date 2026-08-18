@@ -2,53 +2,37 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { updateSubscriberStatus } from "@/lib/actions/subscribers";
-import type { SubscriberStatus } from "@/lib/supabase/types";
+import { updateMessageStatus } from "@/lib/actions/messages";
 import { focusRing } from "@/lib/page-data";
 
-interface SubscriberStatusButtonProps {
-  subscriberId: string;
-  subscriberEmail: string;
-  nextStatus: SubscriberStatus;
-  label: string;
-  confirmTitle: string;
-  confirmMessage: string;
-  confirmVariant?: "primary" | "destructive";
+interface ArchiveMessageButtonProps {
+  messageId: string;
+  messageSubject: string;
+  onSuccess?: (message: string) => void;
   className?: string;
-  onSuccess?: () => void;
 }
 
-export function SubscriberStatusButton({
-  subscriberId,
-  subscriberEmail,
-  nextStatus,
-  label,
-  confirmTitle,
-  confirmMessage,
-  confirmVariant = "primary",
-  className,
+export function ArchiveMessageButton({
+  messageId,
+  messageSubject,
   onSuccess,
-}: SubscriberStatusButtonProps) {
+  className,
+}: ArchiveMessageButtonProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const confirmButtonClass =
-    confirmVariant === "destructive"
-      ? "rounded-lg bg-hcx-orange px-4 py-2 text-sm font-semibold text-hcx-bg transition-opacity hover:opacity-90 disabled:opacity-60"
-      : "rounded-lg bg-hcx-cyan px-4 py-2 text-sm font-semibold text-hcx-bg transition-opacity hover:opacity-90 disabled:opacity-60";
-
   function handleConfirm() {
     setError(null);
     startTransition(async () => {
-      const result = await updateSubscriberStatus(subscriberId, nextStatus);
+      const result = await updateMessageStatus(messageId, "archived");
       if (result.error) {
         setError(result.error);
         return;
       }
       setOpen(false);
-      onSuccess?.();
+      onSuccess?.("Message archived successfully.");
       router.refresh();
     });
   }
@@ -58,9 +42,12 @@ export function SubscriberStatusButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={className}
+        className={
+          className ??
+          `text-sm text-hcx-orange transition-opacity hover:opacity-80 ${focusRing}`
+        }
       >
-        {label}
+        Archive
       </button>
 
       {open && (
@@ -72,23 +59,21 @@ export function SubscriberStatusButton({
           <div
             role="dialog"
             aria-modal="true"
-            aria-labelledby="subscriber-status-title"
+            aria-labelledby="archive-message-title"
             className="w-full max-w-md rounded-xl border border-hcx-border bg-hcx-card p-6 shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
             <h2
-              id="subscriber-status-title"
-              className={`text-lg font-semibold text-hcx-text ${
-                confirmVariant === "destructive" ? "text-hcx-orange" : ""
-              }`}
+              id="archive-message-title"
+              className="font-tech text-sm font-semibold uppercase tracking-[0.15em] text-hcx-orange"
             >
-              {confirmTitle}
+              Archive message?
             </h2>
             <p className="mt-2 text-sm text-hcx-text-secondary">
-              {confirmMessage}
+              Are you sure you want to archive:
             </p>
-            <p className="mt-2 text-sm font-medium text-hcx-text break-all">
-              {subscriberEmail}
+            <p className="mt-2 text-sm font-medium text-hcx-text">
+              &ldquo;{messageSubject}&rdquo;?
             </p>
 
             {error && (
@@ -110,9 +95,9 @@ export function SubscriberStatusButton({
                 type="button"
                 disabled={isPending}
                 onClick={handleConfirm}
-                className={`${confirmButtonClass} ${focusRing}`}
+                className={`rounded-lg bg-hcx-orange px-4 py-2 text-sm font-semibold text-hcx-bg transition-opacity hover:opacity-90 disabled:opacity-60 ${focusRing}`}
               >
-                {isPending ? "Saving…" : "Confirm"}
+                {isPending ? "Archiving…" : "Archive Message"}
               </button>
             </div>
           </div>

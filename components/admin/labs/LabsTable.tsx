@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Lab } from "@/lib/supabase/types";
+import { labPath } from "@/lib/supabase/public-labs";
 import { DeleteLabButton } from "@/components/admin/labs/DeleteLabButton";
 import { LabStatusBadge } from "@/components/admin/labs/LabStatusBadge";
 import { focusRing } from "@/lib/page-data";
@@ -11,6 +12,28 @@ function formatDate(value: string | null): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function LabRowActions({ lab }: { lab: Lab }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <Link
+        href={labPath(lab.slug)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
+      >
+        View
+      </Link>
+      <Link
+        href={`/admin/labs/${lab.id}/edit`}
+        className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
+      >
+        Edit
+      </Link>
+      <DeleteLabButton labId={lab.id} labTitle={lab.title} />
+    </div>
+  );
 }
 
 export function LabsTable({ labs }: { labs: Lab[] }) {
@@ -85,15 +108,7 @@ export function LabsTable({ labs }: { labs: Lab[] }) {
                   {formatDate(lab.published_at)}
                 </td>
                 <td className="px-4 py-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Link
-                      href={`/admin/labs/${lab.id}/edit`}
-                      className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
-                    >
-                      Edit
-                    </Link>
-                    <DeleteLabButton labId={lab.id} labTitle={lab.title} />
-                  </div>
+                  <LabRowActions lab={lab} />
                 </td>
               </tr>
             ))}
@@ -140,14 +155,8 @@ export function LabsTable({ labs }: { labs: Lab[] }) {
               </div>
             </dl>
 
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Link
-                href={`/admin/labs/${lab.id}/edit`}
-                className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
-              >
-                Edit
-              </Link>
-              <DeleteLabButton labId={lab.id} labTitle={lab.title} />
+            <div className="mt-4">
+              <LabRowActions lab={lab} />
             </div>
           </article>
         ))}

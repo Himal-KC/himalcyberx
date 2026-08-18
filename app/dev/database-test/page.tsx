@@ -1,6 +1,7 @@
 // REMOVE THIS ROUTE BEFORE PRODUCTION — development-only database connectivity check.
 
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getDatabaseStatus } from "@/lib/supabase/queries";
 
 export const metadata: Metadata = {
@@ -9,6 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default async function DatabaseTestPage() {
+  if (process.env.NODE_ENV === "production") {
+    notFound();
+  }
+
   const status = await getDatabaseStatus();
 
   return (

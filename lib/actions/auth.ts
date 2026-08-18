@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { isAllowedAdminUser } from "@/lib/supabase/admin-access";
 import { createClient } from "@/lib/supabase/server";
 
 export interface AuthActionState {
@@ -26,6 +27,15 @@ export async function signIn(
 
   if (error) {
     return { error: "Invalid email or password." };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!isAllowedAdminUser(user ?? {})) {
+    await supabase.auth.signOut();
+    return { error: "You are not authorized to access HCX Admin." };
   }
 
   redirect("/admin");

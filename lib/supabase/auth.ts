@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { isAllowedAdminUser } from "@/lib/supabase/admin-access";
 import { createClient } from "@/lib/supabase/server";
 
 export async function getAuthClaims() {
@@ -19,9 +20,10 @@ export async function requireAdminAuth() {
     redirect("/admin/login");
   }
 
-  // TODO: Add role-based authorization (e.g. admin role in app_metadata or a
-  // profiles table). Authentication alone is sufficient for portal access at
-  // this stage — do not trust email alone as authorization long term.
+  if (!isAllowedAdminUser({ email: claims.email as string | undefined })) {
+    redirect("/admin/login?error=unauthorized");
+  }
+
   return claims;
 }
 

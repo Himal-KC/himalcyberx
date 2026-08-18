@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { updateMessageStatus } from "@/lib/actions/messages";
+import { ArchiveMessageButton } from "@/components/admin/messages/ArchiveMessageButton";
+import { MessageRowActions } from "@/components/admin/messages/MessageRowActions";
 import { MessageStatusBadge } from "@/components/admin/messages/MessageStatusBadge";
 import { PlainTextMessageContent } from "@/components/admin/messages/PlainTextMessageContent";
 import type { Message, MessageStatus } from "@/lib/supabase/types";
@@ -30,7 +32,8 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [flashMessage, setFlashMessage] = useState<string | null>(null);
+  const [flashIsError, setFlashIsError] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const filteredMessages = useMemo(() => {
@@ -68,20 +71,50 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
   const selectedMessage =
     messages.find((message) => message.id === selectedId) ?? null;
 
+  function showSuccess(message: string) {
+    setFlashIsError(false);
+    setFlashMessage(message);
+  }
+
+  function showError(message: string) {
+    setFlashIsError(true);
+    setFlashMessage(message);
+  }
+
   function handleStatusChange(messageId: string, status: MessageStatus) {
-    setError(null);
     startTransition(async () => {
       const result = await updateMessageStatus(messageId, status);
       if (result.error) {
-        setError(result.error);
+        showError(result.error);
         return;
       }
+
+      const successMessages: Record<MessageStatus, string> = {
+        new: "Message marked as new.",
+        read: "Message marked as read.",
+        archived: "Message archived successfully.",
+      };
+      showSuccess(successMessages[status]);
       router.refresh();
     });
   }
 
   return (
     <div className="space-y-6">
+      {flashMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            flashIsError
+              ? "border-hcx-red/25 bg-hcx-red/10 text-hcx-red"
+              : "border-hcx-green/25 bg-hcx-green/10 text-hcx-green"
+          }`}
+        >
+          {flashMessage}
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-hcx-border bg-hcx-card p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.15em] text-hcx-text-secondary">
@@ -175,8 +208,8 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
         </div>
       ) : (
         <>
-          <div className="hidden overflow-hidden rounded-xl border border-hcx-border md:block">
-            <table className="w-full text-left text-sm">
+          <div className="hidden overflow-x-auto rounded-xl border border-hcx-border md:block">
+            <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-hcx-border bg-hcx-bg-secondary/60">
                 <tr>
                   <th className="px-4 py-3 font-medium text-hcx-text-secondary">
@@ -205,7 +238,7 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
                     <td className="px-4 py-4 font-medium text-hcx-text">
                       {message.name}
                     </td>
-                    <td className="px-4 py-4 text-hcx-text-secondary break-all">
+                    <td className="px-4 py-4 break-all text-hcx-text-secondary">
                       {message.email}
                     </td>
                     <td className="px-4 py-4 text-hcx-text">{message.subject}</td>
@@ -216,16 +249,15 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
                       {formatDate(message.created_at)}
                     </td>
                     <td className="px-4 py-4">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setError(null);
+                      <MessageRowActions
+                        message={message}
+                        onView={() => {
+                          setFlashMessage(null);
                           setSelectedId(message.id);
                         }}
-                        className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
-                      >
-                        View
-                      </button>
+                        onSuccess={showSuccess}
+                        onError={showError}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -242,7 +274,7 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-hcx-text">{message.name}</p>
-                    <p className="mt-1 text-xs text-hcx-text-secondary break-all">
+                    <p className="mt-1 break-all text-xs text-hcx-text-secondary">
                       {message.email}
                     </p>
                   </div>
@@ -252,16 +284,17 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
                 <p className="mt-2 text-xs text-hcx-text-secondary">
                   {formatDate(message.created_at)}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setError(null);
-                    setSelectedId(message.id);
-                  }}
-                  className={`mt-4 text-sm text-hcx-cyan hover:underline ${focusRing}`}
-                >
-                  View
-                </button>
+                <div className="mt-4">
+                  <MessageRowActions
+                    message={message}
+                    onView={() => {
+                      setFlashMessage(null);
+                      setSelectedId(message.id);
+                    }}
+                    onSuccess={showSuccess}
+                    onError={showError}
+                  />
+                </div>
               </article>
             ))}
           </div>
@@ -328,12 +361,6 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
                   <PlainTextMessageContent content={selectedMessage.message} />
                 </div>
               </div>
-
-              {error && (
-                <p className="mt-4 text-sm text-hcx-red" role="alert">
-                  {error}
-                </p>
-              )}
             </div>
 
             <div className="flex flex-wrap justify-end gap-3 border-t border-hcx-border px-6 py-4">
@@ -345,19 +372,21 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
               >
                 Close
               </button>
-              {selectedMessage.status !== "new" && (
+              {(selectedMessage.status === "read" ||
+                selectedMessage.status === "archived") && (
                 <button
                   type="button"
                   disabled={isPending}
                   onClick={() =>
                     handleStatusChange(selectedMessage.id, "new")
                   }
-                  className={`rounded-lg border border-hcx-border px-4 py-2 text-sm font-medium text-hcx-text transition-colors hover:bg-hcx-bg disabled:opacity-60 ${focusRing}`}
+                  className={`rounded-lg border border-hcx-border px-4 py-2 text-sm font-medium text-hcx-cyan transition-colors hover:bg-hcx-bg disabled:opacity-60 ${focusRing}`}
                 >
                   Mark as New
                 </button>
               )}
-              {selectedMessage.status !== "read" && (
+              {(selectedMessage.status === "new" ||
+                selectedMessage.status === "archived") && (
                 <button
                   type="button"
                   disabled={isPending}
@@ -370,16 +399,15 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
                 </button>
               )}
               {selectedMessage.status !== "archived" && (
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() =>
-                    handleStatusChange(selectedMessage.id, "archived")
-                  }
-                  className={`rounded-lg border border-hcx-orange/30 bg-hcx-orange/10 px-4 py-2 text-sm font-medium text-hcx-orange transition-colors hover:bg-hcx-orange/15 disabled:opacity-60 ${focusRing}`}
-                >
-                  Archive
-                </button>
+                <ArchiveMessageButton
+                  messageId={selectedMessage.id}
+                  messageSubject={selectedMessage.subject}
+                  onSuccess={(message) => {
+                    showSuccess(message);
+                    setSelectedId(null);
+                  }}
+                  className={`rounded-lg border border-hcx-orange/30 bg-hcx-orange/10 px-4 py-2 text-sm font-medium text-hcx-orange transition-colors hover:bg-hcx-orange/15 ${focusRing}`}
+                />
               )}
             </div>
           </div>
