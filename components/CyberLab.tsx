@@ -34,7 +34,12 @@ export function CyberLab() {
           description="Hands-on cybersecurity labs, technical walkthroughs and practical security learning."
         />
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+        <p className="mt-4 max-w-3xl text-sm leading-relaxed text-hcx-text-secondary">
+          Practice only in systems and environments you own or are explicitly
+          authorized to test.
+        </p>
+
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
           {cyberLabModules.map((module) => {
             const Icon = iconMap[module.icon];
             return (
@@ -43,7 +48,7 @@ export function CyberLab() {
           })}
         </div>
 
-        <FeaturedLab />
+        <FeaturedLab lab={null} />
         <LearningPaths />
       </div>
     </section>

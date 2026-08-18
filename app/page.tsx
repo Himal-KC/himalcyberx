@@ -1,5 +1,5 @@
 import { Header } from "@/components/Header";
-import { BreakingNewsBar } from "@/components/BreakingNewsBar";
+import { SecurityUpdateBar } from "@/components/SecurityUpdateBar";
 import { Hero } from "@/components/Hero";
 import { TrendingStories } from "@/components/TrendingStories";
 import { LatestNews } from "@/components/LatestNews";
@@ -9,23 +9,35 @@ import { CyberLab } from "@/components/CyberLab";
 import { AISecurity } from "@/components/AISecurity";
 import { Newsletter } from "@/components/Newsletter";
 import { Footer } from "@/components/Footer";
+import { getHomepageArticles } from "@/lib/supabase/public-articles";
+import { getSiteSettings } from "@/lib/settings/site-settings";
 
-export default function Home() {
+export const revalidate = 60;
+
+export default async function Home() {
+  const [homepageArticles, settings] = await Promise.all([
+    getHomepageArticles(),
+    getSiteSettings(),
+  ]);
+
   return (
     <>
       <Header />
-      <BreakingNewsBar />
+      <SecurityUpdateBar />
       <main>
         <Hero />
-        <TrendingStories />
-        <LatestNews />
-        <ThreatIntelligence />
+        <TrendingStories stories={homepageArticles.trending} />
+        <LatestNews
+          featured={homepageArticles.featured}
+          latest={homepageArticles.latest}
+        />
+        <ThreatIntelligence articles={homepageArticles.threatArticles} />
         <VulnerabilityWatch />
         <CyberLab />
         <AISecurity />
         <Newsletter />
       </main>
-      <Footer />
+      <Footer settings={settings} />
     </>
   );
 }

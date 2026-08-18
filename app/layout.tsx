@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
+import { buildRootMetadata } from "@/lib/seo/metadata";
+import { getSiteSettings } from "@/lib/settings/site-settings";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -17,11 +19,10 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "HimalCyberX — Decode Threats. Defend the Future.",
-  description:
-    "Independent cybersecurity news, threat intelligence, security research and practical cyber labs.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  return buildRootMetadata(settings);
+}
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

@@ -1,0 +1,402 @@
+"use client";
+
+import Link from "next/link";
+import { useActionState, useState } from "react";
+import type { LabActionState } from "@/lib/actions/labs";
+import { LAB_CATEGORIES, LAB_DIFFICULTIES } from "@/lib/labs/constants";
+import { slugifyTitle } from "@/lib/labs/validation";
+import type { Lab } from "@/lib/supabase/types";
+import { FeaturedImageUploader } from "@/components/admin/articles/FeaturedImageUploader";
+import { focusRing } from "@/lib/page-data";
+
+const inputClass =
+  "mt-2 w-full rounded-lg border border-hcx-border bg-hcx-bg px-4 py-3 text-sm text-hcx-text placeholder:text-hcx-text-secondary/60 transition-colors focus:border-hcx-cyan/50 focus:outline-none focus:ring-2 focus:ring-hcx-cyan/20 disabled:cursor-not-allowed disabled:opacity-60";
+
+const labelClass = "block text-sm font-medium text-hcx-text";
+const sectionLabelClass =
+  "font-tech text-xs font-semibold uppercase tracking-[0.15em] text-hcx-cyan";
+const errorClass = "mt-1.5 text-sm text-hcx-red";
+
+interface LabFormProps {
+  action: (
+    prevState: LabActionState,
+    formData: FormData,
+  ) => Promise<LabActionState>;
+  lab?: Lab | null;
+}
+
+function FormButtons({ isPending }: { isPending: boolean }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <button
+        type="submit"
+        name="intent"
+        value="draft"
+        disabled={isPending}
+        className={`w-full rounded-lg border border-hcx-border px-4 py-2.5 text-sm font-medium text-hcx-text transition-colors hover:bg-hcx-bg disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`}
+      >
+        {isPending ? "Saving…" : "Save as Draft"}
+      </button>
+      <button
+        type="submit"
+        name="intent"
+        value="publish"
+        disabled={isPending}
+        className={`w-full rounded-lg bg-hcx-cyan px-4 py-2.5 text-sm font-semibold text-hcx-bg transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`}
+      >
+        {isPending ? "Publishing…" : "Publish Lab"}
+      </button>
+      <Link
+        href="/admin/labs"
+        className={`w-full rounded-lg border border-hcx-border px-4 py-2.5 text-center text-sm font-medium text-hcx-text transition-colors hover:bg-hcx-bg-secondary ${focusRing}`}
+      >
+        Cancel
+      </Link>
+    </div>
+  );
+}
+
+export function LabForm({ action, lab = null }: LabFormProps) {
+  const [state, formAction, isPending] = useActionState(action, {});
+  const [title, setTitle] = useState(lab?.title ?? "");
+  const [slug, setSlug] = useState(lab?.slug ?? "");
+  const [slugEdited, setSlugEdited] = useState(Boolean(lab?.slug));
+
+  function handleTitleChange(nextTitle: string) {
+    setTitle(nextTitle);
+    if (!slugEdited) {
+      setSlug(slugifyTitle(nextTitle));
+    }
+  }
+
+  return (
+    <form action={formAction} noValidate>
+      {state.message && !state.fieldErrors && (
+        <div
+          role="alert"
+          className="mb-6 rounded-lg border border-hcx-red/25 bg-hcx-red/10 p-4 text-sm text-hcx-red"
+        >
+          {state.message}
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] lg:items-start">
+        <section className="rounded-xl border border-hcx-border bg-hcx-card p-6 sm:p-8">
+          <h2 className={sectionLabelClass}>Lab Content</h2>
+
+          <div className="mt-6 space-y-6">
+            <div>
+              <label htmlFor="title" className={labelClass}>
+                Lab Title
+              </label>
+              <input
+                id="title"
+                name="title"
+                type="text"
+                required
+                minLength={8}
+                value={title}
+                onChange={(event) => handleTitleChange(event.target.value)}
+                disabled={isPending}
+                placeholder="Enter lab title"
+                aria-invalid={Boolean(state.fieldErrors?.title)}
+                className={inputClass}
+              />
+              {state.fieldErrors?.title && (
+                <p className={errorClass}>{state.fieldErrors.title}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="slug" className={labelClass}>
+                Slug
+              </label>
+              <input
+                id="slug"
+                name="slug"
+                type="text"
+                required
+                value={slug}
+                onChange={(event) => {
+                  setSlugEdited(true);
+                  setSlug(event.target.value.toLowerCase());
+                }}
+                disabled={isPending}
+                placeholder="lab-url-slug"
+                aria-invalid={Boolean(state.fieldErrors?.slug)}
+                className={`${inputClass} font-mono`}
+              />
+              <p className="mt-1.5 text-xs text-hcx-text-secondary">
+                URL path: /cyber-lab/{slug || "lab-url-slug"}
+              </p>
+              {state.fieldErrors?.slug && (
+                <p className={errorClass}>{state.fieldErrors.slug}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="description" className={labelClass}>
+                Short Description
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                required
+                minLength={20}
+                rows={3}
+                defaultValue={lab?.description ?? ""}
+                disabled={isPending}
+                placeholder="Brief summary of what learners will practice..."
+                aria-invalid={Boolean(state.fieldErrors?.description)}
+                className={inputClass}
+              />
+              {state.fieldErrors?.description && (
+                <p className={errorClass}>{state.fieldErrors.description}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="introduction" className={labelClass}>
+                Lab Introduction
+              </label>
+              <textarea
+                id="introduction"
+                name="introduction"
+                rows={6}
+                defaultValue={lab?.introduction ?? ""}
+                disabled={isPending}
+                placeholder="Introduce the lab scenario and learning goals..."
+                aria-invalid={Boolean(state.fieldErrors?.introduction)}
+                className={inputClass}
+              />
+              {state.fieldErrors?.introduction && (
+                <p className={errorClass}>{state.fieldErrors.introduction}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="learning_objectives" className={labelClass}>
+                Learning Objectives
+              </label>
+              <textarea
+                id="learning_objectives"
+                name="learning_objectives"
+                rows={5}
+                defaultValue={lab?.learning_objectives ?? ""}
+                disabled={isPending}
+                placeholder="What learners should be able to do after completing this lab..."
+                aria-invalid={Boolean(state.fieldErrors?.learning_objectives)}
+                className={inputClass}
+              />
+              {state.fieldErrors?.learning_objectives && (
+                <p className={errorClass}>
+                  {state.fieldErrors.learning_objectives}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="requirements_tools" className={labelClass}>
+                Requirements / Tools
+              </label>
+              <textarea
+                id="requirements_tools"
+                name="requirements_tools"
+                rows={4}
+                defaultValue={lab?.requirements_tools ?? ""}
+                disabled={isPending}
+                placeholder="Required software, tools, and environment setup..."
+                aria-invalid={Boolean(state.fieldErrors?.requirements_tools)}
+                className={inputClass}
+              />
+              {state.fieldErrors?.requirements_tools && (
+                <p className={errorClass}>
+                  {state.fieldErrors.requirements_tools}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="instructions" className={labelClass}>
+                Step-by-Step Instructions
+              </label>
+              <textarea
+                id="instructions"
+                name="instructions"
+                rows={16}
+                defaultValue={lab?.instructions ?? ""}
+                disabled={isPending}
+                placeholder="Detailed lab steps learners should follow..."
+                aria-invalid={Boolean(state.fieldErrors?.instructions)}
+                className={`${inputClass} min-h-[20rem] font-mono leading-relaxed`}
+              />
+              {state.fieldErrors?.instructions && (
+                <p className={errorClass}>{state.fieldErrors.instructions}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="expected_result" className={labelClass}>
+                Expected Result
+              </label>
+              <textarea
+                id="expected_result"
+                name="expected_result"
+                rows={4}
+                defaultValue={lab?.expected_result ?? ""}
+                disabled={isPending}
+                placeholder="What learners should observe when the lab is completed correctly..."
+                aria-invalid={Boolean(state.fieldErrors?.expected_result)}
+                className={inputClass}
+              />
+              {state.fieldErrors?.expected_result && (
+                <p className={errorClass}>{state.fieldErrors.expected_result}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="security_notes" className={labelClass}>
+                Security Notes
+              </label>
+              <textarea
+                id="security_notes"
+                name="security_notes"
+                rows={4}
+                defaultValue={lab?.security_notes ?? ""}
+                disabled={isPending}
+                placeholder="Authorized use, legal and safety reminders..."
+                aria-invalid={Boolean(state.fieldErrors?.security_notes)}
+                className={inputClass}
+              />
+              {state.fieldErrors?.security_notes && (
+                <p className={errorClass}>{state.fieldErrors.security_notes}</p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <aside className="space-y-6 lg:sticky lg:top-6">
+          <div className="rounded-xl border border-hcx-border bg-hcx-card p-6">
+            <h2 className={sectionLabelClass}>Publishing</h2>
+
+            <div className="mt-6 space-y-5">
+              <div>
+                <label htmlFor="difficulty" className={labelClass}>
+                  Difficulty
+                </label>
+                <select
+                  id="difficulty"
+                  name="difficulty"
+                  defaultValue={lab?.difficulty ?? "Beginner"}
+                  disabled={isPending}
+                  aria-invalid={Boolean(state.fieldErrors?.difficulty)}
+                  className={inputClass}
+                >
+                  {LAB_DIFFICULTIES.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+                {state.fieldErrors?.difficulty && (
+                  <p className={errorClass}>{state.fieldErrors.difficulty}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="category" className={labelClass}>
+                  Category
+                </label>
+                <select
+                  id="category"
+                  name="category"
+                  defaultValue={lab?.category ?? ""}
+                  disabled={isPending}
+                  aria-invalid={Boolean(state.fieldErrors?.category)}
+                  className={inputClass}
+                >
+                  <option value="">Select a category</option>
+                  {LAB_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+                {state.fieldErrors?.category && (
+                  <p className={errorClass}>{state.fieldErrors.category}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="estimated_time" className={labelClass}>
+                  Estimated Time
+                </label>
+                <input
+                  id="estimated_time"
+                  name="estimated_time"
+                  type="text"
+                  defaultValue={lab?.estimated_time ?? ""}
+                  disabled={isPending}
+                  placeholder="e.g. 45 min"
+                  aria-invalid={Boolean(state.fieldErrors?.estimated_time)}
+                  className={inputClass}
+                />
+                {state.fieldErrors?.estimated_time && (
+                  <p className={errorClass}>
+                    {state.fieldErrors.estimated_time}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="status" className={labelClass}>
+                  Status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  defaultValue={lab?.status ?? "draft"}
+                  disabled={isPending}
+                  aria-invalid={Boolean(state.fieldErrors?.status)}
+                  className={inputClass}
+                >
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </select>
+                {state.fieldErrors?.status && (
+                  <p className={errorClass}>{state.fieldErrors.status}</p>
+                )}
+              </div>
+
+              <div>
+                <p className={labelClass}>Featured Lab</p>
+                <label className="mt-2 flex cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    name="featured"
+                    defaultChecked={lab?.featured ?? false}
+                    disabled={isPending}
+                    className="h-4 w-4 rounded border-hcx-border bg-hcx-bg text-hcx-cyan focus:ring-hcx-cyan/30 focus:ring-offset-hcx-card"
+                  />
+                  <span className="text-sm text-hcx-text">Mark as featured</span>
+                </label>
+              </div>
+
+              <FeaturedImageUploader
+                disabled={isPending}
+                defaultUrl={lab?.featured_image}
+                articleTitle={title || lab?.title || "Lab featured image"}
+                fieldError={state.fieldErrors?.featured_image}
+                storageFolder="labs"
+              />
+            </div>
+
+            <div className="mt-6 border-t border-hcx-border pt-6">
+              <FormButtons isPending={isPending} />
+            </div>
+          </div>
+        </aside>
+      </div>
+    </form>
+  );
+}

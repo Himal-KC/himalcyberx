@@ -1,10 +1,12 @@
+import { intelligenceCoverage } from "@/lib/sample-data";
 import { ArrowRightIcon } from "@/components/icons";
 
-const intelStats = [
-  { label: "Threats", value: "24" },
-  { label: "Critical", value: "03" },
-  { label: "Monitored", value: "128" },
-] as const;
+const accentDot = {
+  red: "bg-hcx-red",
+  cyan: "bg-hcx-cyan",
+  orange: "bg-hcx-orange",
+  green: "bg-hcx-green",
+} as const;
 
 function HeroVisual() {
   return (
@@ -27,16 +29,16 @@ function HeroVisual() {
 
           <div className="absolute left-4 top-4 z-10">
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-hcx-text-secondary">
-              Threat Radar
+              HCX Threat Research
             </p>
           </div>
 
           <div className="absolute right-4 top-4 z-10 text-right">
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-hcx-green">
-              Live Monitor
+              Visual Intelligence
             </p>
             <p className="mt-0.5 text-[9px] font-medium uppercase tracking-wider text-hcx-text-secondary/70">
-              Demo Visualization
+              Research visualization
             </p>
           </div>
 
@@ -159,20 +161,18 @@ function HeroVisual() {
           </svg>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 border-t border-hcx-border bg-hcx-bg/70 p-3 backdrop-blur-sm sm:gap-3 sm:p-4">
-          {intelStats.map((stat) => (
+        <div className="grid grid-cols-2 gap-2 border-t border-hcx-border bg-hcx-bg/70 p-3 backdrop-blur-sm sm:grid-cols-4 sm:gap-3 sm:p-4">
+          {intelligenceCoverage.map((item) => (
             <div
-              key={stat.label}
+              key={item.label}
               className="rounded-lg border border-hcx-border bg-hcx-card/80 px-2 py-2.5 text-center sm:px-3"
             >
+              <span
+                className={`mx-auto mb-2 block h-1.5 w-1.5 rounded-full ${accentDot[item.accent]}`}
+                aria-hidden="true"
+              />
               <p className="text-[9px] font-semibold uppercase tracking-wider text-hcx-text-secondary sm:text-[10px]">
-                {stat.label}
-              </p>
-              <p className="mt-1 font-mono text-lg font-bold text-hcx-text sm:text-xl">
-                {stat.value}
-              </p>
-              <p className="mt-0.5 text-[8px] font-medium uppercase tracking-wider text-hcx-text-secondary/60 sm:text-[9px]">
-                Demo
+                {item.label}
               </p>
             </div>
           ))}
@@ -227,21 +227,15 @@ export function Hero() {
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-hcx-border/60 pt-5 text-[11px] font-medium uppercase tracking-wider text-hcx-text-secondary sm:text-xs">
-            <span className="flex items-center gap-1.5">
-              <span
-                className="h-1.5 w-1.5 rounded-full bg-hcx-green"
-                aria-hidden="true"
-              />
-              Threat Monitor
-            </span>
+            <span>HCX Threat Research</span>
             <span className="hidden text-hcx-border sm:inline" aria-hidden="true">
               |
             </span>
-            <span className="text-hcx-green">System Online</span>
+            <span>Visual Intelligence</span>
             <span className="hidden text-hcx-border sm:inline" aria-hidden="true">
               |
             </span>
-            <span>Last Updated: Demo</span>
+            <span>Research visualization</span>
           </div>
         </div>
 

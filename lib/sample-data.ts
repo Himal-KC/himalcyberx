@@ -1,84 +1,53 @@
+import {
+  articleToCard,
+  getArticleBySlug,
+  getPublicArticles,
+} from "@/lib/articles";
+
 export const navLinks = [
-  { label: "Home", href: "#" },
-  { label: "News", href: "#latest-news" },
-  { label: "Threats", href: "#threat-intelligence" },
-  { label: "Vulnerabilities", href: "#vulnerability-watch" },
-  { label: "Cyber Lab", href: "#cyber-lab" },
-  { label: "Forensics", href: "#cyber-lab" },
-  { label: "Tutorials", href: "#cyber-lab" },
-  { label: "AI Security", href: "#ai-security" },
+  { label: "Home", href: "/" },
+  { label: "News", href: "/news" },
+  { label: "Threats", href: "/threats" },
+  { label: "Vulnerabilities", href: "/vulnerabilities" },
+  { label: "Cyber Lab", href: "/cyber-lab" },
+  { label: "Forensics", href: "/forensics" },
+  { label: "Tutorials", href: "/tutorials" },
+  { label: "AI Security", href: "/ai-security" },
 ] as const;
 
-export const breakingHeadline =
-  "Critical zero-day actively exploited in enterprise VPN appliances — security teams urged to review vendor guidance.";
+export const securityUpdateMessage =
+  "Follow HimalCyberX for cybersecurity research, vulnerability analysis and defensive security guidance.";
 
-export const trendingStories = [
-  {
-    category: "Threat Intelligence",
-    headline: "Ransomware Groups Shift Toward Identity-Based Attacks",
-    summary:
-      "Threat actors are increasingly targeting credentials, cloud identities and remote access systems instead of relying only on traditional malware.",
-    author: "HimalCyberX Research",
-    date: "Aug 13, 2026",
-    readTime: "6 min read",
-    pattern: "network" as const,
-  },
-  {
-    category: "Vulnerabilities",
-    headline: "Why Zero-Day Response Speed Matters More Than Ever",
-    summary:
-      "Security teams face growing pressure to identify exposure, prioritize patches and reduce the time attackers have to exploit critical flaws.",
-    author: "HimalCyberX Research",
-    date: "Aug 13, 2026",
-    readTime: "5 min read",
-    pattern: "grid" as const,
-  },
-  {
-    category: "AI Security",
-    headline: "AI Is Changing Both Cyber Attacks and Cyber Defense",
-    summary:
-      "Generative AI is giving attackers new capabilities while also helping defenders detect threats, investigate incidents and automate response.",
-    author: "HimalCyberX Research",
-    date: "Aug 13, 2026",
-    readTime: "7 min read",
-    pattern: "circuit" as const,
-  },
-];
+const publicArticleSlugs = [
+  "ransomware-groups-target-identity-remote-access",
+  "understanding-multi-factor-authentication",
+  "how-the-cve-program-works",
+] as const;
 
-export const featuredStory = {
-  category: "Cybersecurity News",
-  headline:
-    "Security Teams Face a Faster and More Complex Threat Landscape",
-  description:
-    "Cloud adoption, identity-based attacks, ransomware operations and AI-assisted threats are creating new challenges for defenders.",
-  author: "HimalCyberX",
-  date: "Aug 13, 2026",
-  readTime: "8 min read",
-};
+const trendingPatterns = ["network", "grid", "circuit"] as const;
 
-export const latestStories = [
-  {
-    category: "Malware",
-    headline: "Malware Campaigns Increasingly Target Browser Credentials",
-    readTime: "4 min",
-  },
-  {
-    category: "Cloud Security",
-    headline: "Misconfigured Cloud Services Remain a Major Security Risk",
-    readTime: "5 min",
-  },
-  {
-    category: "Phishing",
-    headline: "Modern Phishing Campaigns Are Becoming Harder to Detect",
-    readTime: "4 min",
-  },
-  {
-    category: "Incident Response",
-    headline:
-      "Why Faster Detection Can Dramatically Reduce Breach Impact",
-    readTime: "6 min",
-  },
-];
+export const trendingStories = publicArticleSlugs.map((slug, index) => ({
+  ...articleToCard(getArticleBySlug(slug)!),
+  pattern: trendingPatterns[index],
+}));
+
+export const featuredStory = articleToCard(
+  getArticleBySlug("ransomware-groups-target-identity-remote-access")!,
+);
+
+export const latestStories = publicArticleSlugs.map((slug) => {
+  const article = getArticleBySlug(slug)!;
+  const card = articleToCard(article);
+  return {
+    slug: article.slug,
+    category: article.category,
+    headline: article.title,
+    readTime: article.readTime.replace(" read", ""),
+    label: article.label,
+    date: card.date,
+    dateIso: article.publishedAtIso,
+  };
+});
 
 export const threatCategories = [
   {
@@ -86,95 +55,79 @@ export const threatCategories = [
     title: "Ransomware Operations",
     description:
       "Analysis of ransomware campaigns, extortion tactics, infrastructure and defensive strategies.",
-    status: "High Activity",
+    label: "Threat Research",
     accent: "red" as const,
     icon: "ransomware" as const,
+    href: "/threats",
   },
   {
     category: "Malware",
     title: "Malware Research",
     description:
       "Technical analysis of malicious software, delivery techniques and evolving malware families.",
-    status: "Monitored",
+    label: "Malware Analysis",
     accent: "cyan" as const,
     icon: "malware" as const,
+    href: "/threats",
   },
   {
     category: "Phishing",
     title: "Phishing & Social Engineering",
     description:
       "Research into credential theft, impersonation, social engineering and modern phishing campaigns.",
-    status: "Active",
+    label: "Social Engineering",
     accent: "orange" as const,
     icon: "phishing" as const,
+    href: "/threats",
   },
   {
     category: "APT Groups",
     title: "Advanced Persistent Threats",
     description:
       "Analysis of sophisticated threat actors, long-term campaigns and targeted cyber operations.",
-    status: "Tracked",
+    label: "Threat Actor Research",
     accent: "green" as const,
     icon: "apt" as const,
+    href: "/threats",
   },
 ] as const;
 
-export const threatLandscapeSummary = [
-  { label: "Ransomware", value: "High", accent: "red" as const },
-  { label: "Malware", value: "Monitored", accent: "cyan" as const },
-  { label: "Phishing", value: "Active", accent: "orange" as const },
-  { label: "APT", value: "Tracked", accent: "green" as const },
+export const intelligenceCoverage = [
+  { label: "Ransomware", accent: "red" as const },
+  { label: "Malware", accent: "cyan" as const },
+  { label: "Phishing", accent: "orange" as const },
+  { label: "Threat Actors", accent: "green" as const },
 ] as const;
 
-export const vulnerabilitySummary = [
-  { label: "Critical", value: "03", accent: "red" as const },
-  { label: "High", value: "08", accent: "orange" as const },
-  { label: "Medium", value: "14", accent: "yellow" as const },
-  { label: "Monitored", value: "25", accent: "cyan" as const },
-] as const;
+export const vulnerabilitySources =
+  "CISA KEV • NVD • Vendor Advisories";
 
-export const demoVulnerabilities = [
+export const vulnerabilityNavCards = [
   {
-    cve: "CVE-2026-DEMO-001",
-    product: "Enterprise VPN Gateway",
-    type: "Remote Code Execution",
-    severity: "CRITICAL" as const,
-    cvss: "9.8",
-    status: "Review",
+    title: "CISA KEV",
+    subtitle: "Known Exploited Vulnerabilities",
+    href: "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+    external: true,
   },
   {
-    cve: "CVE-2026-DEMO-002",
-    product: "Cloud Identity Platform",
-    type: "Authentication Bypass",
-    severity: "CRITICAL" as const,
-    cvss: "9.1",
-    status: "Review",
+    title: "NVD",
+    subtitle: "Vulnerability Reference",
+    href: "https://nvd.nist.gov/",
+    external: true,
   },
   {
-    cve: "CVE-2026-DEMO-003",
-    product: "Web Application Framework",
-    type: "Privilege Escalation",
-    severity: "HIGH" as const,
-    cvss: "8.4",
-    status: "Monitoring",
+    title: "Critical Vulnerabilities",
+    subtitle: "HCX Analysis",
+    href: "/vulnerabilities",
+    external: false,
   },
   {
-    cve: "CVE-2026-DEMO-004",
-    product: "Enterprise Email Server",
-    type: "Information Disclosure",
-    severity: "HIGH" as const,
-    cvss: "7.5",
-    status: "Monitoring",
+    title: "Recent CVEs",
+    subtitle: "Security Research",
+    href: "/articles/how-the-cve-program-works",
+    external: false,
   },
-  {
-    cve: "CVE-2026-DEMO-005",
-    product: "Linux Service Component",
-    type: "Denial of Service",
-    severity: "MEDIUM" as const,
-    cvss: "6.5",
-    status: "Tracked",
-  },
-];
+] as const;
 
 export const cyberLabModules = [
   {
@@ -297,59 +250,76 @@ export const learningPaths = [
   },
 ] as const;
 
-export const aiSecurityArticles = [
+export const aiSecurityTopics = [
   {
-    category: "AI Threats",
-    headline:
-      "How Adversaries Are Weaponizing LLMs for Automated Social Engineering at Scale",
+    id: "llm-security",
+    category: "LLM Security",
+    title: "Securing Large Language Model Deployments",
     description:
-      "Threat actors are integrating generative models into phishing pipelines, producing highly contextualized lures that evade traditional detection.",
-    date: "Aug 12, 2026",
-    readTime: "9 min read",
+      "Understanding prompt injection, data leakage and access controls in enterprise LLM workflows.",
   },
   {
+    id: "ai-social-engineering",
+    category: "AI-Powered Social Engineering",
+    title: "Recognizing AI-Assisted Phishing and Impersonation",
+    description:
+      "How generative tools may influence social engineering techniques and defensive awareness training.",
+  },
+  {
+    id: "deepfake-risk",
+    category: "Deepfake Risk",
+    title: "Synthetic Media and Identity Verification Challenges",
+    description:
+      "Educational overview of deepfake risks and verification practices for organizations.",
+  },
+  {
+    id: "prompt-injection",
+    category: "Prompt Injection",
+    title: "Defending Applications Against Prompt Injection",
+    description:
+      "Input validation, output filtering and architectural controls for LLM-integrated applications.",
+  },
+  {
+    id: "ai-governance",
+    category: "AI Governance",
+    title: "Governance Frameworks for Security Teams",
+    description:
+      "Policy, risk assessment and oversight models for responsible AI adoption in security operations.",
+  },
+  {
+    id: "defensive-ai",
     category: "Defensive AI",
-    headline:
-      "Building an AI-Augmented SOC: Practical Architecture for Security Teams",
+    title: "AI-Assisted Security Operations",
     description:
-      "A framework for deploying machine learning-assisted triage without sacrificing analyst oversight or explainability requirements.",
-    date: "Aug 9, 2026",
-    readTime: "11 min read",
+      "Using machine learning and AI tools responsibly for detection, triage and investigation support.",
   },
-  {
-    category: "Research",
-    headline:
-      "Model Poisoning Risks in Enterprise ML Pipelines: What CISOs Need to Know",
-    description:
-      "New research highlights supply-chain vulnerabilities in training data workflows that could compromise downstream security decisions.",
-    date: "Aug 7, 2026",
-    readTime: "7 min read",
-  },
-];
+] as const;
+
+export const publicArticles = getPublicArticles();
 
 export const footerLinks = {
   explore: [
-    { label: "Latest News", href: "#latest-news" },
-    { label: "Threat Intelligence", href: "#threat-intelligence" },
-    { label: "Vulnerability Watch", href: "#vulnerability-watch" },
-    { label: "Trending", href: "#trending" },
+    { label: "Latest from HCX", href: "/news" },
+    { label: "Threat Intelligence", href: "/threats" },
+    { label: "Vulnerability Watch", href: "/vulnerabilities" },
+    { label: "Trending", href: "/#trending" },
   ],
   cyberLab: [
-    { label: "Network Security", href: "#cyber-lab" },
-    { label: "Digital Forensics", href: "#cyber-lab" },
-    { label: "SOC Training", href: "#cyber-lab" },
-    { label: "Web Security", href: "#cyber-lab" },
+    { label: "Network Security", href: "/cyber-lab" },
+    { label: "Digital Forensics", href: "/forensics" },
+    { label: "SOC Training", href: "/cyber-lab" },
+    { label: "Web Security", href: "/cyber-lab" },
   ],
   resources: [
-    { label: "Tutorials", href: "#cyber-lab" },
-    { label: "Research Papers", href: "#" },
-    { label: "Threat Reports", href: "#threat-intelligence" },
-    { label: "Newsletter", href: "#newsletter" },
+    { label: "Tutorials", href: "/tutorials" },
+    { label: "Research", href: "/threats" },
+    { label: "Guides", href: "/tutorials" },
+    { label: "Newsletter", href: "/#newsletter" },
   ],
   company: [
-    { label: "About HCX", href: "#" },
+    { label: "About HCX", href: "/about" },
     { label: "Editorial Standards", href: "#" },
-    { label: "Contact", href: "#" },
-    { label: "Privacy Policy", href: "#" },
+    { label: "Contact", href: "/contact" },
+    { label: "Privacy Policy", href: "/privacy" },
   ],
 };

@@ -1,6 +1,22 @@
 "use client";
 
+import Link from "next/link";
+import { useActionState } from "react";
+import { subscribeNewsletter } from "@/lib/actions/newsletter";
+import { INITIAL_FORM_STATE } from "@/lib/form-types";
+import {
+  FormStatusMessage,
+  HoneypotField,
+  formInputClass,
+} from "@/components/forms/form-ui";
+import { focusRing } from "@/lib/page-data";
+
 export function Newsletter() {
+  const [state, formAction, isPending] = useActionState(
+    subscribeNewsletter,
+    INITIAL_FORM_STATE,
+  );
+
   return (
     <section
       id="newsletter"
@@ -31,27 +47,57 @@ export function Newsletter() {
               </p>
             </div>
 
-            <form
-              className="flex flex-col gap-3 sm:flex-row"
-              onSubmit={(e) => e.preventDefault()}
-              aria-label="Newsletter signup"
-            >
-              <label htmlFor="newsletter-email" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="newsletter-email"
-                type="email"
-                placeholder="you@company.com"
-                className="flex-1 rounded-lg border border-hcx-border bg-hcx-bg px-4 py-3 text-sm text-hcx-text placeholder:text-hcx-text-secondary/60 transition-colors focus:border-hcx-cyan/50 focus:outline-none focus:ring-2 focus:ring-hcx-cyan/20"
-              />
-              <button
-                type="submit"
-                className="shrink-0 rounded-lg bg-hcx-cyan px-6 py-3 text-sm font-semibold text-hcx-bg transition-all hover:bg-hcx-cyan/90 hover:shadow-[0_0_24px_rgba(0,217,255,0.25)]"
-              >
-                Subscribe
-              </button>
-            </form>
+            <div>
+              {state.success ? (
+                <FormStatusMessage state={state} />
+              ) : (
+                <form action={formAction} aria-label="Newsletter signup">
+                  <HoneypotField />
+                  <input type="hidden" name="source" value="newsletter" />
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="min-w-0 flex-1">
+                      <label htmlFor="newsletter-email" className="sr-only">
+                        Email address
+                      </label>
+                      <input
+                        id="newsletter-email"
+                        name="email"
+                        type="email"
+                        required
+                        autoComplete="email"
+                        placeholder="you@company.com"
+                        disabled={isPending}
+                        className={`${formInputClass} disabled:cursor-not-allowed disabled:opacity-60`}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isPending}
+                      className={`shrink-0 rounded-lg bg-hcx-cyan px-6 py-3 text-sm font-semibold text-hcx-bg transition-all hover:bg-hcx-cyan/90 hover:shadow-[0_0_24px_rgba(0,217,255,0.25)] disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`}
+                    >
+                      {isPending ? "Subscribing..." : "Subscribe"}
+                    </button>
+                  </div>
+
+                  {!state.success && state.message && (
+                    <div className="mt-3">
+                      <FormStatusMessage state={state} />
+                    </div>
+                  )}
+                </form>
+              )}
+
+              <p className="mt-4 text-xs text-hcx-text-secondary">
+                No spam. Unsubscribe anytime.{" "}
+                <Link
+                  href="/privacy"
+                  className={`text-hcx-cyan hover:underline ${focusRing}`}
+                >
+                  Privacy Policy
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>

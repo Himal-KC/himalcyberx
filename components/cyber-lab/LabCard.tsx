@@ -27,9 +27,14 @@ export function LabCard({ module, icon: Icon }: LabCardProps) {
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-hcx-cyan/20 bg-hcx-cyan/5 text-hcx-cyan">
             <Icon />
           </div>
-          <span className="font-tech text-[10px] font-medium uppercase tracking-wider text-hcx-text-secondary/70">
-            {module.labId}
-          </span>
+          <div className="flex flex-col items-end gap-1.5">
+            <span className="rounded border border-hcx-green/25 bg-hcx-green/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-hcx-green">
+              Educational Lab
+            </span>
+            <span className="font-tech text-[10px] font-medium uppercase tracking-wider text-hcx-text-secondary/70">
+              {module.labId}
+            </span>
+          </div>
         </div>
 
         <p className="mt-4 font-tech text-[10px] font-semibold uppercase tracking-[0.16em] text-hcx-cyan">

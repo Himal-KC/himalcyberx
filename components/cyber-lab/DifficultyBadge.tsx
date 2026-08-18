@@ -1,4 +1,6 @@
 type DifficultyLevel =
+  | "beginner"
+  | "advanced"
   | "beginner-intermediate"
   | "beginner-advanced"
   | "intermediate"
@@ -8,6 +10,14 @@ const levelStyles: Record<
   DifficultyLevel,
   { text: string; dots: string[] }
 > = {
+  beginner: {
+    text: "text-hcx-green",
+    dots: ["bg-hcx-green"],
+  },
+  advanced: {
+    text: "text-hcx-red",
+    dots: ["bg-hcx-red"],
+  },
   "beginner-intermediate": {
     text: "text-hcx-text-secondary",
     dots: ["bg-hcx-green", "bg-hcx-orange"],
