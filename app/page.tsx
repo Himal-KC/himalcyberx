@@ -1,5 +1,6 @@
 import { Header } from "@/components/Header";
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { SecurityUpdateBar } from "@/components/SecurityUpdateBar";
 import { Hero } from "@/components/Hero";
 import { TrendingStories } from "@/components/TrendingStories";
@@ -13,6 +14,10 @@ import { Footer } from "@/components/Footer";
 import { getHomepageArticles } from "@/lib/supabase/public-articles";
 import { getSiteSettings } from "@/lib/settings/site-settings";
 import { buildPageMetadata } from "@/lib/seo/metadata";
+import {
+  buildOrganizationStructuredData,
+  buildWebSiteStructuredData,
+} from "@/lib/seo/site-structured-data";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Cybersecurity Research, Threat Intelligence & Cyber Labs",
@@ -31,6 +36,8 @@ export default async function Home() {
 
   return (
     <>
+      <JsonLd data={buildOrganizationStructuredData()} />
+      <JsonLd data={buildWebSiteStructuredData()} />
       <Header />
       <SecurityUpdateBar />
       <main>
