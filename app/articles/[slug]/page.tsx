@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PageShell } from "@/components/layout/PageShell";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
-import { PlainTextArticleContent } from "@/components/articles/PlainTextArticleContent";
+import { ArticleContentRenderer } from "@/components/articles/ArticleContentRenderer";
 import { ArticleShare } from "@/components/articles/ArticleShare";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
@@ -124,7 +124,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
           <div className="mt-10">
             {article.content ? (
-              <PlainTextArticleContent content={article.content} />
+              <ArticleContentRenderer content={article.content} />
             ) : (
               <p className="text-base leading-relaxed text-hcx-text-secondary">
                 Full article content is not available.

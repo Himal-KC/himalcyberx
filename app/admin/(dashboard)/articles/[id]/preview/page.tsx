@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArticleStatusBadge } from "@/components/admin/articles/ArticleStatusBadge";
+import { ArticleContentRenderer } from "@/components/articles/ArticleContentRenderer";
 import { getAdminArticleById } from "@/lib/supabase/admin-articles";
 import { focusRing } from "@/lib/page-data";
 
@@ -89,10 +90,14 @@ export default async function PreviewArticlePage({
           {article.excerpt}
         </p>
 
-        <div className="prose prose-invert mt-8 max-w-none">
-          <div className="whitespace-pre-wrap font-mono text-sm leading-7 text-hcx-text">
-            {article.content}
-          </div>
+        <div className="mt-8">
+          {article.content ? (
+            <ArticleContentRenderer content={article.content} />
+          ) : (
+            <p className="text-base leading-relaxed text-hcx-text-secondary">
+              Full article content is not available.
+            </p>
+          )}
         </div>
       </article>
     </div>

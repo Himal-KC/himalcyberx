@@ -8,6 +8,8 @@ import { slugifyTitle } from "@/lib/articles/validation";
 import type { Article, Category } from "@/lib/supabase/types";
 import { focusRing } from "@/lib/page-data";
 import { FeaturedImageUploader } from "@/components/admin/articles/FeaturedImageUploader";
+import { ArticleContentEditor } from "@/components/admin/articles/ArticleContentEditor";
+import { getArticleContentTextLength } from "@/lib/articles/content";
 
 const inputClass =
   "mt-2 w-full rounded-lg border border-hcx-border bg-hcx-bg px-4 py-3 text-sm text-hcx-text placeholder:text-hcx-text-secondary/60 transition-colors focus:border-hcx-cyan/50 focus:outline-none focus:ring-2 focus:ring-hcx-cyan/20 disabled:cursor-not-allowed disabled:opacity-60";
@@ -152,21 +154,15 @@ export function ArticleForm({
                 Article Content
               </label>
               <span className="text-xs text-hcx-text-secondary">
-                {content.length.toLocaleString()} characters
+                {getArticleContentTextLength(content).toLocaleString()} characters
               </span>
             </div>
-            <textarea
-              id="content"
-              name="content"
-              required
-              minLength={100}
-              rows={18}
+            <input type="hidden" name="content" value={content} />
+            <ArticleContentEditor
               value={content}
-              onChange={(event) => setContent(event.target.value)}
+              onChange={setContent}
               disabled={isPending}
-              aria-invalid={Boolean(state.fieldErrors?.content)}
-              className={`${inputClass} font-mono leading-relaxed`}
-              placeholder="Write article content here. A rich-text editor will be added later."
+              invalid={Boolean(state.fieldErrors?.content)}
             />
             {state.fieldErrors?.content && (
               <p className={errorClass}>{state.fieldErrors.content}</p>

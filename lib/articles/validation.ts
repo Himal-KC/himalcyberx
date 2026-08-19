@@ -2,6 +2,7 @@ import {
   DEFAULT_ARTICLE_AUTHOR,
   isAuthorEmail,
 } from "@/lib/articles/author";
+import { getArticleContentTextLength } from "@/lib/articles/content";
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -79,7 +80,7 @@ export function validateArticleInput(
     fieldErrors.excerpt = "Excerpt must be at least 20 characters.";
   }
 
-  if (input.content.length < 100) {
+  if (getArticleContentTextLength(input.content) < 100) {
     fieldErrors.content = "Content must be at least 100 characters.";
   }
 
