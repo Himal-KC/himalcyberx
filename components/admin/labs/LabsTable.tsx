@@ -36,8 +36,16 @@ function LabRowActions({ lab }: { lab: Lab }) {
   );
 }
 
-export function LabsTable({ labs }: { labs: Lab[] }) {
-  if (labs.length === 0) {
+export function LabsTable({
+  labs,
+  totalCount,
+  hasActiveFilters,
+}: {
+  labs: Lab[];
+  totalCount: number;
+  hasActiveFilters: boolean;
+}) {
+  if (totalCount === 0) {
     return (
       <div className="rounded-xl border border-dashed border-hcx-border bg-hcx-card/50 px-6 py-16 text-center">
         <p className="text-lg font-medium text-hcx-text">No labs yet.</p>
@@ -50,6 +58,21 @@ export function LabsTable({ labs }: { labs: Lab[] }) {
         >
           Create Lab
         </Link>
+      </div>
+    );
+  }
+
+  if (labs.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-hcx-border bg-hcx-card/50 px-6 py-16 text-center">
+        <p className="text-lg font-medium text-hcx-text">
+          No matching labs found.
+        </p>
+        {hasActiveFilters ? (
+          <p className="mt-2 text-sm text-hcx-text-secondary">
+            Try adjusting your search or filters.
+          </p>
+        ) : null}
       </div>
     );
   }

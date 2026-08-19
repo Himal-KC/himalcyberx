@@ -1,8 +1,15 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AdminFlashBanner } from "@/components/admin/AdminFlashBanner";
+import { ArticlesListFilters } from "@/components/admin/articles/ArticlesListFilters";
 import { ArticlesTable } from "@/components/admin/articles/ArticlesTable";
-import { getAdminArticles } from "@/lib/supabase/admin-articles";
+import {
+  applyArticleListFilters,
+  articleListFiltersAreActive,
+  parseArticleListFilters,
+} from "@/lib/admin/article-list";
+import { getAdminArticles, getAdminCategories } from "@/lib/supabase/admin-articles";
 import { focusRing } from "@/lib/page-data";
 
 export const metadata: Metadata = {
@@ -11,16 +18,19 @@ export const metadata: Metadata = {
 };
 
 interface AdminArticlesPageProps {
-  searchParams: Promise<{ success?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export default async function AdminArticlesPage({
   searchParams,
 }: AdminArticlesPageProps) {
-  const [{ success }, articles] = await Promise.all([
-    searchParams,
+  const params = await searchParams;
+  const filters = parseArticleListFilters(params);
+  const [articles, categories] = await Promise.all([
     getAdminArticles(),
+    getAdminCategories(),
   ]);
+  const filteredArticles = applyArticleListFilters(articles, filters);
 
   return (
     <div>
@@ -41,9 +51,21 @@ export default async function AdminArticlesPage({
         </Link>
       </div>
 
-      {success && <AdminFlashBanner type={success} />}
+      {params.success && typeof params.success === "string" ? (
+        <AdminFlashBanner type={params.success} />
+      ) : null}
 
-      <ArticlesTable articles={articles} />
+      <div className="mb-6">
+        <Suspense fallback={null}>
+          <ArticlesListFilters filters={filters} categories={categories} />
+        </Suspense>
+      </div>
+
+      <ArticlesTable
+        articles={filteredArticles}
+        totalCount={articles.length}
+        hasActiveFilters={articleListFiltersAreActive(filters)}
+      />
     </div>
   );
 }

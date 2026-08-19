@@ -1,6 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { TutorialsListFilters } from "@/components/admin/tutorials/TutorialsListFilters";
 import { TutorialsTable } from "@/components/admin/tutorials/TutorialsTable";
+import {
+  applyTutorialListFilters,
+  getTutorialCategoryOptions,
+  parseTutorialListFilters,
+  tutorialListFiltersAreActive,
+} from "@/lib/admin/tutorial-list";
 import { getAdminTutorials } from "@/lib/supabase/admin-tutorials";
 import { focusRing } from "@/lib/page-data";
 
@@ -9,8 +17,18 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminTutorialsPage() {
+interface AdminTutorialsPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function AdminTutorialsPage({
+  searchParams,
+}: AdminTutorialsPageProps) {
+  const params = await searchParams;
+  const filters = parseTutorialListFilters(params);
   const tutorials = await getAdminTutorials();
+  const filteredTutorials = applyTutorialListFilters(tutorials, filters);
+  const categories = getTutorialCategoryOptions(tutorials);
 
   return (
     <div>
@@ -34,7 +52,17 @@ export default async function AdminTutorialsPage() {
         </Link>
       </div>
 
-      <TutorialsTable tutorials={tutorials} />
+      <div className="mb-6">
+        <Suspense fallback={null}>
+          <TutorialsListFilters filters={filters} categories={categories} />
+        </Suspense>
+      </div>
+
+      <TutorialsTable
+        tutorials={filteredTutorials}
+        totalCount={tutorials.length}
+        hasActiveFilters={tutorialListFiltersAreActive(filters)}
+      />
     </div>
   );
 }

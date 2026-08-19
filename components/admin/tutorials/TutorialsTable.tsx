@@ -39,8 +39,16 @@ function TutorialRowActions({ tutorial }: { tutorial: Tutorial }) {
   );
 }
 
-export function TutorialsTable({ tutorials }: { tutorials: Tutorial[] }) {
-  if (tutorials.length === 0) {
+export function TutorialsTable({
+  tutorials,
+  totalCount,
+  hasActiveFilters,
+}: {
+  tutorials: Tutorial[];
+  totalCount: number;
+  hasActiveFilters: boolean;
+}) {
+  if (totalCount === 0) {
     return (
       <div className="rounded-xl border border-dashed border-hcx-border bg-hcx-card/50 px-6 py-16 text-center">
         <p className="text-lg font-medium text-hcx-text">No tutorials yet.</p>
@@ -53,6 +61,21 @@ export function TutorialsTable({ tutorials }: { tutorials: Tutorial[] }) {
         >
           Create Tutorial
         </Link>
+      </div>
+    );
+  }
+
+  if (tutorials.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-hcx-border bg-hcx-card/50 px-6 py-16 text-center">
+        <p className="text-lg font-medium text-hcx-text">
+          No matching tutorials found.
+        </p>
+        {hasActiveFilters ? (
+          <p className="mt-2 text-sm text-hcx-text-secondary">
+            Try adjusting your search or filters.
+          </p>
+        ) : null}
       </div>
     );
   }

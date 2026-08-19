@@ -1,6 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { LabsListFilters } from "@/components/admin/labs/LabsListFilters";
 import { LabsTable } from "@/components/admin/labs/LabsTable";
+import {
+  applyLabListFilters,
+  getLabCategoryOptions,
+  labListFiltersAreActive,
+  parseLabListFilters,
+} from "@/lib/admin/lab-list";
 import { getAdminLabs } from "@/lib/supabase/admin-labs";
 import { focusRing } from "@/lib/page-data";
 
@@ -9,8 +17,18 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminLabsPage() {
+interface AdminLabsPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function AdminLabsPage({
+  searchParams,
+}: AdminLabsPageProps) {
+  const params = await searchParams;
+  const filters = parseLabListFilters(params);
   const labs = await getAdminLabs();
+  const filteredLabs = applyLabListFilters(labs, filters);
+  const categories = getLabCategoryOptions(labs);
 
   return (
     <div>
@@ -31,7 +49,17 @@ export default async function AdminLabsPage() {
         </Link>
       </div>
 
-      <LabsTable labs={labs} />
+      <div className="mb-6">
+        <Suspense fallback={null}>
+          <LabsListFilters filters={filters} categories={categories} />
+        </Suspense>
+      </div>
+
+      <LabsTable
+        labs={filteredLabs}
+        totalCount={labs.length}
+        hasActiveFilters={labListFiltersAreActive(filters)}
+      />
     </div>
   );
 }

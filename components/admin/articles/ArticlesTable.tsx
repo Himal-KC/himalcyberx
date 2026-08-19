@@ -51,8 +51,16 @@ function ArticleRowActions({ article }: { article: AdminArticleRow }) {
   );
 }
 
-export function ArticlesTable({ articles }: { articles: AdminArticleRow[] }) {
-  if (articles.length === 0) {
+export function ArticlesTable({
+  articles,
+  totalCount,
+  hasActiveFilters,
+}: {
+  articles: AdminArticleRow[];
+  totalCount: number;
+  hasActiveFilters: boolean;
+}) {
+  if (totalCount === 0) {
     return (
       <div className="rounded-xl border border-dashed border-hcx-border bg-hcx-card/50 px-6 py-16 text-center">
         <p className="text-lg font-medium text-hcx-text">No articles yet.</p>
@@ -65,6 +73,21 @@ export function ArticlesTable({ articles }: { articles: AdminArticleRow[] }) {
         >
           Create Article
         </Link>
+      </div>
+    );
+  }
+
+  if (articles.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-hcx-border bg-hcx-card/50 px-6 py-16 text-center">
+        <p className="text-lg font-medium text-hcx-text">
+          No matching articles found.
+        </p>
+        {hasActiveFilters ? (
+          <p className="mt-2 text-sm text-hcx-text-secondary">
+            Try adjusting your search or filters.
+          </p>
+        ) : null}
       </div>
     );
   }
