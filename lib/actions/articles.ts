@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { buildArticleInsertPayload } from "@/lib/articles/insert-payload";
+import { buildArticleInsertPayload, buildArticleUpdateFields } from "@/lib/articles/insert-payload";
 import { resolveStoredArticleAuthor } from "@/lib/articles/author";
 import {
   parseArticleFormData,
@@ -191,6 +191,7 @@ export async function updateArticle(
     featured_image: input.featured_image || null,
     published_at: publishedAt,
     updated_at: new Date().toISOString(),
+    ...buildArticleUpdateFields(input),
   };
 
   const { data, error } = await auth.supabase

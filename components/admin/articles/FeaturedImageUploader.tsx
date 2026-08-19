@@ -14,6 +14,8 @@ import {
 import { focusRing } from "@/lib/page-data";
 
 const labelClass = "block text-sm font-medium text-hcx-text";
+const inputClass =
+  "mt-2 w-full rounded-lg border border-hcx-border bg-hcx-bg px-4 py-3 text-sm text-hcx-text placeholder:text-hcx-text-secondary/60 transition-colors focus:border-hcx-cyan/50 focus:outline-none focus:ring-2 focus:ring-hcx-cyan/20 disabled:cursor-not-allowed disabled:opacity-60";
 const errorClass = "mt-1.5 text-sm text-hcx-red";
 
 type UploadStatus = "idle" | "uploading" | "ready" | "error";
@@ -21,21 +23,30 @@ type UploadStatus = "idle" | "uploading" | "ready" | "error";
 interface FeaturedImageUploaderProps {
   disabled?: boolean;
   defaultUrl?: string | null;
+  defaultAltText?: string | null;
   fieldError?: string;
   articleTitle?: string;
   storageFolder?: "articles" | "labs" | "tutorials";
+  enableAltText?: boolean;
+  onImageUrlChange?: (url: string) => void;
+  onAltTextChange?: (alt: string) => void;
 }
 
 export function FeaturedImageUploader({
   disabled = false,
   defaultUrl = null,
+  defaultAltText = "",
   fieldError,
   articleTitle = "Article featured image",
   storageFolder = "articles",
+  enableAltText = false,
+  onImageUrlChange,
+  onAltTextChange,
 }: FeaturedImageUploaderProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [featured_image, setFeaturedImage] = useState(defaultUrl ?? "");
+  const [featuredImageAlt, setFeaturedImageAlt] = useState(defaultAltText ?? "");
   const [storagePath, setStoragePath] = useState<string | null>(() =>
     defaultUrl ? extractArticleImageStoragePath(defaultUrl) : null,
   );
@@ -50,6 +61,15 @@ export function FeaturedImageUploader({
   const isUploading = uploadStatus === "uploading";
   const hasImage = Boolean(featured_image);
   const displayError = localError ?? fieldError ?? null;
+  const previewAlt = featuredImageAlt.trim() || articleTitle;
+
+  useEffect(() => {
+    onImageUrlChange?.(featured_image.startsWith("blob:") ? "" : featured_image);
+  }, [featured_image, onImageUrlChange]);
+
+  useEffect(() => {
+    onAltTextChange?.(featuredImageAlt);
+  }, [featuredImageAlt, onAltTextChange]);
 
   useEffect(() => {
     return () => {
@@ -106,6 +126,7 @@ export function FeaturedImageUploader({
     setFilename(data.filename);
     setFileSize(data.fileSize);
     setUploadStatus("ready");
+    onImageUrlChange?.(data.publicUrl);
   }
 
   async function handleRemoveImage() {
@@ -120,6 +141,7 @@ export function FeaturedImageUploader({
     setFileSize(null);
     setUploadStatus("idle");
     setLocalError(null);
+    onImageUrlChange?.("");
 
     if (inputRef.current) {
       inputRef.current.value = "";
@@ -171,6 +193,10 @@ export function FeaturedImageUploader({
         value={featured_image.startsWith("blob:") ? "" : featured_image}
       />
 
+      {enableAltText ? (
+        <input type="hidden" name="featured_image_alt" value={featuredImageAlt} />
+      ) : null}
+
       {!hasImage && (
         <div
           onDragEnter={(event) => {
@@ -219,7 +245,7 @@ export function FeaturedImageUploader({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={featured_image}
-              alt={articleTitle}
+              alt={previewAlt}
               className="h-full w-full object-cover"
             />
           </div>
@@ -265,6 +291,26 @@ export function FeaturedImageUploader({
           </div>
         </div>
       )}
+
+      {enableAltText ? (
+        <div className="mt-4">
+          <label htmlFor={`${inputId}-alt`} className={labelClass}>
+            Image Alt Text
+          </label>
+          <input
+            id={`${inputId}-alt`}
+            type="text"
+            value={featuredImageAlt}
+            onChange={(event) => setFeaturedImageAlt(event.target.value)}
+            disabled={disabled}
+            placeholder="Describe the image for accessibility"
+            className={inputClass}
+          />
+          <p className="mt-1.5 text-xs text-hcx-text-secondary">
+            Falls back to the article title when left blank.
+          </p>
+        </div>
+      ) : null}
 
       {displayError && (
         <p id={`${inputId}-error`} className={errorClass} role="alert">

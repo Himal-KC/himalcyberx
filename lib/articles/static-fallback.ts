@@ -38,6 +38,11 @@ function staticArticleToCard(
     readTime: card.readTime,
     featured: slug === featuredStory.slug,
     featured_image: null,
+    featured_image_alt: null,
+    seo_title: null,
+    seo_description: null,
+    og_title: null,
+    og_description: null,
     pattern: pattern ?? card.pattern ?? "network",
     content: null,
   };

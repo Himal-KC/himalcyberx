@@ -36,6 +36,11 @@ export interface ArticleFormInput {
   status: ArticleFormStatus;
   featured: boolean;
   featured_image: string;
+  featured_image_alt: string;
+  seo_title: string;
+  seo_description: string;
+  og_title: string;
+  og_description: string;
   publishedAt: string;
 }
 
@@ -55,6 +60,11 @@ export function parseArticleFormData(formData: FormData): ArticleFormInput {
     status: String(formData.get("status") ?? "draft").trim() as ArticleFormStatus,
     featured: formData.get("featured") === "on",
     featured_image: String(formData.get("featured_image") ?? "").trim(),
+    featured_image_alt: String(formData.get("featured_image_alt") ?? "").trim(),
+    seo_title: String(formData.get("seo_title") ?? "").trim(),
+    seo_description: String(formData.get("seo_description") ?? "").trim(),
+    og_title: String(formData.get("og_title") ?? "").trim(),
+    og_description: String(formData.get("og_description") ?? "").trim(),
     publishedAt: String(formData.get("published_at") ?? "").trim(),
   };
 }
@@ -125,6 +135,26 @@ export function resolveSubmitStatus(
   return input.status;
 }
 
+export function toDatetimeLocalValue(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function publishedAtInputsMatch(
+  publishedAtInput: string,
+  existingPublishedAt?: string | null,
+): boolean {
+  if (!publishedAtInput || !existingPublishedAt) {
+    return false;
+  }
+
+  return toDatetimeLocalValue(existingPublishedAt) === publishedAtInput;
+}
+
 export function resolvePublishedAt(
   status: ArticleFormStatus,
   publishedAtInput: string,
@@ -135,7 +165,16 @@ export function resolvePublishedAt(
   }
 
   if (publishedAtInput) {
-    return new Date(publishedAtInput).toISOString();
+    if (publishedAtInputsMatch(publishedAtInput, existingPublishedAt)) {
+      return existingPublishedAt ?? null;
+    }
+
+    const parsedInput = new Date(publishedAtInput);
+    if (Number.isNaN(parsedInput.getTime())) {
+      return existingPublishedAt ?? null;
+    }
+
+    return parsedInput.toISOString();
   }
 
   if (existingPublishedAt) {

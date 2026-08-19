@@ -178,6 +178,9 @@ export function buildArticleMetadata({
   author,
   publishedTime,
   modifiedTime,
+  ogTitle,
+  ogDescription,
+  imageAlt,
 }: {
   title: string;
   description: string;
@@ -186,12 +189,18 @@ export function buildArticleMetadata({
   author: string;
   publishedTime: string;
   modifiedTime?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  imageAlt?: string;
 }): Metadata {
   const siteUrl = getSiteUrl();
   const url = `${siteUrl}${path}`;
   const absoluteImageUrl = toAbsoluteUrl(imageUrl, siteUrl);
+  const resolvedOgTitle = ogTitle?.trim() || title;
+  const resolvedOgDescription = ogDescription?.trim() || description;
+  const resolvedImageAlt = imageAlt?.trim() || title;
   const images = absoluteImageUrl
-    ? [{ url: absoluteImageUrl, alt: title }]
+    ? [{ url: absoluteImageUrl, alt: resolvedImageAlt }]
     : undefined;
   const modified = modifiedTime || publishedTime;
 
@@ -204,8 +213,8 @@ export function buildArticleMetadata({
     authors: [{ name: author }],
     openGraph: {
       type: "article",
-      title,
-      description,
+      title: resolvedOgTitle,
+      description: resolvedOgDescription,
       url,
       publishedTime,
       modifiedTime: modified,
@@ -213,8 +222,8 @@ export function buildArticleMetadata({
     },
     twitter: {
       card: absoluteImageUrl ? "summary_large_image" : "summary",
-      title,
-      description,
+      title: resolvedOgTitle,
+      description: resolvedOgDescription,
       ...(absoluteImageUrl ? { images: [absoluteImageUrl] } : {}),
     },
   };

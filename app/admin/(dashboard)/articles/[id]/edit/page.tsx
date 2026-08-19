@@ -54,6 +54,7 @@ export default async function EditArticlePage({ params }: EditArticlePageProps) 
         action={boundUpdate}
         categories={categories}
         article={article}
+        articleId={article.id}
         submitLabel="Save Changes"
       />
     </div>

@@ -8,6 +8,7 @@ import { ArticleContentRenderer } from "@/components/articles/ArticleContentRend
 import { ArticleShare } from "@/components/articles/ArticleShare";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
+import { resolveArticleSeo } from "@/lib/articles/seo";
 import {
   buildArticleBreadcrumbStructuredData,
   buildArticleStructuredData,
@@ -46,14 +47,27 @@ export async function generateMetadata({
     });
   }
 
-  return buildArticleMetadata({
+  const seo = resolveArticleSeo({
     title: article.title,
-    description: article.excerpt,
+    excerpt: article.excerpt,
+    seo_title: article.seo_title,
+    seo_description: article.seo_description,
+    og_title: article.og_title,
+    og_description: article.og_description,
+    featured_image_alt: article.featured_image_alt,
+  });
+
+  return buildArticleMetadata({
+    title: seo.metaTitle,
+    description: seo.metaDescription,
     path: articlePath(article.slug),
     imageUrl: article.featured_image,
     author: article.author,
     publishedTime: article.publishedAtIso,
     modifiedTime: article.updatedAtIso,
+    ogTitle: seo.ogTitle,
+    ogDescription: seo.ogDescription,
+    imageAlt: seo.imageAlt,
   });
 }
 

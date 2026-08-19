@@ -31,6 +31,11 @@ export interface Article {
   label: string | null;
   featured: boolean;
   featured_image: string | null;
+  featured_image_alt: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  og_title: string | null;
+  og_description: string | null;
   pattern: ArticlePattern | null;
   status: ArticleStatus;
   body: Record<string, unknown> | null;
@@ -54,6 +59,11 @@ export type ArticleInsert = {
   label?: string | null;
   featured?: boolean;
   featured_image?: string | null;
+  featured_image_alt?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  og_title?: string | null;
+  og_description?: string | null;
   pattern?: ArticlePattern | null;
   status: ArticleStatus;
   body?: Record<string, unknown> | null;

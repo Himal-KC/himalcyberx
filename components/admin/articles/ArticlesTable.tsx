@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { AdminArticleRow } from "@/lib/supabase/types";
 import { articlePath } from "@/lib/articles";
+import { isArticlePubliclyAvailable } from "@/lib/articles/publishing";
 import { ArticleStatusBadge } from "@/components/admin/articles/ArticleStatusBadge";
 import { DeleteArticleButton } from "@/components/admin/articles/DeleteArticleButton";
 import { focusRing } from "@/lib/page-data";
@@ -15,16 +16,27 @@ function formatDate(value: string | null): string {
 }
 
 function ArticleRowActions({ article }: { article: AdminArticleRow }) {
+  const isLive = isArticlePubliclyAvailable(article);
+
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Link
-        href={articlePath(article.slug)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
-      >
-        View
-      </Link>
+      {isLive ? (
+        <Link
+          href={articlePath(article.slug)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
+        >
+          View
+        </Link>
+      ) : (
+        <Link
+          href={`/admin/articles/${article.id}/preview`}
+          className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
+        >
+          Preview
+        </Link>
+      )}
       <Link
         href={`/admin/articles/${article.id}/edit`}
         className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
@@ -90,7 +102,10 @@ export function ArticlesTable({ articles }: { articles: AdminArticleRow[] }) {
                   </p>
                 </td>
                 <td className="px-4 py-4">
-                  <ArticleStatusBadge status={article.status} />
+                  <ArticleStatusBadge
+                    status={article.status}
+                    publishedAt={article.published_at}
+                  />
                 </td>
                 <td className="px-4 py-4">
                   {article.featured ? (
@@ -126,7 +141,10 @@ export function ArticlesTable({ articles }: { articles: AdminArticleRow[] }) {
                   /{article.slug}
                 </p>
               </div>
-              <ArticleStatusBadge status={article.status} />
+              <ArticleStatusBadge
+                status={article.status}
+                publishedAt={article.published_at}
+              />
             </div>
 
             <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">

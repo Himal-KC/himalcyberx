@@ -1,15 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import type { ArticleActionState } from "@/lib/actions/articles";
+import { ArticleContentEditor } from "@/components/admin/articles/ArticleContentEditor";
+import { ArticleSeoFields } from "@/components/admin/articles/ArticleSeoFields";
+import { FeaturedImageUploader } from "@/components/admin/articles/FeaturedImageUploader";
+import { PublishingChecklist } from "@/components/admin/articles/PublishingChecklist";
 import { DEFAULT_ARTICLE_AUTHOR } from "@/lib/articles/author";
-import { slugifyTitle } from "@/lib/articles/validation";
+import { getArticleContentTextLength } from "@/lib/articles/content";
+import {
+  formatPublishWarningMessage,
+  getPublishWarnings,
+  hasPublishWarnings,
+} from "@/lib/articles/publish-checklist";
+import {
+  slugifyTitle,
+  toDatetimeLocalValue,
+} from "@/lib/articles/validation";
 import type { Article, Category } from "@/lib/supabase/types";
 import { focusRing } from "@/lib/page-data";
-import { FeaturedImageUploader } from "@/components/admin/articles/FeaturedImageUploader";
-import { ArticleContentEditor } from "@/components/admin/articles/ArticleContentEditor";
-import { getArticleContentTextLength } from "@/lib/articles/content";
 
 const inputClass =
   "mt-2 w-full rounded-lg border border-hcx-border bg-hcx-bg px-4 py-3 text-sm text-hcx-text placeholder:text-hcx-text-secondary/60 transition-colors focus:border-hcx-cyan/50 focus:outline-none focus:ring-2 focus:ring-hcx-cyan/20 disabled:cursor-not-allowed disabled:opacity-60";
@@ -18,15 +28,6 @@ const labelClass = "block text-sm font-medium text-hcx-text";
 
 const errorClass = "mt-1.5 text-sm text-hcx-red";
 
-function toDatetimeLocalValue(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
-}
-
 interface ArticleFormProps {
   action: (
     prevState: ArticleActionState,
@@ -34,6 +35,7 @@ interface ArticleFormProps {
   ) => Promise<ArticleActionState>;
   categories: Category[];
   article?: Article;
+  articleId?: string;
   submitLabel: string;
 }
 
@@ -41,15 +43,61 @@ export function ArticleForm({
   action,
   categories,
   article,
+  articleId,
   submitLabel,
 }: ArticleFormProps) {
   const [state, formAction, isPending] = useActionState(action, {});
   const [title, setTitle] = useState(article?.title ?? "");
   const [slug, setSlug] = useState(article?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(article));
+  const [excerpt, setExcerpt] = useState(article?.excerpt ?? "");
   const [content, setContent] = useState(article?.content ?? "");
+  const [categoryId, setCategoryId] = useState(article?.category_id ?? "");
+  const [status, setStatus] = useState(article?.status ?? "draft");
+  const [featuredImage, setFeaturedImage] = useState(article?.featured_image ?? "");
+  const [featuredImageAlt, setFeaturedImageAlt] = useState(
+    article?.featured_image_alt ?? "",
+  );
+  const [seoTitle, setSeoTitle] = useState(article?.seo_title ?? "");
+  const [seoDescription, setSeoDescription] = useState(
+    article?.seo_description ?? "",
+  );
+  const [ogTitle, setOgTitle] = useState(article?.og_title ?? "");
+  const [ogDescription, setOgDescription] = useState(
+    article?.og_description ?? "",
+  );
+  const [allowSubmit, setAllowSubmit] = useState(false);
 
   const categoriesAvailable = categories.length > 0;
+
+  const checklistInput = useMemo(
+    () => ({
+      title,
+      excerpt,
+      content,
+      categoryId,
+      featuredImage,
+      featuredImageAlt,
+      seoTitle,
+      seoDescription,
+      ogTitle,
+      ogDescription,
+      categoriesAvailable,
+    }),
+    [
+      title,
+      excerpt,
+      content,
+      categoryId,
+      featuredImage,
+      featuredImageAlt,
+      seoTitle,
+      seoDescription,
+      ogTitle,
+      ogDescription,
+      categoriesAvailable,
+    ],
+  );
 
   function handleTitleChange(nextTitle: string) {
     setTitle(nextTitle);
@@ -58,8 +106,32 @@ export function ArticleForm({
     }
   }
 
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (allowSubmit) {
+      setAllowSubmit(false);
+      return;
+    }
+
+    if (status === "published" && hasPublishWarnings(checklistInput)) {
+      event.preventDefault();
+      const confirmed = window.confirm(
+        formatPublishWarningMessage(getPublishWarnings(checklistInput)),
+      );
+
+      if (confirmed) {
+        setAllowSubmit(true);
+        event.currentTarget.requestSubmit();
+      }
+    }
+  }
+
   return (
-    <form action={formAction} noValidate className="space-y-8">
+    <form
+      action={formAction}
+      noValidate
+      className="space-y-8"
+      onSubmit={handleSubmit}
+    >
       <input
         type="hidden"
         name="categories_available"
@@ -121,7 +193,8 @@ export function ArticleForm({
               className={`${inputClass} font-mono`}
             />
             <p className="mt-1.5 text-xs text-hcx-text-secondary">
-              URL path: /articles/{slug || "your-article-slug"}
+              Auto-generated from the title until you edit it manually. URL path:
+              /articles/{slug || "your-article-slug"}
             </p>
             {state.fieldErrors?.slug && (
               <p className={errorClass}>{state.fieldErrors.slug}</p>
@@ -138,7 +211,8 @@ export function ArticleForm({
               required
               minLength={20}
               rows={3}
-              defaultValue={article?.excerpt ?? ""}
+              value={excerpt}
+              onChange={(event) => setExcerpt(event.target.value)}
               disabled={isPending}
               aria-invalid={Boolean(state.fieldErrors?.excerpt)}
               className={inputClass}
@@ -170,6 +244,19 @@ export function ArticleForm({
           </div>
         </div>
       </section>
+
+      <ArticleSeoFields
+        seoTitle={seoTitle}
+        seoDescription={seoDescription}
+        ogTitle={ogTitle}
+        ogDescription={ogDescription}
+        onSeoTitleChange={setSeoTitle}
+        onSeoDescriptionChange={setSeoDescription}
+        onOgTitleChange={setOgTitle}
+        onOgDescriptionChange={setOgDescription}
+        disabled={isPending}
+        fieldErrors={state.fieldErrors}
+      />
 
       <section className="rounded-xl border border-hcx-border bg-hcx-card p-6 sm:p-8">
         <h2 className="font-tech text-xs font-semibold uppercase tracking-[0.15em] text-hcx-cyan">
@@ -203,7 +290,8 @@ export function ArticleForm({
               <select
                 id="category_id"
                 name="category_id"
-                defaultValue={article?.category_id ?? ""}
+                value={categoryId}
+                onChange={(event) => setCategoryId(event.target.value)}
                 disabled={isPending}
                 aria-invalid={Boolean(state.fieldErrors?.category_id)}
                 className={inputClass}
@@ -238,7 +326,10 @@ export function ArticleForm({
             <select
               id="status"
               name="status"
-              defaultValue={article?.status ?? "draft"}
+              value={status}
+              onChange={(event) =>
+                setStatus(event.target.value as typeof status)
+              }
               disabled={isPending}
               aria-invalid={Boolean(state.fieldErrors?.status)}
               className={inputClass}
@@ -254,7 +345,7 @@ export function ArticleForm({
 
           <div>
             <label htmlFor="published_at" className={labelClass}>
-              Published Date
+              Publish Date & Time
             </label>
             <input
               id="published_at"
@@ -265,7 +356,9 @@ export function ArticleForm({
               className={inputClass}
             />
             <p className="mt-1.5 text-xs text-hcx-text-secondary">
-              Leave empty when publishing to use the current timestamp.
+              Leave empty when publishing to use the current timestamp. Choose a
+              future date to schedule publication while keeping status as
+              Published.
             </p>
           </div>
 
@@ -273,8 +366,12 @@ export function ArticleForm({
             <FeaturedImageUploader
               disabled={isPending}
               defaultUrl={article?.featured_image}
+              defaultAltText={article?.featured_image_alt}
               articleTitle={title || article?.title || "Article featured image"}
               fieldError={state.fieldErrors?.featured_image}
+              enableAltText
+              onImageUrlChange={setFeaturedImage}
+              onAltTextChange={setFeaturedImageAlt}
             />
           </div>
 
@@ -290,6 +387,10 @@ export function ArticleForm({
               <span className="text-sm text-hcx-text">Featured article</span>
             </label>
           </div>
+
+          <div className="sm:col-span-2">
+            <PublishingChecklist values={checklistInput} />
+          </div>
         </div>
       </section>
 
@@ -301,6 +402,14 @@ export function ArticleForm({
         >
           {isPending ? "Saving…" : submitLabel}
         </button>
+        {articleId ? (
+          <Link
+            href={`/admin/articles/${articleId}/preview`}
+            className={`rounded-lg border border-hcx-border px-5 py-2.5 text-sm font-medium text-hcx-text transition-colors hover:border-hcx-cyan/30 hover:text-hcx-cyan ${focusRing}`}
+          >
+            Preview
+          </Link>
+        ) : null}
         <Link
           href="/admin/articles"
           className={`rounded-lg border border-hcx-border px-5 py-2.5 text-sm font-medium text-hcx-text transition-colors hover:bg-hcx-bg-secondary ${focusRing}`}

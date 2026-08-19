@@ -1,5 +1,6 @@
 import type { ArticlePattern } from "@/lib/articles";
 import { resolvePublicAuthorDisplay } from "@/lib/articles/author";
+import { isArticlePubliclyAvailable } from "@/lib/articles/publishing";
 import { calculateReadTime } from "@/lib/articles/read-time";
 import {
   getStaticFeaturedFallback,
@@ -112,6 +113,11 @@ export interface PublicArticleCard {
   readTime: string;
   featured: boolean;
   featured_image: string | null;
+  featured_image_alt: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  og_title: string | null;
+  og_description: string | null;
   pattern: ArticlePattern | null;
   content: string | null;
 }
@@ -182,6 +188,11 @@ export function mapPublicArticleCard(
     readTime: calculateReadTime(row.content, row.read_time),
     featured: row.featured,
     featured_image: row.featured_image,
+    featured_image_alt: row.featured_image_alt,
+    seo_title: row.seo_title,
+    seo_description: row.seo_description,
+    og_title: row.og_title,
+    og_description: row.og_description,
     pattern: row.pattern,
     content: row.content,
   };
@@ -243,7 +254,7 @@ async function queryPublishedArticles(
     }
 
     return mapRows(
-      (data ?? []) as Article[],
+      ((data ?? []) as Article[]).filter((row) => isArticlePubliclyAvailable(row)),
       categoryMap,
       settings.publicAuthorName,
     );
@@ -318,6 +329,11 @@ export async function getArticleBySlug(
     }
 
     if (!data) {
+      logArticleSlugLookup(requestedSlug, { found: false });
+      return null;
+    }
+
+    if (!isArticlePubliclyAvailable(data as Article)) {
       logArticleSlugLookup(requestedSlug, { found: false });
       return null;
     }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArticleStatusBadge } from "@/components/admin/articles/ArticleStatusBadge";
 import { ArticleContentRenderer } from "@/components/articles/ArticleContentRenderer";
+import { isArticlePubliclyAvailable } from "@/lib/articles/publishing";
 import { getAdminArticleById } from "@/lib/supabase/admin-articles";
 import { focusRing } from "@/lib/page-data";
 
@@ -34,7 +35,7 @@ export default async function PreviewArticlePage({
     notFound();
   }
 
-  if (article.status === "published") {
+  if (isArticlePubliclyAvailable(article)) {
     notFound();
   }
 
@@ -54,7 +55,10 @@ export default async function PreviewArticlePage({
 
       <article className="rounded-xl border border-hcx-border bg-hcx-card p-6 sm:p-8">
         <div className="flex flex-wrap items-center gap-3">
-          <ArticleStatusBadge status={article.status} />
+          <ArticleStatusBadge
+            status={article.status}
+            publishedAt={article.published_at}
+          />
           {article.featured && (
             <span className="text-xs font-semibold uppercase tracking-wide text-hcx-cyan">
               Featured
