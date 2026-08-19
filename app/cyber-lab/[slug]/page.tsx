@@ -6,7 +6,12 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { DifficultyBadge } from "@/components/cyber-lab/DifficultyBadge";
 import { PlainTextLabContent } from "@/components/cyber-lab/PlainTextLabContent";
-import { buildContentMetadata, buildPageMetadata } from "@/lib/seo/metadata";
+import { JsonLd } from "@/components/seo/JsonLd";
+import {
+  buildLabBreadcrumbStructuredData,
+  buildLabStructuredData,
+} from "@/lib/seo/lab-structured-data";
+import { buildTechArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
 import { getLabBySlug, labPath } from "@/lib/supabase/public-labs";
 import { focusRing } from "@/lib/page-data";
 
@@ -31,11 +36,13 @@ export async function generateMetadata({
     });
   }
 
-  return buildContentMetadata({
+  return buildTechArticleMetadata({
     title: lab.title,
     description: lab.description,
     path: labPath(lab.slug),
     imageUrl: lab.featured_image,
+    publishedTime: lab.published_at,
+    modifiedTime: lab.updated_at,
   });
 }
 
@@ -78,7 +85,10 @@ export default async function LabDetailPage({ params }: LabPageProps) {
         : "advanced";
 
   return (
-    <PageShell>
+    <>
+      <JsonLd data={buildLabStructuredData(lab)} />
+      <JsonLd data={buildLabBreadcrumbStructuredData(lab)} />
+      <PageShell>
       <Breadcrumb
         items={[
           { label: "Cyber Lab", href: "/cyber-lab" },
@@ -165,5 +175,6 @@ export default async function LabDetailPage({ params }: LabPageProps) {
         </article>
       </div>
     </PageShell>
+    </>
   );
 }

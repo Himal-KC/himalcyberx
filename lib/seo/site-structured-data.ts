@@ -3,8 +3,12 @@ import { getSiteUrl } from "@/lib/seo/site-url";
 
 const ORGANIZATION_NAME = DEFAULT_SITE_SETTINGS.siteName;
 
-function organizationId(siteUrl: string): string {
+export function organizationStructuredDataId(siteUrl: string): string {
   return `${siteUrl}/#organization`;
+}
+
+function organizationId(siteUrl: string): string {
+  return organizationStructuredDataId(siteUrl);
 }
 
 function websiteId(siteUrl: string): string {

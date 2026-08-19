@@ -6,7 +6,12 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { DifficultyBadge } from "@/components/cyber-lab/DifficultyBadge";
 import { PlainTextTutorialContent } from "@/components/tutorials/PlainTextTutorialContent";
-import { buildContentMetadata, buildPageMetadata } from "@/lib/seo/metadata";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { buildTechArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
+import {
+  buildTutorialBreadcrumbStructuredData,
+  buildTutorialStructuredData,
+} from "@/lib/seo/tutorial-structured-data";
 import { getTutorialBySlug, tutorialPath } from "@/lib/supabase/public-tutorials";
 import { focusRing } from "@/lib/page-data";
 
@@ -31,11 +36,13 @@ export async function generateMetadata({
     });
   }
 
-  return buildContentMetadata({
+  return buildTechArticleMetadata({
     title: tutorial.title,
     description: tutorial.description,
     path: tutorialPath(tutorial.slug),
     imageUrl: tutorial.featured_image,
+    publishedTime: tutorial.published_at,
+    modifiedTime: tutorial.updated_at,
   });
 }
 
@@ -88,7 +95,10 @@ export default async function TutorialDetailPage({ params }: TutorialPageProps) 
         : "advanced";
 
   return (
-    <PageShell>
+    <>
+      <JsonLd data={buildTutorialStructuredData(tutorial)} />
+      <JsonLd data={buildTutorialBreadcrumbStructuredData(tutorial)} />
+      <PageShell>
       <Breadcrumb
         items={[
           { label: "Tutorials", href: "/tutorials" },
@@ -189,5 +199,6 @@ export default async function TutorialDetailPage({ params }: TutorialPageProps) 
         </article>
       </div>
     </PageShell>
+    </>
   );
 }

@@ -121,6 +121,55 @@ export function buildContentMetadata({
   };
 }
 
+export function buildTechArticleMetadata({
+  title,
+  description,
+  path,
+  imageUrl,
+  publishedTime,
+  modifiedTime,
+}: {
+  title: string;
+  description: string;
+  path: string;
+  imageUrl?: string | null;
+  publishedTime?: string | null;
+  modifiedTime?: string | null;
+}): Metadata {
+  const siteUrl = getSiteUrl();
+  const url = `${siteUrl}${path}`;
+  const absoluteImageUrl = toAbsoluteUrl(imageUrl, siteUrl);
+  const images = absoluteImageUrl
+    ? [{ url: absoluteImageUrl, alt: title }]
+    : undefined;
+  const authorName = DEFAULT_SITE_SETTINGS.publicAuthorName;
+  const modified = modifiedTime || publishedTime || undefined;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: url,
+    },
+    authors: [{ name: authorName }],
+    openGraph: {
+      type: "article",
+      title,
+      description,
+      url,
+      ...(publishedTime ? { publishedTime } : {}),
+      ...(modified ? { modifiedTime: modified } : {}),
+      ...(images ? { images } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      ...(absoluteImageUrl ? { images: [absoluteImageUrl] } : {}),
+    },
+  };
+}
+
 export function buildArticleMetadata({
   title,
   description,
