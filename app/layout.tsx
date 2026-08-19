@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
+import { PublicGoogleAnalytics } from "@/components/analytics/PublicGoogleAnalytics";
 import { buildRootMetadata } from "@/lib/seo/metadata";
 import { getSiteSettings } from "@/lib/settings/site-settings";
 import "./globals.css";
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-hcx-bg text-hcx-text">
         {children}
+        <PublicGoogleAnalytics />
       </body>
     </html>
   );
