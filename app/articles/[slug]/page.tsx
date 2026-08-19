@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
 import { PageShell } from "@/components/layout/PageShell";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
@@ -31,7 +30,6 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: ArticlePageProps): Promise<Metadata> {
-  noStore();
   const { slug } = await params;
   const article = await getArticleBySlug(slug);
 
@@ -52,7 +50,6 @@ export async function generateMetadata({
 }
 
 export default async function ArticlePage({ params }: ArticlePageProps) {
-  noStore();
   const { slug } = await params;
   const article = await getArticleBySlug(slug);
 

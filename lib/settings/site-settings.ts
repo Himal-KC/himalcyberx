@@ -2,6 +2,7 @@ import { cache } from "react";
 import { DEFAULT_SITE_SETTINGS } from "@/lib/settings/constants";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { logQueryError } from "@/lib/supabase/errors";
+import { createPublicServerClient } from "@/lib/supabase/public-server";
 import { createClient } from "@/lib/supabase/server";
 import type { SiteSettings } from "@/lib/supabase/types";
 
@@ -41,7 +42,32 @@ function mapSiteSettings(row: SiteSettings | null): PublicSiteSettings {
   };
 }
 
-async function fetchSiteSettingsRow(): Promise<SiteSettings | null> {
+async function fetchPublicSiteSettingsRow(): Promise<SiteSettings | null> {
+  if (!hasSupabaseEnv()) {
+    return null;
+  }
+
+  try {
+    const supabase = createPublicServerClient();
+    const { data, error } = await supabase
+      .from("site_settings")
+      .select("*")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      logQueryError("fetchPublicSiteSettingsRow", error);
+      return null;
+    }
+
+    return data as SiteSettings | null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchAdminSiteSettingsRow(): Promise<SiteSettings | null> {
   if (!hasSupabaseEnv()) {
     return null;
   }
@@ -56,7 +82,7 @@ async function fetchSiteSettingsRow(): Promise<SiteSettings | null> {
       .maybeSingle();
 
     if (error) {
-      logQueryError("fetchSiteSettingsRow", error);
+      logQueryError("fetchAdminSiteSettingsRow", error);
       return null;
     }
 
@@ -67,10 +93,10 @@ async function fetchSiteSettingsRow(): Promise<SiteSettings | null> {
 }
 
 export const getSiteSettings = cache(async (): Promise<PublicSiteSettings> => {
-  const row = await fetchSiteSettingsRow();
+  const row = await fetchPublicSiteSettingsRow();
   return mapSiteSettings(row);
 });
 
 export async function getAdminSiteSettings(): Promise<SiteSettings | null> {
-  return fetchSiteSettingsRow();
+  return fetchAdminSiteSettingsRow();
 }

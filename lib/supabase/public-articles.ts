@@ -12,8 +12,9 @@ import { formatArticleDate } from "@/lib/articles";
 import { getSiteSettings } from "@/lib/settings/site-settings";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { logQueryError } from "@/lib/supabase/errors";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicServerClient } from "@/lib/supabase/public-server";
 import type { Article, Category } from "@/lib/supabase/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const PUBLISHED = "published" as const;
 
@@ -70,7 +71,7 @@ function logArticleSlugLookup(
 type CategorySummary = Pick<Category, "name" | "slug">;
 
 async function loadCategoryMap(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseClient,
 ): Promise<Map<string, CategorySummary>> {
   const { data, error } = await supabase
     .from("categories")
@@ -213,7 +214,7 @@ async function queryPublishedArticles(
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = createPublicServerClient();
     let query = supabase
       .from("articles")
       .select("*")
@@ -291,7 +292,7 @@ export async function getArticleBySlug(
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = createPublicServerClient();
 
     const [{ data, error }, categoryMap, settings] = await Promise.all([
       supabase
