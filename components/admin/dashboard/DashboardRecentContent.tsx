@@ -23,7 +23,12 @@ function ContentStatusBadge({
   item: DashboardRecentContentItem;
 }) {
   if (item.type === "article") {
-    return <ArticleStatusBadge status={item.status} />;
+    return (
+      <ArticleStatusBadge
+        status={item.status}
+        publishedAt={item.publishedAt}
+      />
+    );
   }
 
   if (item.type === "lab") {
@@ -31,6 +36,39 @@ function ContentStatusBadge({
   }
 
   return <TutorialStatusBadge status={item.status} />;
+}
+
+function ContentRowActions({ item }: { item: DashboardRecentContentItem }) {
+  const previewHref = item.type === "article" ? item.previewHref : null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      {item.viewHref ? (
+        <Link
+          href={item.viewHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
+        >
+          View
+        </Link>
+      ) : null}
+      {previewHref ? (
+        <Link
+          href={previewHref}
+          className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
+        >
+          Preview
+        </Link>
+      ) : null}
+      <Link
+        href={item.editHref}
+        className={`text-sm text-hcx-cyan hover:underline ${focusRing}`}
+      >
+        Edit
+      </Link>
+    </div>
+  );
 }
 
 interface DashboardRecentContentProps {
@@ -49,28 +87,28 @@ export function DashboardRecentContent({ items }: DashboardRecentContentProps) {
       ) : (
         <ul className="mt-4 divide-y divide-hcx-border">
           {items.map((item) => (
-            <li key={`${item.type}-${item.id}`}>
-              <Link
-                href={item.href}
-                className={`flex flex-col gap-3 py-4 transition-colors hover:bg-hcx-bg-secondary/30 sm:flex-row sm:items-center sm:justify-between ${focusRing}`}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`inline-flex rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${typeBadgeStyles[item.type]}`}
-                    >
-                      {typeLabels[item.type]}
-                    </span>
-                    <ContentStatusBadge item={item} />
-                  </div>
-                  <p className="mt-2 truncate text-sm font-medium text-hcx-text">
-                    {item.title}
-                  </p>
+            <li
+              key={`${item.type}-${item.id}`}
+              className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${typeBadgeStyles[item.type]}`}
+                  >
+                    {typeLabels[item.type]}
+                  </span>
+                  <ContentStatusBadge item={item} />
                 </div>
-                <p className="shrink-0 text-xs text-hcx-text-secondary sm:text-right">
+                <p className="mt-2 truncate text-sm font-medium text-hcx-text">
+                  {item.title}
+                </p>
+                <p className="mt-1 text-xs text-hcx-text-secondary">
                   {item.dateFormatted}
                 </p>
-              </Link>
+              </div>
+
+              <ContentRowActions item={item} />
             </li>
           ))}
         </ul>

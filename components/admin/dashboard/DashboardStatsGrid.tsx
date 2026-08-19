@@ -6,6 +6,8 @@ const statCards: Array<{
 }> = [
   { key: "totalArticles", label: "Total Articles" },
   { key: "publishedArticles", label: "Published Articles" },
+  { key: "draftArticles", label: "Draft Articles" },
+  { key: "scheduledArticles", label: "Scheduled Articles" },
   { key: "labs", label: "Cyber Labs" },
   { key: "tutorials", label: "Tutorials" },
   { key: "subscribers", label: "Subscribers" },
@@ -18,7 +20,7 @@ interface DashboardStatsGridProps {
 
 export function DashboardStatsGrid({ stats }: DashboardStatsGridProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {statCards.map((card) => (
         <div
           key={card.key}

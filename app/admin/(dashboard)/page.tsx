@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { DashboardContentStatusOverview } from "@/components/admin/dashboard/DashboardContentStatusOverview";
 import { DashboardQuickActions } from "@/components/admin/dashboard/DashboardQuickActions";
 import { DashboardRecentContent } from "@/components/admin/dashboard/DashboardRecentContent";
 import { DashboardRecentMessages } from "@/components/admin/dashboard/DashboardRecentMessages";
 import { DashboardRecentSubscribers } from "@/components/admin/dashboard/DashboardRecentSubscribers";
+import { DashboardScheduledContent } from "@/components/admin/dashboard/DashboardScheduledContent";
 import { DashboardStatsGrid } from "@/components/admin/dashboard/DashboardStatsGrid";
 import { getAdminDashboardData } from "@/lib/supabase/admin-queries";
 
@@ -30,7 +32,12 @@ export default async function AdminOverviewPage() {
 
       <DashboardStatsGrid stats={dashboard.stats} />
 
-      <DashboardQuickActions />
+      <DashboardContentStatusOverview overview={dashboard.articleStatusOverview} />
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <DashboardScheduledContent items={dashboard.scheduledArticles} />
+        <DashboardQuickActions />
+      </div>
 
       <DashboardRecentContent items={dashboard.recentContent} />
 

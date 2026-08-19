@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { focusRing } from "@/lib/page-data";
 
-const actions = [
+const primaryActions = [
   { label: "+ New Article", href: "/admin/articles/new" },
   { label: "+ New Cyber Lab", href: "/admin/labs/new" },
   { label: "+ New Tutorial", href: "/admin/tutorials/new" },
 ] as const;
+
+const secondaryActions = [{ label: "View Articles", href: "/admin/articles" }] as const;
 
 export function DashboardQuickActions() {
   return (
@@ -14,11 +16,20 @@ export function DashboardQuickActions() {
         Quick Actions
       </h2>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        {actions.map((action) => (
+        {primaryActions.map((action) => (
           <Link
             key={action.href}
             href={action.href}
             className={`inline-flex items-center justify-center rounded-lg bg-hcx-cyan px-4 py-2.5 text-sm font-semibold text-hcx-bg transition-opacity hover:opacity-90 ${focusRing}`}
+          >
+            {action.label}
+          </Link>
+        ))}
+        {secondaryActions.map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className={`inline-flex items-center justify-center rounded-lg border border-hcx-border px-4 py-2.5 text-sm font-medium text-hcx-text transition-colors hover:border-hcx-cyan/30 hover:text-hcx-cyan ${focusRing}`}
           >
             {action.label}
           </Link>
