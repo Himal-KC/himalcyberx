@@ -24,6 +24,7 @@ export function buildArticleStructuredData(
     author: {
       "@type": "Person",
       name: article.author,
+      url: toAbsoluteUrl("/about", siteUrl),
     },
     publisher: {
       "@type": "Organization",
