@@ -1,4 +1,5 @@
 import { Header } from "@/components/Header";
+import type { Metadata } from "next";
 import { SecurityUpdateBar } from "@/components/SecurityUpdateBar";
 import { Hero } from "@/components/Hero";
 import { TrendingStories } from "@/components/TrendingStories";
@@ -11,6 +12,14 @@ import { Newsletter } from "@/components/Newsletter";
 import { Footer } from "@/components/Footer";
 import { getHomepageArticles } from "@/lib/supabase/public-articles";
 import { getSiteSettings } from "@/lib/settings/site-settings";
+import { buildPageMetadata } from "@/lib/seo/metadata";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Cybersecurity Research, Threat Intelligence & Cyber Labs",
+  description:
+    "Independent cybersecurity news, threat intelligence, security research and practical cyber labs from HimalCyberX.",
+  path: "/",
+});
 
 export const revalidate = 60;
 

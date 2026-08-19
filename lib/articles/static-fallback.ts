@@ -34,6 +34,7 @@ function staticArticleToCard(
     author: DEFAULT_ARTICLE_AUTHOR,
     publishedAtIso: card.dateIso,
     publishedAtFormatted: card.date,
+    updatedAtIso: card.dateIso,
     readTime: card.readTime,
     featured: slug === featuredStory.slug,
     featured_image: null,

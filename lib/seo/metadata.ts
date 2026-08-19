@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DEFAULT_SITE_SETTINGS } from "@/lib/settings/constants";
 import type { PublicSiteSettings } from "@/lib/settings/site-settings";
+import { toAbsoluteUrl } from "@/lib/seo/json-ld";
 import { getSiteUrl } from "@/lib/seo/site-url";
 
 export function buildRootMetadata(settings: PublicSiteSettings): Metadata {
@@ -59,6 +60,13 @@ export function buildPageMetadata({
   return {
     title,
     description,
+    ...(path
+      ? {
+          alternates: {
+            canonical: `${siteUrl}${path}`,
+          },
+        }
+      : {}),
     openGraph: {
       title,
       description,
@@ -86,11 +94,17 @@ export function buildContentMetadata({
 }): Metadata {
   const siteUrl = getSiteUrl();
   const url = `${siteUrl}${path}`;
-  const images = imageUrl ? [{ url: imageUrl, alt: title }] : undefined;
+  const absoluteImageUrl = toAbsoluteUrl(imageUrl, siteUrl);
+  const images = absoluteImageUrl
+    ? [{ url: absoluteImageUrl, alt: title }]
+    : undefined;
 
   return {
     title,
     description,
+    alternates: {
+      canonical: url,
+    },
     openGraph: {
       type: "article",
       title,
@@ -99,10 +113,60 @@ export function buildContentMetadata({
       ...(images ? { images } : {}),
     },
     twitter: {
-      card: imageUrl ? "summary_large_image" : "summary",
+      card: absoluteImageUrl ? "summary_large_image" : "summary",
       title,
       description,
-      ...(imageUrl ? { images: [imageUrl] } : {}),
+      ...(absoluteImageUrl ? { images: [absoluteImageUrl] } : {}),
+    },
+  };
+}
+
+export function buildArticleMetadata({
+  title,
+  description,
+  path,
+  imageUrl,
+  author,
+  publishedTime,
+  modifiedTime,
+}: {
+  title: string;
+  description: string;
+  path: string;
+  imageUrl?: string | null;
+  author: string;
+  publishedTime: string;
+  modifiedTime?: string;
+}): Metadata {
+  const siteUrl = getSiteUrl();
+  const url = `${siteUrl}${path}`;
+  const absoluteImageUrl = toAbsoluteUrl(imageUrl, siteUrl);
+  const images = absoluteImageUrl
+    ? [{ url: absoluteImageUrl, alt: title }]
+    : undefined;
+  const modified = modifiedTime || publishedTime;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: url,
+    },
+    authors: [{ name: author }],
+    openGraph: {
+      type: "article",
+      title,
+      description,
+      url,
+      publishedTime,
+      modifiedTime: modified,
+      ...(images ? { images } : {}),
+    },
+    twitter: {
+      card: absoluteImageUrl ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(absoluteImageUrl ? { images: [absoluteImageUrl] } : {}),
     },
   };
 }

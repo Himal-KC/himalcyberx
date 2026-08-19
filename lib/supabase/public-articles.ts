@@ -108,6 +108,7 @@ export interface PublicArticleCard {
   author: string;
   publishedAtIso: string;
   publishedAtFormatted: string;
+  updatedAtIso: string;
   readTime: string;
   featured: boolean;
   featured_image: string | null;
@@ -177,6 +178,7 @@ export function mapPublicArticleCard(
     author: resolvePublicAuthorDisplay(row.author, authorFallback),
     publishedAtIso,
     publishedAtFormatted: formatArticleDate(publishedAtIso),
+    updatedAtIso: row.updated_at ?? publishedAtIso,
     readTime: calculateReadTime(row.content, row.read_time),
     featured: row.featured,
     featured_image: row.featured_image,

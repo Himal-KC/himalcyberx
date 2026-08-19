@@ -6,7 +6,12 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { PlainTextArticleContent } from "@/components/articles/PlainTextArticleContent";
 import { ArticleShare } from "@/components/articles/ArticleShare";
-import { buildContentMetadata, buildPageMetadata } from "@/lib/seo/metadata";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { buildArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
+import {
+  buildArticleBreadcrumbStructuredData,
+  buildArticleStructuredData,
+} from "@/lib/seo/article-structured-data";
 import { articlePath } from "@/lib/articles";
 import {
   getArticleBySlug,
@@ -41,11 +46,14 @@ export async function generateMetadata({
     });
   }
 
-  return buildContentMetadata({
+  return buildArticleMetadata({
     title: article.title,
     description: article.excerpt,
     path: articlePath(article.slug),
     imageUrl: article.featured_image,
+    author: article.author,
+    publishedTime: article.publishedAtIso,
+    modifiedTime: article.updatedAtIso,
   });
 }
 
@@ -64,7 +72,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   );
 
   return (
-    <PageShell>
+    <>
+      <JsonLd data={buildArticleStructuredData(article)} />
+      <JsonLd data={buildArticleBreadcrumbStructuredData(article)} />
+      <PageShell>
       <Breadcrumb
         items={[
           { label: article.category, href: article.categoryHref },
@@ -155,5 +166,6 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         </article>
       </div>
     </PageShell>
+    </>
   );
 }
