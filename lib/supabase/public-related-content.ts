@@ -1,7 +1,10 @@
 import { articlePath, type ArticlePattern } from "@/lib/articles";
 import type { SearchContentType } from "@/lib/search";
+import type { PublicArticleCard } from "@/lib/supabase/public-articles";
 import { getPublishedArticles } from "@/lib/supabase/public-articles";
+import type { PublicLabCard } from "@/lib/supabase/public-labs";
 import { getPublishedLabs, labPath } from "@/lib/supabase/public-labs";
+import type { PublicTutorialCard } from "@/lib/supabase/public-tutorials";
 import {
   getPublishedTutorials,
   tutorialPath,
@@ -34,8 +37,22 @@ const TYPE_PREFERENCE: Record<SearchContentType, SearchContentType[]> = {
   tutorial: ["tutorial", "lab", "article"],
 };
 
-function normalizeCategory(value: string): string {
-  return value.trim().toLowerCase();
+const DEFAULT_CATEGORY_BY_TYPE: Record<SearchContentType, string> = {
+  article: "Cybersecurity News",
+  lab: "Cyber Lab",
+  tutorial: "Tutorial",
+};
+
+function normalizeCategory(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function resolveCategory(
+  value: string | null | undefined,
+  type: SearchContentType,
+): string {
+  const trimmed = value?.trim();
+  return trimmed || DEFAULT_CATEGORY_BY_TYPE[type];
 }
 
 function getPublishedTimestamp(item: RelatedContentItem): number {
@@ -52,7 +69,8 @@ function getRelatedScore(
   current: Pick<RelatedContentRequest, "type" | "category">,
 ): number {
   const sameCategory =
-    normalizeCategory(item.category) === normalizeCategory(current.category);
+    normalizeCategory(item.category) ===
+    normalizeCategory(resolveCategory(current.category, current.type));
   const sameType = item.type === current.type;
 
   if (sameType && sameCategory) {
@@ -76,6 +94,7 @@ function rankRelatedItems(
 ): RelatedContentItem[] {
   const limit = current.limit ?? 3;
   const typePreference = TYPE_PREFERENCE[current.type];
+  const currentCategory = resolveCategory(current.category, current.type);
 
   return items
     .filter(
@@ -83,7 +102,10 @@ function rankRelatedItems(
     )
     .map((item) => ({
       item,
-      score: getRelatedScore(item, current),
+      score: getRelatedScore(item, {
+        type: current.type,
+        category: currentCategory,
+      }),
       publishedAt: getPublishedTimestamp(item),
       typeRank: typePreference.indexOf(item.type),
     }))
@@ -102,56 +124,97 @@ function rankRelatedItems(
     .slice(0, limit);
 }
 
+function mapArticleCandidate(
+  article: PublicArticleCard,
+): RelatedContentItem | null {
+  const slug = article.slug?.trim();
+  const title = article.title?.trim();
+
+  if (!slug || !title) {
+    return null;
+  }
+
+  return {
+    id: article.id,
+    type: "article",
+    slug,
+    title,
+    description: article.excerpt?.trim() || "",
+    category: resolveCategory(article.category, "article"),
+    featured_image: article.featured_image,
+    pattern: article.pattern,
+    href: articlePath(slug),
+    publishedAtIso: article.publishedAtIso ?? null,
+    publishedAtFormatted: article.publishedAtFormatted || undefined,
+  };
+}
+
+function mapLabCandidate(lab: PublicLabCard): RelatedContentItem | null {
+  const slug = lab.slug?.trim();
+  const title = lab.title?.trim();
+
+  if (!slug || !title) {
+    return null;
+  }
+
+  return {
+    id: slug,
+    type: "lab",
+    slug,
+    title,
+    description: lab.description?.trim() || "",
+    category: resolveCategory(lab.category, "lab"),
+    featured_image: lab.featured_image,
+    pattern: "circuit",
+    href: labPath(slug),
+    publishedAtIso: lab.published_at,
+    publishedAtFormatted: lab.publishedAtFormatted || undefined,
+  };
+}
+
+function mapTutorialCandidate(
+  tutorial: PublicTutorialCard,
+): RelatedContentItem | null {
+  const slug = tutorial.slug?.trim();
+  const title = tutorial.title?.trim();
+
+  if (!slug || !title) {
+    return null;
+  }
+
+  return {
+    id: slug,
+    type: "tutorial",
+    slug,
+    title,
+    description: tutorial.description?.trim() || "",
+    category: resolveCategory(tutorial.category, "tutorial"),
+    featured_image: tutorial.featured_image,
+    pattern: "grid",
+    href: tutorialPath(slug),
+    publishedAtIso: tutorial.published_at,
+    publishedAtFormatted: tutorial.publishedAtFormatted || undefined,
+  };
+}
+
 export async function getRelatedContent(
   request: RelatedContentRequest,
 ): Promise<RelatedContentItem[]> {
-  const [articles, labs, tutorials] = await Promise.all([
-    getPublishedArticles(),
-    getPublishedLabs(),
-    getPublishedTutorials(),
-  ]);
+  try {
+    const [articles, labs, tutorials] = await Promise.all([
+      getPublishedArticles(),
+      getPublishedLabs(),
+      getPublishedTutorials(),
+    ]);
 
-  const candidates: RelatedContentItem[] = [
-    ...articles.map((article) => ({
-      id: article.id,
-      type: "article" as const,
-      slug: article.slug,
-      title: article.title,
-      description: article.excerpt,
-      category: article.category,
-      featured_image: article.featured_image,
-      pattern: article.pattern,
-      href: articlePath(article.slug),
-      publishedAtIso: article.publishedAtIso,
-      publishedAtFormatted: article.publishedAtFormatted,
-    })),
-    ...labs.map((lab) => ({
-      id: lab.slug,
-      type: "lab" as const,
-      slug: lab.slug,
-      title: lab.title,
-      description: lab.description,
-      category: lab.category,
-      featured_image: lab.featured_image,
-      pattern: "circuit" as const,
-      href: labPath(lab.slug),
-      publishedAtIso: lab.published_at,
-      publishedAtFormatted: lab.publishedAtFormatted,
-    })),
-    ...tutorials.map((tutorial) => ({
-      id: tutorial.slug,
-      type: "tutorial" as const,
-      slug: tutorial.slug,
-      title: tutorial.title,
-      description: tutorial.description,
-      category: tutorial.category,
-      featured_image: tutorial.featured_image,
-      pattern: "grid" as const,
-      href: tutorialPath(tutorial.slug),
-      publishedAtIso: tutorial.published_at,
-      publishedAtFormatted: tutorial.publishedAtFormatted,
-    })),
-  ];
+    const candidates = [
+      ...articles.map(mapArticleCandidate),
+      ...labs.map(mapLabCandidate),
+      ...tutorials.map(mapTutorialCandidate),
+    ].filter((item): item is RelatedContentItem => item !== null);
 
-  return rankRelatedItems(candidates, request);
+    return rankRelatedItems(candidates, request);
+  } catch {
+    return [];
+  }
 }

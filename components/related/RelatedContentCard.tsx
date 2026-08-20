@@ -41,7 +41,7 @@ export function RelatedContentCard({ item }: RelatedContentCardProps) {
           </h3>
 
           <p className="mt-2 line-clamp-3 flex-1 text-sm leading-relaxed text-hcx-text-secondary">
-            {item.description}
+            {item.description || "No description available."}
           </p>
 
           {item.publishedAtFormatted ? (

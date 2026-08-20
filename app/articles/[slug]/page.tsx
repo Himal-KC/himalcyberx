@@ -83,7 +83,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   const related = await getRelatedContent({
     type: "article",
     slug: article.slug,
-    category: article.category,
+    category: article.category ?? "Cybersecurity News",
   });
 
   return (
