@@ -15,7 +15,7 @@ export function FeaturedLab({ lab }: FeaturedLabProps) {
   }
 
   return (
-    <div className="mt-12 md:mt-14">
+    <div>
       <p className="font-tech text-[10px] font-semibold uppercase tracking-[0.2em] text-hcx-cyan">
         Featured Lab
       </p>

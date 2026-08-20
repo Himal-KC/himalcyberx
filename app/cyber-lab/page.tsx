@@ -1,50 +1,36 @@
 import type { Metadata } from "next";
-import {
-  CtfIcon,
-  ForensicsIcon,
-  LinuxIcon,
-  NetworkIcon,
-  SocIcon,
-  WebIcon,
-} from "@/components/icons";
+import { Suspense } from "react";
 import { PageShell } from "@/components/layout/PageShell";
 import { PageHero } from "@/components/layout/PageHero";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
+import { CyberLabCatalogSection } from "@/components/cyber-lab/CyberLabCatalogSection";
+import { CyberLabLearningPaths } from "@/components/cyber-lab/CyberLabLearningPaths";
 import { FeaturedLab } from "@/components/cyber-lab/FeaturedLab";
-import { LabCard } from "@/components/cyber-lab/LabCard";
-import { LearningPaths } from "@/components/cyber-lab/LearningPaths";
-import { PublishedLabCard } from "@/components/cyber-lab/PublishedLabCard";
-import { buildCyberLabSections } from "@/lib/cyber-lab-content";
 import {
-  getFeaturedLab,
-  getPublishedLabs,
-} from "@/lib/supabase/public-labs";
+  buildCyberLabPageData,
+  getCyberLabLearningPaths,
+} from "@/lib/cyber-lab-list";
+import { getPublishedLabs } from "@/lib/supabase/public-labs";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Cyber Lab",
-  description: "Hands-on cybersecurity learning through guided technical labs.",
+  title: "Cybersecurity Labs & Hands-On Security Training",
+  description:
+    "Hands-on cybersecurity labs covering network security, digital forensics, defensive security and practical cyber skills.",
   path: "/cyber-lab",
 });
 
 export const revalidate = 60;
 
-const iconMap = {
-  network: NetworkIcon,
-  forensics: ForensicsIcon,
-  soc: SocIcon,
-  web: WebIcon,
-  linux: LinuxIcon,
-  ctf: CtfIcon,
-};
+interface CyberLabPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
-export default async function CyberLabPage() {
-  const [labs, featuredLab] = await Promise.all([
-    getPublishedLabs(),
-    getFeaturedLab(),
-  ]);
-
-  const sections = buildCyberLabSections(labs);
+export default async function CyberLabPage({ searchParams }: CyberLabPageProps) {
+  const params = await searchParams;
+  const labs = await getPublishedLabs();
+  const pageData = buildCyberLabPageData(labs, params);
+  const learningPaths = getCyberLabLearningPaths(labs);
 
   return (
     <PageShell>
@@ -52,57 +38,30 @@ export default async function CyberLabPage() {
       <PageHero
         label="Learn • Test • Defend"
         title="HCX Cyber Lab"
-        description="Hands-on cybersecurity learning through guided technical labs."
+        description="Hands-on cybersecurity labs, technical walkthroughs and practical defensive security exercises."
+        supportingText="Practice only in systems and environments you own or are explicitly authorized to test."
+        compact
       />
 
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <p className="mb-10 max-w-3xl text-sm leading-relaxed text-hcx-text-secondary">
-          Practice only in systems and environments you own or are explicitly
-          authorized to test.
-        </p>
+      {pageData.featured ? (
+        <section className="border-b border-hcx-border py-10 md:py-12">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <FeaturedLab lab={pageData.featured} />
+          </div>
+        </section>
+      ) : null}
 
-        <FeaturedLab lab={featuredLab} />
+      <Suspense fallback={null}>
+        <CyberLabCatalogSection
+          labs={pageData.gridLabs}
+          categories={pageData.categories}
+          filters={pageData.filters}
+          filtersActive={pageData.filtersActive}
+          totalPublished={pageData.totalPublished}
+        />
+      </Suspense>
 
-        {sections.length === 0 ? (
-          <section className="mt-14 rounded-xl border border-dashed border-hcx-border bg-hcx-card/40 px-6 py-16 text-center">
-            <h2 className="text-lg font-semibold text-hcx-text">
-              Published labs coming soon
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-hcx-text-secondary">
-              HimalCyberX is preparing hands-on cybersecurity labs. Check back
-              soon for guided technical exercises.
-            </p>
-          </section>
-        ) : (
-          sections.map((section) => (
-            <section
-              key={section.category}
-              className="mt-14"
-              aria-labelledby={`lab-${section.category}`}
-            >
-              <h2
-                id={`lab-${section.category}`}
-                className="text-sm font-semibold uppercase tracking-[0.15em] text-hcx-cyan"
-              >
-                {section.category}
-              </h2>
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
-                {section.dbLabs.map((lab) => (
-                  <PublishedLabCard key={lab.slug} lab={lab} />
-                ))}
-                {section.staticModules.map((module) => {
-                  const Icon = iconMap[module.icon];
-                  return (
-                    <LabCard key={module.labId} module={module} icon={Icon} />
-                  );
-                })}
-              </div>
-            </section>
-          ))
-        )}
-
-        <LearningPaths />
-      </div>
+      <CyberLabLearningPaths paths={learningPaths} />
     </PageShell>
   );
 }
