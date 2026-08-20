@@ -151,45 +151,42 @@ export function Footer({ settings: settingsProp }: FooterProps) {
               </ul>
             </div>
 
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-hcx-text">
-                Connect
-              </h3>
-              {socialLinks.length > 0 ? (
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  {socialLinks.map((social) => {
-                    const Icon = social.icon;
-                    return (
-                      <a
-                        key={social.label}
-                        href={social.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`flex h-10 w-10 items-center justify-center rounded-lg border border-hcx-border text-hcx-text-secondary transition-all hover:border-hcx-cyan/30 hover:text-hcx-cyan ${focusRing}`}
-                        aria-label={social.label}
-                      >
-                        <Icon />
-                      </a>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="mt-4 text-sm text-hcx-text-secondary">
-                  Social profiles will appear here when configured in site
-                  settings.
-                </p>
-              )}
-              {settings.contactEmail && (
-                <p className="mt-4 text-sm text-hcx-text-secondary">
-                  <a
-                    href={`mailto:${settings.contactEmail}`}
-                    className={`text-hcx-cyan hover:underline ${focusRing}`}
-                  >
-                    {settings.contactEmail}
-                  </a>
-                </p>
-              )}
-            </div>
+            {(socialLinks.length > 0 || settings.contactEmail) && (
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-hcx-text">
+                  Connect
+                </h3>
+                {socialLinks.length > 0 && (
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    {socialLinks.map((social) => {
+                      const Icon = social.icon;
+                      return (
+                        <a
+                          key={social.label}
+                          href={social.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex h-10 w-10 items-center justify-center rounded-lg border border-hcx-border text-hcx-text-secondary transition-all hover:border-hcx-cyan/30 hover:text-hcx-cyan ${focusRing}`}
+                          aria-label={social.label}
+                        >
+                          <Icon />
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+                {settings.contactEmail && (
+                  <p className="mt-4 text-sm text-hcx-text-secondary">
+                    <a
+                      href={`mailto:${settings.contactEmail}`}
+                      className={`text-hcx-cyan hover:underline ${focusRing}`}
+                    >
+                      {settings.contactEmail}
+                    </a>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="lg:col-span-3">

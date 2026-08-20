@@ -123,13 +123,30 @@ function buildFeaturedContent(
   return items;
 }
 
+function buildLatestArticles(
+  articles: PublicArticleCard[],
+  featuredContent: HomepageFeaturedItem[],
+  limit = 6,
+): PublicArticleCard[] {
+  const featuredArticleSlugs = new Set(
+    featuredContent
+      .filter((item) => item.type === "article")
+      .map((item) => item.slug),
+  );
+
+  return articles
+    .filter((article) => !featuredArticleSlugs.has(article.slug))
+    .slice(0, limit);
+}
+
 export async function getHomepageDiscoveryData(): Promise<HomepageDiscoveryData> {
   const { articles, labs, tutorials } = await getHomepageContentCatalog();
+  const featuredContent = buildFeaturedContent(articles, labs, tutorials);
 
   return {
-    featuredContent: buildFeaturedContent(articles, labs, tutorials),
-    latestArticles: articles.slice(0, 6),
-    latestLabs: labs.slice(0, 3),
-    latestTutorials: tutorials.slice(0, 3),
+    featuredContent,
+    latestArticles: buildLatestArticles(articles, featuredContent),
+    latestLabs: labs.slice(0, 2),
+    latestTutorials: tutorials.slice(0, 2),
   };
 }

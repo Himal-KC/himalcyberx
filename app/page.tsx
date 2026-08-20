@@ -6,15 +6,9 @@ import { Hero } from "@/components/Hero";
 import { ExploreTopicsSection } from "@/components/homepage/ExploreTopicsSection";
 import { FeaturedContentSection } from "@/components/homepage/FeaturedContentSection";
 import { LatestArticlesSection } from "@/components/homepage/LatestArticlesSection";
-import { LatestCyberLabsSection } from "@/components/homepage/LatestCyberLabsSection";
-import { LatestTutorialsSection } from "@/components/homepage/LatestTutorialsSection";
-import { ThreatIntelligence } from "@/components/ThreatIntelligence";
-import { VulnerabilityWatch } from "@/components/VulnerabilityWatch";
-import { CyberLab } from "@/components/CyberLab";
-import { AISecurity } from "@/components/AISecurity";
+import { LearnAndPracticeSection } from "@/components/homepage/LearnAndPracticeSection";
 import { Newsletter } from "@/components/Newsletter";
 import { Footer } from "@/components/Footer";
-import { getHomepageArticles } from "@/lib/supabase/public-articles";
 import { getHomepageDiscoveryData } from "@/lib/supabase/public-homepage";
 import { getSiteSettings } from "@/lib/settings/site-settings";
 import { buildPageMetadata } from "@/lib/seo/metadata";
@@ -33,8 +27,7 @@ export const metadata: Metadata = buildPageMetadata({
 export const revalidate = 60;
 
 export default async function Home() {
-  const [homepageArticles, discovery, settings] = await Promise.all([
-    getHomepageArticles(),
+  const [discovery, settings] = await Promise.all([
     getHomepageDiscoveryData(),
     getSiteSettings(),
   ]);
@@ -49,13 +42,11 @@ export default async function Home() {
         <Hero />
         <FeaturedContentSection items={discovery.featuredContent} />
         <LatestArticlesSection articles={discovery.latestArticles} />
-        <LatestCyberLabsSection labs={discovery.latestLabs} />
-        <LatestTutorialsSection tutorials={discovery.latestTutorials} />
+        <LearnAndPracticeSection
+          labs={discovery.latestLabs}
+          tutorials={discovery.latestTutorials}
+        />
         <ExploreTopicsSection />
-        <ThreatIntelligence articles={homepageArticles.threatArticles} />
-        <VulnerabilityWatch />
-        <CyberLab />
-        <AISecurity />
         <Newsletter />
       </main>
       <Footer settings={settings} />

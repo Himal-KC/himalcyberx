@@ -5,7 +5,7 @@ import { focusRing } from "@/lib/page-data";
 
 export function ExploreTopicsSection() {
   return (
-    <section className="border-b border-hcx-border py-16 md:py-20">
+    <section className="border-b border-hcx-border bg-hcx-bg-secondary py-16 md:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           label="Browse by Topic"
