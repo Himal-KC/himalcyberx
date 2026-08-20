@@ -369,27 +369,6 @@ export async function getArticlesByCategory(
   return articles.filter((article) => article.categorySlug === categorySlug);
 }
 
-export async function getRelatedArticles(
-  slug: string,
-  categorySlug: string | null,
-  limit = 3,
-): Promise<PublicArticleCard[]> {
-  const published = await getPublishedArticles();
-  const sameCategory = published.filter(
-    (article) =>
-      article.slug !== slug &&
-      categorySlug &&
-      article.categorySlug === categorySlug,
-  );
-  const others = published.filter(
-    (article) =>
-      article.slug !== slug &&
-      (!categorySlug || article.categorySlug !== categorySlug),
-  );
-
-  return [...sameCategory, ...others].slice(0, limit);
-}
-
 export async function getPublishedArticleSlugs(): Promise<string[]> {
   const articles = await getPublishedArticles();
   return articles.map((article) => article.slug);

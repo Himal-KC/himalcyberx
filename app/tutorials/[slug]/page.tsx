@@ -6,6 +6,7 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { DifficultyBadge } from "@/components/cyber-lab/DifficultyBadge";
 import { PlainTextTutorialContent } from "@/components/tutorials/PlainTextTutorialContent";
+import { RelatedContentSection } from "@/components/related/RelatedContentSection";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildTechArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
 import {
@@ -13,6 +14,7 @@ import {
   buildTutorialStructuredData,
 } from "@/lib/seo/tutorial-structured-data";
 import { getTutorialBySlug, tutorialPath } from "@/lib/supabase/public-tutorials";
+import { getRelatedContent } from "@/lib/supabase/public-related-content";
 import { focusRing } from "@/lib/page-data";
 
 export const revalidate = 60;
@@ -86,6 +88,12 @@ export default async function TutorialDetailPage({ params }: TutorialPageProps) 
   if (!tutorial) {
     notFound();
   }
+
+  const related = await getRelatedContent({
+    type: "tutorial",
+    slug: tutorial.slug,
+    category: tutorial.category,
+  });
 
   const difficultyLevel =
     tutorial.difficulty === "Beginner"
@@ -197,6 +205,12 @@ export default async function TutorialDetailPage({ params }: TutorialPageProps) 
             variant="security"
           />
         </article>
+
+        {related.length > 0 ? (
+          <div className="mx-auto mt-14 max-w-7xl">
+            <RelatedContentSection items={related} />
+          </div>
+        ) : null}
       </div>
     </PageShell>
     </>

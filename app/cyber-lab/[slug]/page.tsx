@@ -6,6 +6,7 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { DifficultyBadge } from "@/components/cyber-lab/DifficultyBadge";
 import { PlainTextLabContent } from "@/components/cyber-lab/PlainTextLabContent";
+import { RelatedContentSection } from "@/components/related/RelatedContentSection";
 import { JsonLd } from "@/components/seo/JsonLd";
 import {
   buildLabBreadcrumbStructuredData,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/seo/lab-structured-data";
 import { buildTechArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
 import { getLabBySlug, labPath } from "@/lib/supabase/public-labs";
+import { getRelatedContent } from "@/lib/supabase/public-related-content";
 import { focusRing } from "@/lib/page-data";
 
 export const revalidate = 60;
@@ -76,6 +78,12 @@ export default async function LabDetailPage({ params }: LabPageProps) {
   if (!lab) {
     notFound();
   }
+
+  const related = await getRelatedContent({
+    type: "lab",
+    slug: lab.slug,
+    category: lab.category,
+  });
 
   const difficultyLevel =
     lab.difficulty === "Beginner"
@@ -173,6 +181,12 @@ export default async function LabDetailPage({ params }: LabPageProps) {
           <LabSection title="Expected Result" content={lab.expected_result} />
           <LabSection title="Security Notes" content={lab.security_notes} />
         </article>
+
+        {related.length > 0 ? (
+          <div className="mx-auto mt-14 max-w-7xl">
+            <RelatedContentSection items={related} />
+          </div>
+        ) : null}
       </div>
     </PageShell>
     </>

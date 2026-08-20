@@ -6,6 +6,7 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { ArticleContentRenderer } from "@/components/articles/ArticleContentRenderer";
 import { ArticleShare } from "@/components/articles/ArticleShare";
+import { RelatedContentSection } from "@/components/related/RelatedContentSection";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
 import { resolveArticleSeo } from "@/lib/articles/seo";
@@ -17,8 +18,8 @@ import { articlePath } from "@/lib/articles";
 import {
   getArticleBySlug,
   getPublishedArticleSlugs,
-  getRelatedArticles,
 } from "@/lib/supabase/public-articles";
+import { getRelatedContent } from "@/lib/supabase/public-related-content";
 import { focusRing } from "@/lib/page-data";
 
 export const revalidate = 60;
@@ -79,11 +80,11 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     notFound();
   }
 
-  const related = await getRelatedArticles(
-    article.slug,
-    article.categorySlug,
-    3,
-  );
+  const related = await getRelatedContent({
+    type: "article",
+    slug: article.slug,
+    category: article.category,
+  });
 
   return (
     <>
@@ -149,35 +150,13 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           <footer className="mt-12 border-t border-hcx-border pt-8">
             <ArticleShare title={article.title} slug={article.slug} />
           </footer>
-
-          {related.length > 0 && (
-            <section className="mt-12 border-t border-hcx-border pt-10">
-              <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-hcx-cyan">
-                Related Coverage
-              </h2>
-              <ul className="mt-6 space-y-4">
-                {related.map((item) => (
-                  <li key={item.id}>
-                    <Link
-                      href={articlePath(item.slug)}
-                      className={`group block rounded-lg border border-hcx-border bg-hcx-card p-4 transition-colors hover:border-hcx-cyan/25 ${focusRing}`}
-                    >
-                      <p className="text-xs font-semibold uppercase tracking-wide text-hcx-cyan">
-                        {item.category}
-                      </p>
-                      <p className="mt-2 font-semibold text-hcx-text transition-colors group-hover:text-hcx-cyan">
-                        {item.title}
-                      </p>
-                      <p className="mt-2 text-sm text-hcx-text-secondary">
-                        {item.publishedAtFormatted} • {item.readTime}
-                      </p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </article>
+
+        {related.length > 0 ? (
+          <div className="mx-auto mt-14 max-w-7xl">
+            <RelatedContentSection items={related} />
+          </div>
+        ) : null}
       </div>
     </PageShell>
     </>
