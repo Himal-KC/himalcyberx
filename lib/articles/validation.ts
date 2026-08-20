@@ -164,26 +164,26 @@ export function resolvePublishedAt(
     return publishedAtInput || null;
   }
 
-  if (publishedAtInput) {
-    if (publishedAtInputsMatch(publishedAtInput, existingPublishedAt)) {
-      return existingPublishedAt ?? null;
+  if (!publishedAtInput) {
+    if (status === "published") {
+      return new Date().toISOString();
     }
 
-    const parsedInput = new Date(publishedAtInput);
-    if (Number.isNaN(parsedInput.getTime())) {
-      return existingPublishedAt ?? null;
+    return existingPublishedAt ?? null;
+  }
+
+  if (publishedAtInputsMatch(publishedAtInput, existingPublishedAt)) {
+    return existingPublishedAt ?? null;
+  }
+
+  const parsedInput = new Date(publishedAtInput);
+  if (Number.isNaN(parsedInput.getTime())) {
+    if (status === "published") {
+      return new Date().toISOString();
     }
 
-    return parsedInput.toISOString();
+    return existingPublishedAt ?? null;
   }
 
-  if (existingPublishedAt) {
-    return existingPublishedAt;
-  }
-
-  if (status === "published") {
-    return new Date().toISOString();
-  }
-
-  return null;
+  return parsedInput.toISOString();
 }
