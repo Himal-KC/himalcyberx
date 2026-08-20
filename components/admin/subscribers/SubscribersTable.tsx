@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { Subscriber } from "@/lib/supabase/types";
+import {
+  formatSubscriberSource,
+  getSubscriberFilterEmptyMessage,
+  type SubscriberListFilters,
+  type SubscriberSummaryCounts,
+} from "@/lib/admin/subscriber-list";
 import { SubscriberStatusBadge } from "@/components/admin/subscribers/SubscriberStatusBadge";
 import { SubscriberRowActions } from "@/components/admin/subscribers/SubscriberRowActions";
-import { focusRing } from "@/lib/page-data";
-
-type StatusFilter = "all" | "active" | "unsubscribed";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -17,53 +20,23 @@ function formatDate(value: string | null): string {
   });
 }
 
-function formatSource(source: string): string {
-  return source
-    .split(/[-_]/)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 interface SubscribersTableProps {
   subscribers: Subscriber[];
+  totalCount: number;
+  stats: SubscriberSummaryCounts;
+  filters: SubscriberListFilters;
+  hasActiveFilters: boolean;
 }
 
-export function SubscribersTable({ subscribers }: SubscribersTableProps) {
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+export function SubscribersTable({
+  subscribers,
+  totalCount,
+  stats,
+  filters,
+  hasActiveFilters,
+}: SubscribersTableProps) {
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [flashIsError, setFlashIsError] = useState(false);
-
-  const filteredSubscribers = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    return subscribers.filter((subscriber) => {
-      if (statusFilter !== "all" && subscriber.status !== statusFilter) {
-        return false;
-      }
-
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      return (
-        subscriber.email.toLowerCase().includes(normalizedQuery) ||
-        subscriber.source.toLowerCase().includes(normalizedQuery)
-      );
-    });
-  }, [query, statusFilter, subscribers]);
-
-  const stats = useMemo(
-    () => ({
-      total: subscribers.length,
-      active: subscribers.filter((subscriber) => subscriber.status === "active")
-        .length,
-      unsubscribed: subscribers.filter(
-        (subscriber) => subscriber.status === "unsubscribed",
-      ).length,
-    }),
-    [subscribers],
-  );
 
   return (
     <div className="space-y-6">
@@ -108,60 +81,23 @@ export function SubscribersTable({ subscribers }: SubscribersTableProps) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-md flex-1">
-          <label htmlFor="subscriber-search" className="sr-only">
-            Search subscribers
-          </label>
-          <input
-            id="subscriber-search"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by email or source..."
-            className={`w-full rounded-lg border border-hcx-border bg-hcx-card px-4 py-3 text-sm text-hcx-text placeholder:text-hcx-text-secondary/60 ${focusRing}`}
-          />
-        </div>
-
-        <div
-          className="flex flex-wrap gap-2"
-          role="group"
-          aria-label="Filter subscribers by status"
-        >
-          {(
-            [
-              ["all", "All"],
-              ["active", "Active"],
-              ["unsubscribed", "Unsubscribed"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setStatusFilter(value)}
-              className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${focusRing} ${
-                statusFilter === value
-                  ? "border-hcx-cyan/40 bg-hcx-cyan/10 text-hcx-cyan"
-                  : "border-hcx-border bg-hcx-card text-hcx-text-secondary hover:border-hcx-cyan/25 hover:text-hcx-cyan"
-              }`}
-              aria-pressed={statusFilter === value}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {subscribers.length === 0 ? (
+      {totalCount === 0 ? (
         <div className="rounded-xl border border-dashed border-hcx-border bg-hcx-card/50 px-6 py-16 text-center">
           <p className="text-lg font-medium text-hcx-text">No subscribers yet.</p>
           <p className="mt-2 text-sm text-hcx-text-secondary">
             Newsletter signups from the public site will appear here.
           </p>
         </div>
-      ) : filteredSubscribers.length === 0 ? (
+      ) : subscribers.length === 0 ? (
         <div className="rounded-xl border border-hcx-border bg-hcx-card px-6 py-12 text-center">
-          <p className="text-hcx-text">No subscribers match your search.</p>
+          <p className="text-hcx-text">
+            {getSubscriberFilterEmptyMessage(filters)}
+          </p>
+          {hasActiveFilters ? (
+            <p className="mt-2 text-sm text-hcx-text-secondary">
+              Try adjusting your search or filters.
+            </p>
+          ) : null}
         </div>
       ) : (
         <>
@@ -187,7 +123,7 @@ export function SubscribersTable({ subscribers }: SubscribersTableProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-hcx-border bg-hcx-card">
-                {filteredSubscribers.map((subscriber) => (
+                {subscribers.map((subscriber) => (
                   <tr key={subscriber.id} className="align-top">
                     <td className="px-4 py-4 font-medium text-hcx-text">
                       {subscriber.email}
@@ -196,7 +132,7 @@ export function SubscribersTable({ subscribers }: SubscribersTableProps) {
                       <SubscriberStatusBadge status={subscriber.status} />
                     </td>
                     <td className="px-4 py-4 text-hcx-text-secondary">
-                      {formatSource(subscriber.source)}
+                      {formatSubscriberSource(subscriber.source)}
                     </td>
                     <td className="px-4 py-4 text-hcx-text-secondary">
                       {formatDate(subscriber.subscribed_at)}
@@ -217,13 +153,13 @@ export function SubscribersTable({ subscribers }: SubscribersTableProps) {
           </div>
 
           <div className="space-y-4 md:hidden">
-            {filteredSubscribers.map((subscriber) => (
+            {subscribers.map((subscriber) => (
               <article
                 key={subscriber.id}
                 className="rounded-xl border border-hcx-border bg-hcx-card p-4"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <p className="font-medium text-hcx-text break-all">
+                  <p className="break-all font-medium text-hcx-text">
                     {subscriber.email}
                   </p>
                   <SubscriberStatusBadge status={subscriber.status} />
@@ -233,7 +169,7 @@ export function SubscribersTable({ subscribers }: SubscribersTableProps) {
                   <div>
                     <dt className="text-hcx-text-secondary">Source</dt>
                     <dd className="mt-1 text-hcx-text">
-                      {formatSource(subscriber.source)}
+                      {formatSubscriberSource(subscriber.source)}
                     </dd>
                   </div>
                   <div>

@@ -1,5 +1,14 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { SubscribersListFilters } from "@/components/admin/subscribers/SubscribersListFilters";
 import { SubscribersTable } from "@/components/admin/subscribers/SubscribersTable";
+import {
+  applySubscriberListFilters,
+  getSubscriberSourceOptions,
+  getSubscriberSummaryCounts,
+  parseSubscriberListFilters,
+  subscriberListFiltersAreActive,
+} from "@/lib/admin/subscriber-list";
 import { getAdminSubscribers } from "@/lib/supabase/admin-subscribers";
 
 export const metadata: Metadata = {
@@ -7,8 +16,19 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminSubscribersPage() {
+interface AdminSubscribersPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function AdminSubscribersPage({
+  searchParams,
+}: AdminSubscribersPageProps) {
+  const params = await searchParams;
+  const filters = parseSubscriberListFilters(params);
   const subscribers = await getAdminSubscribers();
+  const filteredSubscribers = applySubscriberListFilters(subscribers, filters);
+  const stats = getSubscriberSummaryCounts(subscribers);
+  const sources = getSubscriberSourceOptions(subscribers);
 
   return (
     <div>
@@ -24,7 +44,23 @@ export default async function AdminSubscribersPage() {
         </p>
       </div>
 
-      <SubscribersTable subscribers={subscribers} />
+      <div className="mb-6">
+        <Suspense fallback={null}>
+          <SubscribersListFilters
+            filters={filters}
+            sources={sources}
+            canExport={filteredSubscribers.length > 0}
+          />
+        </Suspense>
+      </div>
+
+      <SubscribersTable
+        subscribers={filteredSubscribers}
+        totalCount={subscribers.length}
+        stats={stats}
+        filters={filters}
+        hasActiveFilters={subscriberListFiltersAreActive(filters)}
+      />
     </div>
   );
 }
