@@ -13,7 +13,7 @@ export function PlainTextArticleContent({ content }: { content: string }) {
       {paragraphs.map((paragraph) => (
         <p
           key={paragraph.slice(0, 80)}
-          className="text-base leading-relaxed text-hcx-text/90"
+          className="break-words text-base leading-relaxed text-hcx-text/90"
         >
           {paragraph}
         </p>

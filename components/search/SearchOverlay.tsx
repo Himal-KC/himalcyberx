@@ -10,7 +10,7 @@ import {
   OVERLAY_SUGGESTED_SEARCHES,
   type GroupedSearchResults,
 } from "@/lib/search";
-import { focusRing } from "@/lib/page-data";
+import { focusRing, iconButtonClass } from "@/lib/page-data";
 
 interface SearchOverlayProps {
   open: boolean;
@@ -175,7 +175,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
           <button
             type="button"
             onClick={onClose}
-            className={`rounded-md p-2 text-hcx-text-secondary transition-colors hover:bg-hcx-bg-secondary hover:text-hcx-cyan ${focusRing}`}
+            className={`${iconButtonClass} text-hcx-text-secondary transition-colors hover:bg-hcx-bg-secondary hover:text-hcx-cyan`}
             aria-label="Close search"
           >
             <CloseIcon />
@@ -203,7 +203,11 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
           </div>
         </form>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
+        <div
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           {!canSearch && (
             <div>
               <p className="text-sm text-hcx-text-secondary">

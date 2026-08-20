@@ -23,7 +23,7 @@ export function SectionHeading({
           {label}
         </p>
       )}
-      <h2 className="text-2xl font-bold uppercase tracking-[0.08em] text-hcx-text md:text-3xl">
+      <h2 className="break-words text-2xl font-bold uppercase tracking-[0.08em] text-hcx-text md:text-3xl">
         {title}
       </h2>
       {description && (

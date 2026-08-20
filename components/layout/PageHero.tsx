@@ -26,7 +26,7 @@ export function PageHero({
           </p>
         )}
         <h1
-          className={`text-3xl font-bold uppercase tracking-[0.06em] text-hcx-text sm:text-4xl ${label ? "mt-3" : ""}`}
+          className={`break-words text-3xl font-bold uppercase tracking-[0.06em] text-hcx-text sm:text-4xl ${label ? "mt-3" : ""}`}
         >
           {title}
         </h1>

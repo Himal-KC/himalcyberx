@@ -48,7 +48,7 @@ export function AISecurityTypeFilters({ filters }: AISecurityTypeFiltersProps) {
             key={option.value}
             type="button"
             onClick={() => updateType(option.value)}
-            className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${focusRing} ${
+            className={`min-h-11 rounded-md border px-3 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors ${focusRing} ${
               active
                 ? "border-hcx-cyan/40 bg-hcx-cyan/10 text-hcx-cyan"
                 : "border-hcx-border bg-hcx-card text-hcx-text-secondary hover:border-hcx-cyan/25 hover:text-hcx-cyan"

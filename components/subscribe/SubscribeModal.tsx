@@ -10,7 +10,7 @@ import {
 } from "@/components/forms/form-ui";
 import { subscribeNewsletter } from "@/lib/actions/newsletter";
 import { INITIAL_FORM_STATE } from "@/lib/form-types";
-import { focusRing } from "@/lib/page-data";
+import { focusRing, iconButtonClass } from "@/lib/page-data";
 
 interface SubscribeModalProps {
   open: boolean;
@@ -81,7 +81,7 @@ export function SubscribeModal({ open, onClose }: SubscribeModalProps) {
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className={`rounded-md p-1.5 text-hcx-text-secondary transition-colors hover:bg-hcx-bg-secondary hover:text-hcx-cyan disabled:opacity-60 ${focusRing}`}
+            className={`${iconButtonClass} text-hcx-text-secondary transition-colors hover:bg-hcx-bg-secondary hover:text-hcx-cyan disabled:opacity-60`}
             aria-label="Close subscribe modal"
           >
             <CloseIcon />

@@ -80,6 +80,7 @@ export function Newsletter() {
                         <p
                           id="newsletter-email-error"
                           className="mt-2 text-sm text-hcx-red"
+                          role="alert"
                         >
                           {state.fieldErrors.email}
                         </p>

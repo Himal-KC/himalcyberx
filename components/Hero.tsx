@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { intelligenceCoverage } from "@/lib/sample-data";
 import { ArrowRightIcon } from "@/components/icons";
+import { intelligenceCoverage } from "@/lib/sample-data";
+import { focusRing } from "@/lib/page-data";
 
 const accentDot = {
   red: "bg-hcx-red",
@@ -214,14 +215,14 @@ export function Hero() {
           <div className="mt-6 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:flex-wrap sm:items-stretch">
             <a
               href="#latest-news"
-              className="group inline-flex items-center justify-center gap-2 rounded-lg bg-hcx-cyan px-5 py-2.5 text-sm font-semibold text-hcx-bg transition-all hover:bg-hcx-cyan/90 hover:shadow-[0_0_20px_rgba(0,217,255,0.25)] sm:px-6 sm:py-3"
+              className={`group inline-flex items-center justify-center gap-2 rounded-lg bg-hcx-cyan px-5 py-2.5 text-sm font-semibold text-hcx-bg transition-all hover:bg-hcx-cyan/90 hover:shadow-[0_0_20px_rgba(0,217,255,0.25)] sm:px-6 sm:py-3 ${focusRing}`}
             >
               Explore Latest Stories
               <ArrowRightIcon className="shrink-0 transition-transform group-hover:translate-x-0.5" />
             </a>
             <Link
               href="/cyber-lab"
-              className="inline-flex items-center justify-center rounded-lg border border-hcx-border bg-hcx-card/50 px-5 py-2.5 text-sm font-semibold text-hcx-text transition-all hover:border-hcx-cyan/30 hover:bg-hcx-card sm:px-6 sm:py-3"
+              className={`inline-flex items-center justify-center rounded-lg border border-hcx-border bg-hcx-card/50 px-5 py-2.5 text-sm font-semibold text-hcx-text transition-all hover:border-hcx-cyan/30 hover:bg-hcx-card sm:px-6 sm:py-3 ${focusRing}`}
             >
               Explore Cyber Lab
             </Link>

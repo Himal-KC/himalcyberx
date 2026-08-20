@@ -59,7 +59,7 @@ export function ContactForm() {
                 className={`mt-2 ${formInputClass} disabled:cursor-not-allowed disabled:opacity-60`}
               />
               {state.fieldErrors?.name && (
-                <p id="contact-name-error" className={formErrorClass}>
+                <p id="contact-name-error" className={formErrorClass} role="alert">
                   {state.fieldErrors.name}
                 </p>
               )}
@@ -83,7 +83,7 @@ export function ContactForm() {
                 className={`mt-2 ${formInputClass} disabled:cursor-not-allowed disabled:opacity-60`}
               />
               {state.fieldErrors?.email && (
-                <p id="contact-email-error" className={formErrorClass}>
+                <p id="contact-email-error" className={formErrorClass} role="alert">
                   {state.fieldErrors.email}
                 </p>
               )}
@@ -110,7 +110,7 @@ export function ContactForm() {
                 className={`mt-2 ${formInputClass} disabled:cursor-not-allowed disabled:opacity-60`}
               />
               {state.fieldErrors?.subject && (
-                <p id="contact-subject-error" className={formErrorClass}>
+                <p id="contact-subject-error" className={formErrorClass} role="alert">
                   {state.fieldErrors.subject}
                 </p>
               )}
@@ -137,7 +137,7 @@ export function ContactForm() {
                 className={`mt-2 resize-y ${formInputClass} disabled:cursor-not-allowed disabled:opacity-60`}
               />
               {state.fieldErrors?.message && (
-                <p id="contact-message-error" className={formErrorClass}>
+                <p id="contact-message-error" className={formErrorClass} role="alert">
                   {state.fieldErrors.message}
                 </p>
               )}

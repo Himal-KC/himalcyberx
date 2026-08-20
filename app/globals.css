@@ -40,6 +40,27 @@ body {
   background: var(--hcx-bg);
   color: var(--hcx-text);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  overflow-x: clip;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-pulse-dot,
+  .animate-radar-sweep {
+    animation: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @keyframes pulse-dot {
@@ -182,6 +203,8 @@ body {
   color: var(--hcx-cyan);
   text-decoration: underline;
   text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .article-content a:hover,
@@ -197,12 +220,16 @@ body {
   font-family: var(--font-mono);
   font-size: 0.875rem;
   color: var(--hcx-cyan);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .article-content pre,
 .article-editor-content pre {
   margin: 1.5rem 0;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 0.5rem;
   border: 1px solid var(--hcx-border);
   background: var(--hcx-bg-secondary);
@@ -215,6 +242,43 @@ body {
   font-size: 0.875rem;
   line-height: 1.7;
   color: var(--hcx-green);
+  white-space: pre;
+}
+
+.article-content table,
+.article-editor-content table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-collapse: collapse;
+}
+
+.article-content th,
+.article-content td,
+.article-editor-content th,
+.article-editor-content td {
+  border: 1px solid var(--hcx-border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.article-content th,
+.article-editor-content th {
+  background: var(--hcx-bg-secondary);
+  color: var(--hcx-text);
+  font-weight: 600;
+}
+
+.article-content h2,
+.article-content h3,
+.article-editor-content h2,
+.article-editor-content h3 {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .article-editor-content:focus {

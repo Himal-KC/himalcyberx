@@ -177,7 +177,7 @@ export function Footer({ settings: settingsProp }: FooterProps) {
                 <p className="mt-4 text-sm text-hcx-text-secondary">
                   <a
                     href={`mailto:${settings.contactEmail}`}
-                    className={`text-hcx-cyan hover:underline ${focusRing}`}
+                    className={`break-all text-hcx-cyan hover:underline ${focusRing}`}
                   >
                     {settings.contactEmail}
                   </a>

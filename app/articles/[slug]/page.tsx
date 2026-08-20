@@ -108,7 +108,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               {article.category}
             </Link>
 
-            <h1 className="mt-4 text-3xl font-bold leading-tight text-hcx-text sm:text-4xl lg:text-[2.5rem]">
+            <h1 className="mt-4 break-words text-3xl font-bold leading-tight text-hcx-text sm:text-4xl lg:text-[2.5rem]">
               {article.title}
             </h1>
 

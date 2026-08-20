@@ -134,7 +134,7 @@ export default async function TutorialDetailPage({ params }: TutorialPageProps) 
               )}
             </div>
 
-            <h1 className="mt-4 text-3xl font-bold leading-tight text-hcx-text sm:text-4xl">
+            <h1 className="mt-4 break-words text-3xl font-bold leading-tight text-hcx-text sm:text-4xl">
               {tutorial.title}
             </h1>
 

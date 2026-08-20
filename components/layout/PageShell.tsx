@@ -18,7 +18,7 @@ export async function PageShell({
   return (
     <>
       <Header />
-      <main>{children}</main>
+      <main id="main-content">{children}</main>
       {showNewsletter && <Newsletter />}
       <Footer settings={settings} />
     </>

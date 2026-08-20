@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { SubscribeButton } from "@/components/subscribe/SubscribeButton";
 import { navLinks } from "@/lib/sample-data";
 import { CloseIcon, HCXLogoIcon, MenuIcon, SearchIcon } from "@/components/icons";
-import { focusRing } from "@/lib/page-data";
+import { focusRing, iconButtonClass } from "@/lib/page-data";
 
 function isNavActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
@@ -29,6 +29,21 @@ export function Header() {
   const handleSearchClick = () => {
     setSearchOpen(true);
   };
+
+  useEffect(() => {
+    if (!mobileOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [mobileOpen]);
 
   return (
     <>
@@ -67,11 +82,11 @@ export function Header() {
             ))}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={handleSearchClick}
-              className={`rounded-md p-2 text-hcx-text-secondary transition-colors hover:bg-hcx-card/80 hover:text-hcx-cyan ${focusRing}`}
+              className={`${iconButtonClass} text-hcx-text-secondary transition-colors hover:bg-hcx-card/80 hover:text-hcx-cyan`}
               aria-label="Search"
             >
               <SearchIcon />
@@ -85,9 +100,10 @@ export function Header() {
 
             <button
               type="button"
-              className={`rounded-md p-2 text-hcx-text-secondary transition-colors hover:bg-hcx-card/80 hover:text-hcx-cyan lg:hidden ${focusRing}`}
+              className={`${iconButtonClass} text-hcx-text-secondary transition-colors hover:bg-hcx-card/80 hover:text-hcx-cyan lg:hidden`}
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileOpen}
+              aria-controls="mobile-navigation"
               onClick={() => setMobileOpen(!mobileOpen)}
             >
               {mobileOpen ? <CloseIcon /> : <MenuIcon />}
@@ -97,6 +113,7 @@ export function Header() {
 
         {mobileOpen && (
           <nav
+            id="mobile-navigation"
             className="border-t border-hcx-border/80 bg-hcx-bg-secondary/95 px-4 py-3 backdrop-blur-lg lg:hidden"
             aria-label="Mobile navigation"
           >
@@ -107,7 +124,7 @@ export function Header() {
                   <li key={link.label}>
                     <Link
                       href={link.href}
-                      className={`block rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-hcx-card ${focusRing} ${
+                      className={`block min-h-11 rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-hcx-card ${focusRing} ${
                         active
                           ? "text-hcx-cyan"
                           : "text-hcx-text-secondary hover:text-hcx-cyan"
@@ -123,7 +140,7 @@ export function Header() {
               <li>
                 <Link
                   href="/search"
-                  className={`block rounded-md px-3 py-2.5 text-sm text-hcx-text-secondary transition-colors hover:bg-hcx-card hover:text-hcx-cyan ${focusRing}`}
+                  className={`block min-h-11 rounded-md px-3 py-2.5 text-sm text-hcx-text-secondary transition-colors hover:bg-hcx-card hover:text-hcx-cyan ${focusRing}`}
                   onClick={() => setMobileOpen(false)}
                 >
                   Search

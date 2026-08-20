@@ -3,6 +3,8 @@ import { articleToCard, getArticleBySlug, getPublicArticles } from "@/lib/articl
 export const focusRing =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hcx-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-hcx-bg";
 
+export const iconButtonClass = `inline-flex h-11 w-11 items-center justify-center rounded-md ${focusRing}`;
+
 export const newsCategories = [
   "All",
   "Threat Intelligence",

@@ -26,7 +26,7 @@ export function ArticleFeaturedVisual({
       <img
         src={featured_image}
         alt={title}
-        className={`w-full object-cover ${className}`}
+        className={`w-full max-w-full object-cover ${className}`}
         onError={() => setImageError(true)}
       />
     );

@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { signIn, type AuthActionState } from "@/lib/actions/auth";
 import { EyeIcon, EyeOffIcon } from "@/components/icons";
-import { focusRing } from "@/lib/page-data";
+import { focusRing, iconButtonClass } from "@/lib/page-data";
 
 const INITIAL_STATE: AuthActionState = {};
 
@@ -70,13 +70,13 @@ export function AdminLoginForm({
               autoComplete="current-password"
               disabled={isPending}
               aria-invalid={Boolean(state.error)}
-              className={`pl-4 pr-11 ${adminInputClass}`}
+              className={`pl-4 pr-14 ${adminInputClass}`}
             />
             <button
               type="button"
               onClick={() => setShowPassword((current) => !current)}
               disabled={isPending}
-              className={`absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-[#94A3B8] transition-colors hover:text-[#00D9FF] disabled:cursor-not-allowed disabled:opacity-60 ${focusRing}`}
+              className={`${iconButtonClass} absolute right-1 top-1/2 -translate-y-1/2 text-[#94A3B8] transition-colors hover:text-[#00D9FF] disabled:cursor-not-allowed disabled:opacity-60`}
               aria-label={showPassword ? "Hide password" : "Show password"}
               aria-pressed={showPassword}
               aria-controls="admin-password"
