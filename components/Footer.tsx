@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { FooterNewsletter } from "@/components/footer/FooterNewsletter";
 import { GitHubIcon, LinkedInIcon, XIcon } from "@/components/icons";
 import {
   footerCompanyLinks,
@@ -94,8 +93,8 @@ export function Footer({ settings: settingsProp }: FooterProps) {
   return (
     <footer className="border-t border-hcx-border bg-hcx-bg-secondary">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
-        <div className="grid gap-10 lg:grid-cols-12 lg:gap-8">
-          <div className="lg:col-span-4">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+          <div className="sm:col-span-2 lg:col-span-1">
             <Link
               href="/"
               className={`inline-block text-xl font-bold tracking-tight ${focusRing}`}
@@ -114,84 +113,78 @@ export function Footer({ settings: settingsProp }: FooterProps) {
               )}
           </div>
 
-          <div className="grid gap-8 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-3">
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-hcx-text">
-                Explore
-              </h3>
-              <ul className="mt-4 space-y-2.5">
-                {footerExploreLinks.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-hcx-text">
-                Company / Platform
-              </h3>
-              <ul className="mt-4 space-y-2.5">
-                {footerCompanyLinks.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {(socialLinks.length > 0 || settings.contactEmail) && (
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-hcx-text">
-                  Connect
-                </h3>
-                {socialLinks.length > 0 && (
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
-                    {socialLinks.map((social) => {
-                      const Icon = social.icon;
-                      return (
-                        <a
-                          key={social.label}
-                          href={social.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`flex h-10 w-10 items-center justify-center rounded-lg border border-hcx-border text-hcx-text-secondary transition-all hover:border-hcx-cyan/30 hover:text-hcx-cyan ${focusRing}`}
-                          aria-label={social.label}
-                        >
-                          <Icon />
-                        </a>
-                      );
-                    })}
-                  </div>
-                )}
-                {settings.contactEmail && (
-                  <p className="mt-4 text-sm text-hcx-text-secondary">
-                    <a
-                      href={`mailto:${settings.contactEmail}`}
-                      className={`text-hcx-cyan hover:underline ${focusRing}`}
-                    >
-                      {settings.contactEmail}
-                    </a>
-                  </p>
-                )}
-              </div>
-            )}
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-hcx-text">
+              Explore
+            </h3>
+            <ul className="mt-4 space-y-2.5">
+              {footerExploreLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
 
-          <div className="lg:col-span-3">
-            <FooterNewsletter />
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-hcx-text">
+              Company / Platform
+            </h3>
+            <ul className="mt-4 space-y-2.5">
+              {footerCompanyLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className={`text-sm text-hcx-text-secondary transition-colors hover:text-hcx-cyan ${focusRing}`}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
+
+          {(socialLinks.length > 0 || settings.contactEmail) && (
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-hcx-text">
+                Connect
+              </h3>
+              {socialLinks.length > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  {socialLinks.map((social) => {
+                    const Icon = social.icon;
+                    return (
+                      <a
+                        key={social.label}
+                        href={social.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex h-10 w-10 items-center justify-center rounded-lg border border-hcx-border text-hcx-text-secondary transition-all hover:border-hcx-cyan/30 hover:text-hcx-cyan ${focusRing}`}
+                        aria-label={social.label}
+                      >
+                        <Icon />
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+              {settings.contactEmail && (
+                <p className="mt-4 text-sm text-hcx-text-secondary">
+                  <a
+                    href={`mailto:${settings.contactEmail}`}
+                    className={`text-hcx-cyan hover:underline ${focusRing}`}
+                  >
+                    {settings.contactEmail}
+                  </a>
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-hcx-border pt-8 sm:flex-row sm:items-center sm:justify-between">

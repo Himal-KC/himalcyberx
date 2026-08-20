@@ -12,8 +12,8 @@ export const navLinks = [
   { label: "Cyber Lab", href: "/cyber-lab" },
   { label: "Forensics", href: "/forensics" },
   { label: "Tutorials", href: "/tutorials" },
-  { label: "About", href: "/about" },
   { label: "AI Security", href: "/ai-security" },
+  { label: "About", href: "/about" },
 ] as const;
 
 export const securityUpdateMessage =
