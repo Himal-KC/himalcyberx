@@ -20,7 +20,7 @@ export function Newsletter() {
   return (
     <section
       id="newsletter"
-      className="py-16 md:py-20"
+      className="border-b border-hcx-border py-10 md:py-12 lg:py-14"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="relative overflow-hidden rounded-2xl border border-hcx-border bg-hcx-card">
@@ -33,15 +33,15 @@ export function Newsletter() {
             }}
           />
 
-          <div className="relative grid gap-8 p-8 md:grid-cols-2 md:items-center md:p-12 lg:p-14">
+          <div className="relative grid gap-6 p-6 md:grid-cols-2 md:items-center md:gap-8 md:p-8 lg:p-10">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-hcx-cyan">
                 Newsletter
               </p>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight text-hcx-text md:text-4xl">
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-hcx-text md:mt-3 md:text-3xl lg:text-4xl">
                 Stay Ahead of the Threat
               </h2>
-              <p className="mt-4 text-hcx-text-secondary leading-relaxed">
+              <p className="mt-3 text-hcx-text-secondary leading-relaxed md:mt-4">
                 Weekly cybersecurity intelligence, research and practical
                 security guides.
               </p>

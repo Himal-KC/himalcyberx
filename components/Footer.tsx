@@ -92,7 +92,7 @@ export function Footer({ settings: settingsProp }: FooterProps) {
 
   return (
     <footer className="border-t border-hcx-border bg-hcx-bg-secondary">
-      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
           <div className="sm:col-span-2 lg:col-span-1">
             <Link

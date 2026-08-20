@@ -1,51 +1,51 @@
-import {
-  getStaticThreatResearchFallback,
-  mergeArticlesWithFallback,
-} from "@/lib/articles/static-fallback";
 import type { PublicArticleCard } from "@/lib/supabase/public-articles";
-import {
-  isThreatCategoryArticle,
-} from "@/lib/supabase/public-articles";
+import { isThreatCategoryArticle } from "@/lib/supabase/public-articles";
 
-export const THREAT_SECTION_DEFINITIONS = [
+export const THREAT_TOPIC_CARDS = [
   {
-    slug: "threat-intelligence",
-    title: "Threat Intelligence",
-    keywords: ["threat intelligence"],
+    category: "Ransomware",
+    title: "Ransomware Operations",
+    description:
+      "Analysis of ransomware campaigns, extortion tactics, infrastructure and defensive strategies.",
+    label: "Threat Research",
+    accent: "red" as const,
+    icon: "ransomware" as const,
+    categoryFilter: "ransomware",
   },
   {
-    slug: "ransomware",
-    title: "Ransomware",
-    keywords: ["ransomware"],
+    category: "Malware",
+    title: "Malware Research",
+    description:
+      "Technical analysis of malicious software, delivery techniques and evolving malware families.",
+    label: "Malware Analysis",
+    accent: "cyan" as const,
+    icon: "malware" as const,
+    categoryFilter: "malware",
   },
   {
-    slug: "malware",
-    title: "Malware",
-    keywords: ["malware"],
+    category: "Phishing",
+    title: "Phishing & Social Engineering",
+    description:
+      "Research into credential theft, impersonation, social engineering and modern phishing campaigns.",
+    label: "Social Engineering",
+    accent: "orange" as const,
+    icon: "phishing" as const,
+    categoryFilter: "phishing",
   },
   {
-    slug: "phishing",
-    title: "Phishing",
-    keywords: ["phishing"],
-  },
-  {
-    slug: "threat-actor-research",
-    title: "Threat Actor Research",
-    keywords: ["threat actor", "apt"],
+    category: "APT Groups",
+    title: "Threat Actors / APT Groups",
+    description:
+      "Analysis of sophisticated threat actors, long-term campaigns and targeted cyber operations.",
+    label: "Threat Actor Research",
+    accent: "green" as const,
+    icon: "apt" as const,
+    categoryFilter: "threat-actor-research",
   },
 ] as const;
 
-function matchesThreatSection(
-  article: PublicArticleCard,
-  section: (typeof THREAT_SECTION_DEFINITIONS)[number],
-): boolean {
-  const slug = article.categorySlug?.toLowerCase() ?? "";
-  if (slug === section.slug) {
-    return true;
-  }
-
-  const category = article.category.toLowerCase();
-  return section.keywords.some((keyword) => category.includes(keyword));
+export function getThreatTopicHref(categoryFilter: string): string {
+  return `/news?category=${encodeURIComponent(categoryFilter)}`;
 }
 
 export function filterThreatArticles(
@@ -54,47 +54,8 @@ export function filterThreatArticles(
   return articles.filter(isThreatCategoryArticle);
 }
 
-export function buildThreatResearchList(
-  dbArticles: PublicArticleCard[],
-  limit = 8,
+export function getThreatAnalysisArticles(
+  articles: PublicArticleCard[],
 ): PublicArticleCard[] {
-  const threatArticles = filterThreatArticles(dbArticles);
-  return mergeArticlesWithFallback(
-    threatArticles,
-    getStaticThreatResearchFallback(),
-    limit,
-  );
-}
-
-export interface ThreatSectionArticles {
-  slug: string;
-  title: string;
-  articles: PublicArticleCard[];
-}
-
-export function buildThreatSections(
-  dbArticles: PublicArticleCard[],
-  articlesPerSection = 2,
-): ThreatSectionArticles[] {
-  const threatArticles = filterThreatArticles(dbArticles);
-  const staticFallback = getStaticThreatResearchFallback();
-
-  return THREAT_SECTION_DEFINITIONS.map((section) => {
-    const sectionDbArticles = threatArticles.filter((article) =>
-      matchesThreatSection(article, section),
-    );
-    const sectionStaticFallback = staticFallback.filter((article) =>
-      matchesThreatSection(article, section),
-    );
-
-    return {
-      slug: section.slug,
-      title: section.title,
-      articles: mergeArticlesWithFallback(
-        sectionDbArticles,
-        sectionStaticFallback,
-        articlesPerSection,
-      ),
-    };
-  });
+  return filterThreatArticles(articles);
 }
