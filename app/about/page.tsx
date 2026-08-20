@@ -7,9 +7,9 @@ import { buildPageMetadata } from "@/lib/seo/metadata";
 import { getSiteSettings } from "@/lib/settings/site-settings";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "About",
+  title: "About HimalCyberX | Cybersecurity Research & Learning",
   description:
-    "Learn about HimalCyberX, an independent cybersecurity platform focused on threat intelligence, security research, digital forensics and practical cyber education.",
+    "Learn about HimalCyberX, an independent platform for cybersecurity research, threat intelligence, digital forensics, hands-on labs and practical security education.",
   path: "/about",
 });
 
@@ -17,12 +17,14 @@ export default async function AboutPage() {
   const settings = await getSiteSettings();
 
   return (
-    <PageShell showNewsletter={false}>
+    <PageShell>
       <Breadcrumb items={[{ label: "About" }]} />
       <PageHero
-        label="Platform"
-        title={`ABOUT ${settings.siteName.toUpperCase()}`}
-        description="Independent cybersecurity research, threat intelligence and practical security education."
+        label="About HimalCyberX"
+        title="Cybersecurity Research, Learning & Practical Security"
+        description="HimalCyberX is an independent cybersecurity platform focused on practical security education, threat research and hands-on technical learning."
+        supportingText="Built to make cybersecurity knowledge clear, practical and accessible."
+        compact
       />
       <AboutContent settings={settings} />
     </PageShell>
