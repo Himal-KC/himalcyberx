@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 
 const ALLOWED_TAGS = [
   "p",
@@ -18,32 +18,39 @@ const ALLOWED_TAGS = [
   "br",
 ];
 
-const ALLOWED_ATTR = ["href", "target", "rel"];
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: ALLOWED_TAGS,
+  allowedAttributes: {
+    a: ["href", "target", "rel"],
+  },
+  allowedSchemes: ["http", "https", "mailto"],
+  allowedSchemesByTag: {
+    a: ["http", "https", "mailto"],
+  },
+  allowProtocolRelative: false,
+  transformTags: {
+    a: (_tagName, attribs) => {
+      const href = attribs.href ?? "";
+      const nextAttribs: Record<string, string> = {
+        rel: "noopener noreferrer",
+      };
 
-function hardenArticleLinks(): void {
-  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-    if (node.tagName !== "A") {
-      return;
-    }
+      if (href) {
+        nextAttribs.href = href;
+      }
 
-    node.setAttribute("rel", "noopener noreferrer");
+      if (/^https?:\/\//i.test(href)) {
+        nextAttribs.target = "_blank";
+      }
 
-    const href = node.getAttribute("href");
-    if (href && /^https?:\/\//i.test(href)) {
-      node.setAttribute("target", "_blank");
-    }
-  });
-}
+      return {
+        tagName: "a",
+        attribs: nextAttribs,
+      };
+    },
+  },
+};
 
 export function sanitizeArticleHtml(html: string): string {
-  hardenArticleLinks();
-
-  const sanitized = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-  });
-
-  DOMPurify.removeHook("afterSanitizeAttributes");
-
-  return sanitized;
+  return sanitizeHtml(html, SANITIZE_OPTIONS);
 }
