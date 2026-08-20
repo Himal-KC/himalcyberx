@@ -302,7 +302,7 @@ export const footerLinks = {
     { label: "Latest from HCX", href: "/news" },
     { label: "Threat Intelligence", href: "/threats" },
     { label: "Vulnerability Watch", href: "/vulnerabilities" },
-    { label: "Trending", href: "/#trending" },
+    { label: "Trending", href: "/#latest-news" },
   ],
   cyberLab: [
     { label: "Network Security", href: "/cyber-lab" },
