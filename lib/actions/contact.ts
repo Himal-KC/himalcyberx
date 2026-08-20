@@ -17,6 +17,9 @@ import {
 } from "@/lib/form-validation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createPublicServerClient } from "@/lib/supabase/public-server";
+import { getClientIp } from "@/lib/rate-limit/client-ip";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { RATE_LIMIT_MESSAGES } from "@/lib/rate-limit/messages";
 import {
   formatDevErrorMessage,
   isDevelopment,
@@ -80,6 +83,15 @@ export async function submitContactForm(
       success: false,
       message: "Please correct the errors below and try again.",
       fieldErrors,
+    };
+  }
+
+  const clientIp = await getClientIp();
+  const allowed = await enforceRateLimit("contact", clientIp);
+  if (!allowed) {
+    return {
+      success: false,
+      message: RATE_LIMIT_MESSAGES.contact,
     };
   }
 

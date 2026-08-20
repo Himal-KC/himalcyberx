@@ -68,8 +68,22 @@ export function Newsletter() {
                         autoComplete="email"
                         placeholder="you@company.com"
                         disabled={isPending}
+                        aria-invalid={Boolean(state.fieldErrors?.email)}
+                        aria-describedby={
+                          state.fieldErrors?.email
+                            ? "newsletter-email-error"
+                            : undefined
+                        }
                         className={`${formInputClass} disabled:cursor-not-allowed disabled:opacity-60`}
                       />
+                      {state.fieldErrors?.email ? (
+                        <p
+                          id="newsletter-email-error"
+                          className="mt-2 text-sm text-hcx-red"
+                        >
+                          {state.fieldErrors.email}
+                        </p>
+                      ) : null}
                     </div>
                     <button
                       type="submit"

@@ -17,6 +17,16 @@ export function isArticlePubliclyAvailable(
   return new Date(article.published_at).getTime() <= now.getTime();
 }
 
+export function isPublishedAtPubliclyAvailable(
+  publishedAt: string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!publishedAt) {
+    return true;
+  }
+
+  return new Date(publishedAt).getTime() <= now.getTime();
+}
 export function isArticleScheduled(
   article: PublishTimingFields,
   now: Date = new Date(),

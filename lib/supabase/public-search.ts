@@ -1,6 +1,6 @@
 import { articlePath } from "@/lib/articles";
 import { formatArticleDate } from "@/lib/articles";
-import { isArticlePubliclyAvailable } from "@/lib/articles/publishing";
+import { isArticlePubliclyAvailable, isPublishedAtPubliclyAvailable } from "@/lib/articles/publishing";
 import type {
   GroupedSearchResults,
   SearchResult,
@@ -235,12 +235,14 @@ async function searchLabs(
     return [];
   }
 
-  const filtered = ((data ?? []) as Lab[]).filter((row) =>
-    matchesAllTerms(
-      [row.title, row.description, row.category, row.slug],
-      terms,
-    ),
-  );
+  const filtered = ((data ?? []) as Lab[])
+    .filter((row) => isPublishedAtPubliclyAvailable(row.published_at))
+    .filter((row) =>
+      matchesAllTerms(
+        [row.title, row.description, row.category, row.slug],
+        terms,
+      ),
+    );
 
   const sorted = sortByPublishedAt(filtered);
   const sliced = typeof limit === "number" ? sorted.slice(0, limit) : sorted;
@@ -268,12 +270,14 @@ async function searchTutorials(
     return [];
   }
 
-  const filtered = ((data ?? []) as Tutorial[]).filter((row) =>
-    matchesAllTerms(
-      [row.title, row.description, row.category, row.slug],
-      terms,
-    ),
-  );
+  const filtered = ((data ?? []) as Tutorial[])
+    .filter((row) => isPublishedAtPubliclyAvailable(row.published_at))
+    .filter((row) =>
+      matchesAllTerms(
+        [row.title, row.description, row.category, row.slug],
+        terms,
+      ),
+    );
 
   const sorted = sortByPublishedAt(filtered);
   const sliced = typeof limit === "number" ? sorted.slice(0, limit) : sorted;

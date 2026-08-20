@@ -15,6 +15,8 @@
     "@tiptap/extension-link": "^3.30.2",
     "@tiptap/react": "^3.30.2",
     "@tiptap/starter-kit": "^3.30.2",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.2",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { intelligenceCoverage } from "@/lib/sample-data";
 import { ArrowRightIcon } from "@/components/icons";
 
@@ -218,12 +219,12 @@ export function Hero() {
               Explore Latest Stories
               <ArrowRightIcon className="shrink-0 transition-transform group-hover:translate-x-0.5" />
             </a>
-            <a
-              href="#cyber-lab"
+            <Link
+              href="/cyber-lab"
               className="inline-flex items-center justify-center rounded-lg border border-hcx-border bg-hcx-card/50 px-5 py-2.5 text-sm font-semibold text-hcx-text transition-all hover:border-hcx-cyan/30 hover:bg-hcx-card sm:px-6 sm:py-3"
             >
               Explore Cyber Lab
-            </a>
+            </Link>
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-hcx-border/60 pt-5 text-[11px] font-medium uppercase tracking-wider text-hcx-text-secondary sm:text-xs">

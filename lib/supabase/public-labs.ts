@@ -1,7 +1,8 @@
 import { formatArticleDate } from "@/lib/articles";
+import { isPublishedAtPubliclyAvailable } from "@/lib/articles/publishing";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { logQueryError } from "@/lib/supabase/errors";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicServerClient } from "@/lib/supabase/public-server";
 import type { Lab, LabDifficulty } from "@/lib/supabase/types";
 
 const PUBLISHED = "published" as const;
@@ -73,7 +74,7 @@ export async function getPublishedLabs(): Promise<PublicLabCard[]> {
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = createPublicServerClient();
     const { data, error } = await supabase
       .from("labs")
       .select(
@@ -87,7 +88,9 @@ export async function getPublishedLabs(): Promise<PublicLabCard[]> {
       return [];
     }
 
-    return ((data ?? []) as Lab[]).map(mapPublicLabCard);
+    return ((data ?? []) as Lab[])
+      .filter((row) => isPublishedAtPubliclyAvailable(row.published_at))
+      .map(mapPublicLabCard);
   } catch {
     return [];
   }
@@ -113,7 +116,7 @@ export async function getLabBySlug(
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = createPublicServerClient();
     const { data, error } = await supabase
       .from("labs")
       .select("*")
@@ -126,7 +129,7 @@ export async function getLabBySlug(
       return null;
     }
 
-    if (!data) {
+    if (!data || !isPublishedAtPubliclyAvailable(data.published_at)) {
       return null;
     }
 

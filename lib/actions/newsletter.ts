@@ -9,7 +9,10 @@ import {
 } from "@/lib/form-validation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { isRlsError, logQueryError } from "@/lib/supabase/errors";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicServerClient } from "@/lib/supabase/public-server";
+import { getClientIp } from "@/lib/rate-limit/client-ip";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { RATE_LIMIT_MESSAGES } from "@/lib/rate-limit/messages";
 
 const SUCCESS_MESSAGE = "You're subscribed to HimalCyberX.";
 const DUPLICATE_MESSAGE =
@@ -65,8 +68,17 @@ export async function subscribeNewsletter(
     };
   }
 
+  const clientIp = await getClientIp();
+  const allowed = await enforceRateLimit("newsletter", clientIp);
+  if (!allowed) {
+    return {
+      success: false,
+      message: RATE_LIMIT_MESSAGES.newsletter,
+    };
+  }
+
   try {
-    const supabase = await createClient();
+    const supabase = createPublicServerClient();
     const { error } = await supabase.from("subscribers").insert({
       email,
       status: "active",

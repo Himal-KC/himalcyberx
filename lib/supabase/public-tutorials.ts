@@ -1,7 +1,8 @@
 import { formatArticleDate } from "@/lib/articles";
+import { isPublishedAtPubliclyAvailable } from "@/lib/articles/publishing";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { logQueryError } from "@/lib/supabase/errors";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicServerClient } from "@/lib/supabase/public-server";
 import type { Tutorial, TutorialDifficulty } from "@/lib/supabase/types";
 
 const PUBLISHED = "published" as const;
@@ -71,7 +72,7 @@ export async function getPublishedTutorials(): Promise<PublicTutorialCard[]> {
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = createPublicServerClient();
     const { data, error } = await supabase
       .from("tutorials")
       .select(
@@ -85,7 +86,9 @@ export async function getPublishedTutorials(): Promise<PublicTutorialCard[]> {
       return [];
     }
 
-    return ((data ?? []) as Tutorial[]).map(mapPublicTutorialCard);
+    return ((data ?? []) as Tutorial[])
+      .filter((row) => isPublishedAtPubliclyAvailable(row.published_at))
+      .map(mapPublicTutorialCard);
   } catch {
     return [];
   }
@@ -106,7 +109,7 @@ export async function getTutorialBySlug(
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = createPublicServerClient();
     const { data, error } = await supabase
       .from("tutorials")
       .select("*")
@@ -119,7 +122,7 @@ export async function getTutorialBySlug(
       return null;
     }
 
-    if (!data) {
+    if (!data || !isPublishedAtPubliclyAvailable(data.published_at)) {
       return null;
     }
 

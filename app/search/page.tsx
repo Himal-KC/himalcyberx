@@ -11,6 +11,7 @@ export const metadata: Metadata = buildPageMetadata({
   description:
     "Search published cybersecurity articles, cyber labs and tutorials on HimalCyberX.",
   path: "/search",
+  noIndex: true,
 });
 
 export const dynamic = "force-dynamic";
