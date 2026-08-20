@@ -1,16 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { updateMessageStatus } from "@/lib/actions/messages";
+import {
+  getMessageFilterEmptyMessage,
+  messageListFiltersAreActive,
+  parseMessageListFilters,
+  type MessageStatusFilter,
+} from "@/lib/admin/message-list";
 import { ArchiveMessageButton } from "@/components/admin/messages/ArchiveMessageButton";
 import { MessageRowActions } from "@/components/admin/messages/MessageRowActions";
 import { MessageStatusBadge } from "@/components/admin/messages/MessageStatusBadge";
 import { PlainTextMessageContent } from "@/components/admin/messages/PlainTextMessageContent";
 import type { Message, MessageStatus } from "@/lib/supabase/types";
 import { focusRing } from "@/lib/page-data";
-
-type StatusFilter = "all" | MessageStatus;
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -29,12 +33,38 @@ interface MessagesManagerProps {
 
 export function MessagesManager({ messages }: MessagesManagerProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const statusFilter = parseMessageListFilters({
+    status: searchParams.get("status") ?? undefined,
+  }).status;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [flashIsError, setFlashIsError] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  function setStatusFilter(status: MessageStatusFilter) {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (status === "all") {
+      params.delete("status");
+    } else {
+      params.set("status", status);
+    }
+
+    const nextQuery = params.toString();
+    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+  }
+
+  function resetFilters() {
+    setQuery("");
+    router.push(pathname);
+  }
+
+  const hasActiveFilters =
+    messageListFiltersAreActive({ status: statusFilter }) ||
+    Boolean(query.trim());
 
   const filteredMessages = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -165,33 +195,45 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
           />
         </div>
 
-        <div
-          className="flex flex-wrap gap-2"
-          role="group"
-          aria-label="Filter messages by status"
-        >
-          {(
-            [
-              ["all", "All"],
-              ["new", "New"],
-              ["read", "Read"],
-              ["archived", "Archived"],
-            ] as const
-          ).map(([value, label]) => (
+        <div className="flex flex-wrap items-center gap-3">
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label="Filter messages by status"
+          >
+            {(
+              [
+                ["all", "All"],
+                ["new", "New"],
+                ["read", "Read"],
+                ["archived", "Archived"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatusFilter(value)}
+                className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${focusRing} ${
+                  statusFilter === value
+                    ? "border-hcx-cyan/40 bg-hcx-cyan/10 text-hcx-cyan"
+                    : "border-hcx-border bg-hcx-card text-hcx-text-secondary hover:border-hcx-cyan/25 hover:text-hcx-cyan"
+                }`}
+                aria-pressed={statusFilter === value}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {hasActiveFilters ? (
             <button
-              key={value}
               type="button"
-              onClick={() => setStatusFilter(value)}
-              className={`rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${focusRing} ${
-                statusFilter === value
-                  ? "border-hcx-cyan/40 bg-hcx-cyan/10 text-hcx-cyan"
-                  : "border-hcx-border bg-hcx-card text-hcx-text-secondary hover:border-hcx-cyan/25 hover:text-hcx-cyan"
-              }`}
-              aria-pressed={statusFilter === value}
+              onClick={resetFilters}
+              className={`text-sm font-medium text-hcx-cyan hover:underline ${focusRing}`}
             >
-              {label}
+              Reset Filters
             </button>
-          ))}
+          ) : null}
         </div>
       </div>
 
@@ -204,7 +246,17 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
         </div>
       ) : filteredMessages.length === 0 ? (
         <div className="rounded-xl border border-hcx-border bg-hcx-card px-6 py-12 text-center">
-          <p className="text-hcx-text">No messages match your search.</p>
+          <p className="text-hcx-text">
+            {getMessageFilterEmptyMessage(
+              statusFilter,
+              Boolean(query.trim()),
+            )}
+          </p>
+          {hasActiveFilters ? (
+            <p className="mt-2 text-sm text-hcx-text-secondary">
+              Try adjusting your search or filters.
+            </p>
+          ) : null}
         </div>
       ) : (
         <>

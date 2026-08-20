@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { MessagesManager } from "@/components/admin/messages/MessagesManager";
 import { getAdminMessages } from "@/lib/supabase/admin-messages";
 
@@ -24,7 +25,9 @@ export default async function AdminMessagesPage() {
         </p>
       </div>
 
-      <MessagesManager messages={messages} />
+      <Suspense fallback={null}>
+        <MessagesManager messages={messages} />
+      </Suspense>
     </div>
   );
 }

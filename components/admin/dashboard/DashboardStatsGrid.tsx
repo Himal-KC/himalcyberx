@@ -26,7 +26,7 @@ const statCards: Array<{
   { key: "labs", label: "Cyber Labs", href: "/admin/labs" },
   { key: "tutorials", label: "Tutorials", href: "/admin/tutorials" },
   { key: "subscribers", label: "Subscribers", href: "/admin/subscribers" },
-  { key: "newMessages", label: "New Messages", href: "/admin/messages" },
+  { key: "newMessages", label: "New Messages", href: "/admin/messages?status=new" },
 ];
 
 const statCardClassName = `block cursor-pointer rounded-xl border border-hcx-border bg-hcx-card p-5 transition-colors hover:border-hcx-cyan/50 hover:bg-hcx-bg-secondary/40 ${focusRing}`;
