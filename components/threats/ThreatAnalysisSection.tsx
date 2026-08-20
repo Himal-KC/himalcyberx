@@ -10,7 +10,7 @@ interface ThreatAnalysisSectionProps {
 export function ThreatAnalysisSection({ articles }: ThreatAnalysisSectionProps) {
   return (
     <section
-      className="border-b border-hcx-border py-12 md:py-16"
+      className="border-b border-hcx-border py-10 md:py-12"
       aria-labelledby="latest-threat-analysis-heading"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -18,6 +18,7 @@ export function ThreatAnalysisSection({ articles }: ThreatAnalysisSectionProps) 
           label="Latest Coverage"
           title="Latest Threat Analysis"
           description="Published research and reporting on active cyber threats from HimalCyberX."
+          compact
         />
 
         {articles.length > 0 ? (
