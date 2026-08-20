@@ -236,7 +236,7 @@ export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
           {canSearch && !isSearching && totalResults === 0 && (
             <div>
               <p className="font-tech text-sm font-semibold uppercase tracking-[0.15em] text-hcx-text-secondary">
-                No results found.
+                No results found
               </p>
               <p className="mt-2 text-sm text-hcx-text-secondary">
                 Try a different keyword or browse our latest cybersecurity content.

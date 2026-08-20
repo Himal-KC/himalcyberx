@@ -171,12 +171,15 @@ export function SearchPageContent({
 
           {totalResults > 0 ? (
             <div className="mt-8">
-              <SearchResultsList results={filteredResults} />
+              <SearchResultsList
+                results={filteredResults}
+                showSectionHeadings={activeFilter === "All"}
+              />
             </div>
           ) : (
             <div className="mt-8 rounded-xl border border-hcx-border bg-hcx-card p-8 text-center sm:p-12">
               <p className="font-tech text-sm font-semibold uppercase tracking-[0.15em] text-hcx-text-secondary">
-                No results found.
+                No results found
               </p>
               <p className="mt-3 text-hcx-text-secondary">
                 Try a different keyword or browse our latest cybersecurity content.

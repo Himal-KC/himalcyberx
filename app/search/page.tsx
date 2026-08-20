@@ -39,7 +39,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </div>
         }
       >
-        <SearchPageContent initialQuery={query} results={results} />
+        <SearchPageContent
+          key={query}
+          initialQuery={query}
+          results={results}
+        />
       </Suspense>
     </PageShell>
   );

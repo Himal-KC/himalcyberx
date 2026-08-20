@@ -1,5 +1,6 @@
 import { articlePath } from "@/lib/articles";
 import { formatArticleDate } from "@/lib/articles";
+import { isArticlePubliclyAvailable } from "@/lib/articles/publishing";
 import type {
   GroupedSearchResults,
   SearchResult,
@@ -7,8 +8,8 @@ import type {
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { logQueryError } from "@/lib/supabase/errors";
 import { labPath } from "@/lib/supabase/public-labs";
+import { createPublicServerClient } from "@/lib/supabase/public-server";
 import { tutorialPath } from "@/lib/supabase/public-tutorials";
-import { createClient } from "@/lib/supabase/server";
 import type { Article, Category, Lab, Tutorial } from "@/lib/supabase/types";
 
 const PUBLISHED = "published" as const;
@@ -65,7 +66,7 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
 
 type ArticleSearchRow = Pick<
   Article,
-  "id" | "slug" | "title" | "excerpt" | "published_at"
+  "id" | "slug" | "title" | "excerpt" | "published_at" | "status"
 > & {
   categories: Pick<Category, "name"> | Pick<Category, "name">[] | null;
 };
@@ -148,7 +149,7 @@ async function searchArticles(
   terms: string[],
   limit?: number,
 ): Promise<SearchResult[]> {
-  const supabase = await createClient();
+  const supabase = createPublicServerClient();
   const pattern = buildIlikePattern(query);
   const orFilter = `title.ilike.${pattern},excerpt.ilike.${pattern},slug.ilike.${pattern}`;
 
@@ -156,7 +157,7 @@ async function searchArticles(
     await Promise.all([
       supabase
         .from("articles")
-        .select("id, slug, title, excerpt, published_at, categories(name)")
+        .select("id, slug, title, excerpt, published_at, status, categories(name)")
         .eq("status", PUBLISHED)
         .or(orFilter),
       supabase.from("categories").select("id, name").ilike("name", pattern),
@@ -176,7 +177,7 @@ async function searchArticles(
   if (categoryIds.length > 0) {
     const { data, error } = await supabase
       .from("articles")
-      .select("id, slug, title, excerpt, published_at, categories(name)")
+      .select("id, slug, title, excerpt, published_at, status, categories(name)")
       .eq("status", PUBLISHED)
       .in("category_id", categoryIds);
 
@@ -192,7 +193,11 @@ async function searchArticles(
     ...categoryArticles,
   ]);
 
-  const filtered = merged.filter((row) =>
+  const publiclyAvailable = merged.filter((row) =>
+    isArticlePubliclyAvailable(row),
+  );
+
+  const filtered = publiclyAvailable.filter((row) =>
     matchesAllTerms(
       [
         row.title,
@@ -215,9 +220,9 @@ async function searchLabs(
   terms: string[],
   limit?: number,
 ): Promise<SearchResult[]> {
-  const supabase = await createClient();
+  const supabase = createPublicServerClient();
   const pattern = buildIlikePattern(query);
-  const orFilter = `title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern},difficulty.ilike.${pattern},slug.ilike.${pattern}`;
+  const orFilter = `title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern},slug.ilike.${pattern}`;
 
   const { data, error } = await supabase
     .from("labs")
@@ -232,7 +237,7 @@ async function searchLabs(
 
   const filtered = ((data ?? []) as Lab[]).filter((row) =>
     matchesAllTerms(
-      [row.title, row.description, row.category, row.difficulty, row.slug],
+      [row.title, row.description, row.category, row.slug],
       terms,
     ),
   );
@@ -248,9 +253,9 @@ async function searchTutorials(
   terms: string[],
   limit?: number,
 ): Promise<SearchResult[]> {
-  const supabase = await createClient();
+  const supabase = createPublicServerClient();
   const pattern = buildIlikePattern(query);
-  const orFilter = `title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern},difficulty.ilike.${pattern},slug.ilike.${pattern}`;
+  const orFilter = `title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern},slug.ilike.${pattern}`;
 
   const { data, error } = await supabase
     .from("tutorials")
@@ -265,7 +270,7 @@ async function searchTutorials(
 
   const filtered = ((data ?? []) as Tutorial[]).filter((row) =>
     matchesAllTerms(
-      [row.title, row.description, row.category, row.difficulty, row.slug],
+      [row.title, row.description, row.category, row.slug],
       terms,
     ),
   );
