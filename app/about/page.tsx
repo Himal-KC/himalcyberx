@@ -7,7 +7,7 @@ import { buildPageMetadata } from "@/lib/seo/metadata";
 import { getSiteSettings } from "@/lib/settings/site-settings";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "About HimalCyberX | Cybersecurity Research & Learning",
+  title: "About | Cybersecurity Research & Learning",
   description:
     "Learn about HimalCyberX, an independent platform for cybersecurity research, threat intelligence, digital forensics, hands-on labs and practical security education.",
   path: "/about",

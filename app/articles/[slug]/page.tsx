@@ -134,6 +134,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               featured_image={article.featured_image}
               pattern={article.pattern}
               title={article.title}
+              imageAlt={article.featured_image_alt}
             />
           </div>
 

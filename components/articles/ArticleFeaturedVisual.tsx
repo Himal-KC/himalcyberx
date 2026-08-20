@@ -8,6 +8,7 @@ interface ArticleFeaturedVisualProps {
   featured_image: string | null;
   pattern?: ArticlePattern | null;
   title: string;
+  imageAlt?: string | null;
   className?: string;
 }
 
@@ -15,9 +16,11 @@ export function ArticleFeaturedVisual({
   featured_image,
   pattern,
   title,
+  imageAlt,
   className = "h-56 sm:h-72",
 }: ArticleFeaturedVisualProps) {
   const [imageError, setImageError] = useState(false);
+  const resolvedAlt = imageAlt?.trim() || title;
 
   if (featured_image && !imageError) {
     return (
@@ -25,7 +28,7 @@ export function ArticleFeaturedVisual({
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={featured_image}
-        alt={title}
+        alt={resolvedAlt}
         className={`w-full max-w-full object-cover ${className}`}
         onError={() => setImageError(true)}
       />

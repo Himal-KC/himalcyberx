@@ -33,7 +33,7 @@ export function buildRootMetadata(settings: PublicSiteSettings): Metadata {
       description,
     },
     twitter: {
-      card: "summary_large_image",
+      card: "summary",
       title: defaultTitle,
       description,
     },
@@ -73,7 +73,7 @@ export function buildPageMetadata({
       ...(path ? { url: `${siteUrl}${path}` } : {}),
     },
     twitter: {
-      card: "summary_large_image",
+      card: "summary",
       title,
       description,
     },
@@ -162,7 +162,7 @@ export function buildTechArticleMetadata({
       ...(images ? { images } : {}),
     },
     twitter: {
-      card: "summary_large_image",
+      card: absoluteImageUrl ? "summary_large_image" : "summary",
       title,
       description,
       ...(absoluteImageUrl ? { images: [absoluteImageUrl] } : {}),

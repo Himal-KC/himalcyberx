@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import { ArticleGridCard } from "@/components/pages/ArticleGridCard";
 import { NewsFeaturedArticle } from "@/components/pages/NewsFeaturedArticle";

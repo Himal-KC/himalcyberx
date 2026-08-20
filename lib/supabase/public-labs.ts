@@ -1,4 +1,5 @@
 import { formatArticleDate } from "@/lib/articles";
+import { cache } from "react";
 import { isPublishedAtPubliclyAvailable } from "@/lib/articles/publishing";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { logQueryError } from "@/lib/supabase/errors";
@@ -106,7 +107,7 @@ export async function getFeaturedLab(): Promise<PublicLabCard | null> {
   return featuredLabs[0] ?? null;
 }
 
-export async function getLabBySlug(
+export const getLabBySlug = cache(async function getLabBySlug(
   slug: string,
 ): Promise<PublicLabDetail | null> {
   const requestedSlug = normalizeLabSlug(slug);
@@ -137,7 +138,7 @@ export async function getLabBySlug(
   } catch {
     return null;
   }
-}
+});
 
 export async function getPublishedLabSlugs(): Promise<string[]> {
   const labs = await getPublishedLabs();

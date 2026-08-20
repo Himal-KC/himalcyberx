@@ -17,6 +17,7 @@ interface ArticleGridCardProps {
   label?: ArticleLabel;
   pattern?: "network" | "grid" | "circuit" | "featured";
   featured_image?: string | null;
+  featured_image_alt?: string | null;
 }
 
 export function ArticleGridCard({
@@ -31,6 +32,7 @@ export function ArticleGridCard({
   dateIso,
   pattern = "network",
   featured_image = null,
+  featured_image_alt = null,
 }: ArticleGridCardProps) {
   const href = articlePath(slug);
 
@@ -41,6 +43,7 @@ export function ArticleGridCard({
           featured_image={featured_image}
           pattern={pattern}
           title={headline}
+          imageAlt={featured_image_alt}
           className="h-40"
         />
         <div className="absolute left-4 top-4 flex flex-wrap gap-2">

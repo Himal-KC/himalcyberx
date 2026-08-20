@@ -6,13 +6,13 @@ export const footerExploreLinks = [
   { label: "Forensics", href: "/forensics" },
   { label: "Tutorials", href: "/tutorials" },
   { label: "AI Security", href: "/ai-security" },
-  { label: "Newsletter", href: "/#newsletter" },
 ] as const;
 
 export const footerCompanyLinks = [
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
   { label: "Search", href: "/search" },
+  { label: "Privacy", href: "/privacy" },
 ] as const;
 
 export const footerLegalLinks = [

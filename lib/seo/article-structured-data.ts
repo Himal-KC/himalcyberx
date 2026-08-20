@@ -1,10 +1,8 @@
 import { articlePath } from "@/lib/articles";
-import { DEFAULT_SITE_SETTINGS } from "@/lib/settings/constants";
 import { toAbsoluteUrl } from "@/lib/seo/json-ld";
+import { buildOrganizationPublisherReference } from "@/lib/seo/structured-data-helpers";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import type { PublicArticleCard } from "@/lib/supabase/public-articles";
-
-const PUBLISHER_NAME = DEFAULT_SITE_SETTINGS.siteName;
 
 export function buildArticleStructuredData(
   article: PublicArticleCard,
@@ -26,10 +24,7 @@ export function buildArticleStructuredData(
       name: article.author,
       url: toAbsoluteUrl("/about", siteUrl),
     },
-    publisher: {
-      "@type": "Organization",
-      name: PUBLISHER_NAME,
-    },
+    publisher: buildOrganizationPublisherReference(siteUrl),
     mainEntityOfPage: {
       "@type": "WebPage",
       "@id": canonicalUrl,

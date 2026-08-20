@@ -1,4 +1,5 @@
 import type { ArticlePattern } from "@/lib/articles";
+import { cache } from "react";
 import { resolvePublicAuthorDisplay } from "@/lib/articles/author";
 import { isArticlePubliclyAvailable } from "@/lib/articles/publishing";
 import { calculateReadTime } from "@/lib/articles/read-time";
@@ -263,9 +264,9 @@ async function queryPublishedArticles(
   }
 }
 
-export async function getPublishedArticles(): Promise<PublicArticleCard[]> {
-  return queryPublishedArticles();
-}
+export const getPublishedArticles = cache(
+  async (): Promise<PublicArticleCard[]> => queryPublishedArticles(),
+);
 
 export async function getFeaturedArticles(): Promise<PublicArticleCard[]> {
   return queryPublishedArticles({ featured: true });
@@ -294,7 +295,7 @@ export async function getThreatIntelligenceArticles(
   return published.filter(isThreatCategoryArticle).slice(0, limit);
 }
 
-export async function getArticleBySlug(
+export const getArticleBySlug = cache(async function getArticleBySlug(
   slug: string,
 ): Promise<PublicArticleCard | null> {
   const requestedSlug = normalizeArticleSlug(slug);
@@ -360,7 +361,7 @@ export async function getArticleBySlug(
     });
     return null;
   }
-}
+});
 
 export async function getArticlesByCategory(
   categorySlug: string,

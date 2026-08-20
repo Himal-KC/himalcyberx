@@ -1,4 +1,5 @@
 import { formatArticleDate } from "@/lib/articles";
+import { cache } from "react";
 import { isPublishedAtPubliclyAvailable } from "@/lib/articles/publishing";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { logQueryError } from "@/lib/supabase/errors";
@@ -99,7 +100,7 @@ export async function getFeaturedTutorials(): Promise<PublicTutorialCard[]> {
   return tutorials.filter((tutorial) => tutorial.featured);
 }
 
-export async function getTutorialBySlug(
+export const getTutorialBySlug = cache(async function getTutorialBySlug(
   slug: string,
 ): Promise<PublicTutorialDetail | null> {
   const requestedSlug = normalizeTutorialSlug(slug);
@@ -130,7 +131,7 @@ export async function getTutorialBySlug(
   } catch {
     return null;
   }
-}
+});
 
 export async function getPublishedTutorialSlugs(): Promise<string[]> {
   const tutorials = await getPublishedTutorials();

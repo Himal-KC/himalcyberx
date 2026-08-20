@@ -74,5 +74,6 @@ export function mapPublicArticleToGridCard(article: PublicArticleCard) {
     readTime: article.readTime,
     pattern: article.pattern ?? "network",
     featured_image: article.featured_image,
+    featured_image_alt: article.featured_image_alt,
   };
 }
