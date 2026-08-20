@@ -63,7 +63,7 @@ export function CyberLabCatalogSection({
               <PublishedLabCard key={lab.slug} lab={lab} />
             ))}
           </div>
-        ) : (
+        ) : filtersActive ? (
           <div className="mt-8 rounded-xl border border-dashed border-hcx-border bg-hcx-card/40 px-6 py-12 text-center">
             <p className="text-base font-medium text-hcx-text">
               No labs match your current filters.
@@ -71,14 +71,21 @@ export function CyberLabCatalogSection({
             <p className="mx-auto mt-2 max-w-md text-sm text-hcx-text-secondary">
               Try adjusting your search, category or difficulty filters.
             </p>
-            {filtersActive ? (
-              <Link
-                href="/cyber-lab"
-                className={`mt-6 inline-flex rounded-lg border border-hcx-border bg-hcx-card px-5 py-2.5 text-sm font-semibold text-hcx-text transition-colors hover:border-hcx-cyan/30 hover:text-hcx-cyan ${focusRing}`}
-              >
-                Reset Filters
-              </Link>
-            ) : null}
+            <Link
+              href="/cyber-lab"
+              className={`mt-6 inline-flex rounded-lg border border-hcx-border bg-hcx-card px-5 py-2.5 text-sm font-semibold text-hcx-text transition-colors hover:border-hcx-cyan/30 hover:text-hcx-cyan ${focusRing}`}
+            >
+              Reset Filters
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-8 rounded-xl border border-hcx-border/80 bg-hcx-bg-secondary/30 px-6 py-10 text-center">
+            <p className="text-base font-medium text-hcx-text">
+              More cyber labs are coming soon.
+            </p>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-hcx-text-secondary">
+              New hands-on security labs will appear here as they are published.
+            </p>
           </div>
         )}
       </div>
