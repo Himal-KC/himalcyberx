@@ -9,18 +9,14 @@ export interface ConsentSnapshot {
   analytics: boolean;
 }
 
-export function subscribeConsent(listener: ConsentListener): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
+const SERVER_CONSENT_SNAPSHOT: ConsentSnapshot = {
+  hasDecided: false,
+  analytics: false,
+};
 
-export function emitConsentChange(): void {
-  listeners.forEach((listener) => listener());
-}
+let cachedClientSnapshot: ConsentSnapshot = SERVER_CONSENT_SNAPSHOT;
 
-export function getConsentSnapshot(): ConsentSnapshot {
+function buildConsentSnapshot(): ConsentSnapshot {
   const stored = readStoredConsent();
 
   return {
@@ -29,9 +25,45 @@ export function getConsentSnapshot(): ConsentSnapshot {
   };
 }
 
-export function getServerConsentSnapshot(): ConsentSnapshot {
-  return {
-    hasDecided: false,
-    analytics: false,
+function snapshotsEqual(
+  left: ConsentSnapshot,
+  right: ConsentSnapshot,
+): boolean {
+  return left.hasDecided === right.hasDecided && left.analytics === right.analytics;
+}
+
+export function subscribeConsent(listener: ConsentListener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
   };
+}
+
+export function emitConsentChange(): void {
+  const nextSnapshot = buildConsentSnapshot();
+
+  if (!snapshotsEqual(cachedClientSnapshot, nextSnapshot)) {
+    cachedClientSnapshot = nextSnapshot;
+  }
+
+  listeners.forEach((listener) => listener());
+}
+
+/**
+ * Must return a referentially stable object while underlying consent values are
+ * unchanged. useSyncExternalStore compares snapshots with Object.is.
+ */
+export function getConsentSnapshot(): ConsentSnapshot {
+  const nextSnapshot = buildConsentSnapshot();
+
+  if (snapshotsEqual(cachedClientSnapshot, nextSnapshot)) {
+    return cachedClientSnapshot;
+  }
+
+  cachedClientSnapshot = nextSnapshot;
+  return cachedClientSnapshot;
+}
+
+export function getServerConsentSnapshot(): ConsentSnapshot {
+  return SERVER_CONSENT_SNAPSHOT;
 }
