@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { LegalDocumentPage } from "@/components/legal/LegalDocumentPage";
 import type { LegalSection } from "@/components/legal/LegalDocumentPage";
 import { LEGAL_LAST_UPDATED, LEGAL_LAST_UPDATED_ISO } from "@/lib/legal/constants";
+import { focusRing } from "@/lib/page-data";
 import { buildPageMetadata } from "@/lib/seo/metadata";
 import { getSiteSettings } from "@/lib/settings/site-settings";
 
@@ -33,6 +35,7 @@ function buildTermsSections(siteName: string): LegalSection[] {
       paragraphs: [
         `${siteName} cybersecurity labs, tutorials and technical information are provided for educational, defensive security and authorized testing purposes.`,
         `${siteName} does not encourage unauthorized access, disruption, malicious activity or illegal use of cybersecurity techniques. You are responsible for ensuring that your use of any information from this website complies with applicable laws, policies and ethical standards.`,
+        "For additional responsible-use guidance, see the Disclaimer published on this website.",
       ],
     },
     {
@@ -61,6 +64,20 @@ function buildTermsSections(siteName: string): LegalSection[] {
       paragraphs: [
         `${siteName} may reference or link to third-party websites, tools, documentation and resources. Those external services are not controlled by ${siteName}, and we are not responsible for their content, availability or practices.`,
         "Your use of third-party resources is subject to the terms and policies of those providers.",
+      ],
+    },
+    {
+      title: "Site Availability and Changes",
+      paragraphs: [
+        `We aim to keep ${siteName} available and useful, but access may be interrupted for maintenance, updates, security work or technical reasons.`,
+        "Content, features and site materials may be added, changed or removed without prior notice.",
+      ],
+    },
+    {
+      title: "Related Policies",
+      paragraphs: [
+        `These Terms should be read together with the ${siteName} Privacy Policy, which explains how information submitted through the website is handled.`,
+        "The Disclaimer provides additional information about educational use, authorized security testing, technical accuracy and responsible interpretation of cybersecurity content.",
       ],
     },
     {
@@ -93,6 +110,25 @@ export default async function TermsPage() {
       lastUpdatedIso={LEGAL_LAST_UPDATED_ISO}
       introduction={`These Terms of Use govern your access to and use of ${settings.siteName}, an independent cybersecurity research and education website. Please read them carefully before using the site.`}
       sections={buildTermsSections(settings.siteName)}
+      supplementaryContent={
+        <p>
+          Related pages:{" "}
+          <Link
+            href="/privacy"
+            className={`text-hcx-cyan hover:underline ${focusRing}`}
+          >
+            Privacy Policy
+          </Link>
+          ,{" "}
+          <Link
+            href="/disclaimer"
+            className={`text-hcx-cyan hover:underline ${focusRing}`}
+          >
+            Disclaimer
+          </Link>
+          .
+        </p>
+      }
       contactText="If you have questions about these Terms of Use, please"
       siteName={settings.siteName}
     />

@@ -5,10 +5,10 @@ import { DEFAULT_SITE_SETTINGS } from "@/lib/settings/constants";
 import type { PublicSiteSettings } from "@/lib/settings/site-settings";
 
 const topics = [
+  "General Enquiries",
+  "Factual Corrections",
   "Cybersecurity Research",
-  "Threat Intelligence",
-  "Digital Forensics",
-  "Cyber Labs",
+  "Responsible Security Concerns",
   "Website Feedback",
 ] as const;
 
@@ -134,6 +134,13 @@ export function ContactInfoPanel({ settings }: ContactInfoPanelProps) {
           className={`text-hcx-cyan hover:underline ${focusRing}`}
         >
           Privacy Policy
+        </Link>
+        . For responsible-use guidance, see the{" "}
+        <Link
+          href="/disclaimer"
+          className={`text-hcx-cyan hover:underline ${focusRing}`}
+        >
+          Disclaimer
         </Link>
         .
       </p>

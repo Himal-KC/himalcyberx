@@ -8,7 +8,7 @@ import { getSiteSettings } from "@/lib/settings/site-settings";
 export const metadata: Metadata = buildPageMetadata({
   title: "Privacy Policy",
   description:
-    "Read the HimalCyberX Privacy Policy to understand how newsletter subscriptions and contact form submissions are handled.",
+    "Read the HimalCyberX Privacy Policy for details on newsletter subscriptions, contact form data, service providers, analytics and your privacy choices.",
   path: "/privacy",
 });
 
@@ -23,19 +23,21 @@ function buildPrivacySections(siteName: string): LegalSection[] {
       list: [
         "Newsletter subscription email addresses submitted through signup forms.",
         "Contact form details such as your name, email address, subject and message.",
+        "Limited technical information used to help protect public forms, such as an IP address processed for rate limiting and abuse prevention.",
       ],
     },
     {
       title: "Newsletter Subscriptions",
       paragraphs: [
-        `If you subscribe to the ${siteName} newsletter, we collect the email address you submit. This information is used to send cybersecurity research updates, threat intelligence summaries and practical learning announcements when those communications are sent.`,
-        "You may unsubscribe from newsletter communications when that option is made available, or you may contact us to request removal of your subscription details.",
+        `If you subscribe to the ${siteName} newsletter, we collect the email address you submit and basic subscription metadata such as signup source and subscription status.`,
+        `This information is used to send welcome messages, cybersecurity research updates, threat intelligence summaries, practical learning announcements and related newsletter communications when those messages are sent.`,
+        "You may unsubscribe using the secure unsubscribe link included in newsletter emails, or contact us to request removal of your subscription details.",
       ],
     },
     {
       title: "Contact Form Information",
       paragraphs: [
-        `When you submit the ${siteName} contact form, we collect the information you provide, including your name, email address, subject and message content. This information is used to review and respond to your enquiry, feedback or research suggestion.`,
+        `When you submit the ${siteName} contact form, we collect the information you provide, including your name, email address, subject and message content. This information is used to review and respond to enquiries, feedback, correction requests, research suggestions or responsible security concerns.`,
         "Please do not submit sensitive personal information unless it is necessary for your enquiry.",
       ],
     },
@@ -48,6 +50,22 @@ function buildPrivacySections(siteName: string): LegalSection[] {
         "Managing newsletter subscriptions and related communications.",
         "Responding to contact enquiries and website feedback.",
         "Maintaining basic records needed to operate the website responsibly.",
+        "Protecting public forms from abuse through validation, honeypot checks and rate limiting.",
+      ],
+    },
+    {
+      title: "Service Providers",
+      paragraphs: [
+        `${siteName} uses trusted third-party service providers to operate parts of the website. Depending on how you use the site, information may be processed by providers such as:`,
+      ],
+      list: [
+        "Supabase — secure backend storage for newsletter subscriptions and contact form messages.",
+        "Resend — delivery of transactional emails such as newsletter welcome messages and content update notifications to subscribers.",
+        "Upstash — rate limiting for public forms, which may process IP addresses to help prevent abuse when that protection is enabled.",
+        "Google Analytics — website usage measurement when analytics is enabled through site configuration.",
+      ],
+      closingParagraphs: [
+        "These providers process information only as needed to provide their services to the website. Their own privacy practices may also apply.",
       ],
     },
     {
@@ -60,8 +78,16 @@ function buildPrivacySections(siteName: string): LegalSection[] {
     {
       title: "Cookies and Analytics",
       paragraphs: [
-        `${siteName} may use essential technical mechanisms required for the website to function. At present, the site does not describe the use of advanced advertising trackers or extensive behavioural analytics.`,
-        "Basic analytics or performance monitoring may be introduced in the future to understand how visitors use the website and to improve content. If that changes, this Privacy Policy will be updated accordingly.",
+        `${siteName} may use cookies or similar technologies needed for essential site operation, including administrative authentication mechanisms that apply only to site administrators.`,
+        "When configured, the site may use Google Analytics (GA4) to understand how visitors use public pages and to improve content. Analytics is not loaded on admin pages.",
+        "At present, this website does not use a separate cookie consent banner. If analytics, advertising or similar technologies change materially, this Privacy Policy will be updated accordingly.",
+      ],
+    },
+    {
+      title: "Advertising",
+      paragraphs: [
+        `${siteName} does not currently serve third-party advertising on this website.`,
+        "If third-party advertising services are introduced in the future, including services such as Google AdSense, this Privacy Policy will be updated to describe the technologies used, the information involved and the choices available to visitors.",
       ],
     },
     {
@@ -103,7 +129,7 @@ export default async function PrivacyPage() {
       breadcrumbLabel="Privacy Policy"
       heroLabel="Legal"
       heroTitle="PRIVACY POLICY"
-      heroDescription="How HimalCyberX handles information submitted through newsletter and contact forms."
+      heroDescription="How HimalCyberX handles information submitted through newsletter and contact forms, and the service providers used to operate the site."
       lastUpdated={LEGAL_LAST_UPDATED}
       lastUpdatedIso={LEGAL_LAST_UPDATED_ISO}
       introduction={`This Privacy Policy explains how ${settings.siteName} handles information voluntarily submitted through this website. ${settings.siteName} is an independent cybersecurity research and education platform. This policy is provided for transparency and does not represent formal legal certification or regulatory compliance claims.`}

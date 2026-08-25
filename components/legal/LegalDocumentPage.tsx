@@ -23,6 +23,7 @@ interface LegalDocumentPageProps {
   contactHeading?: string;
   contactText?: string;
   contactContent?: React.ReactNode;
+  supplementaryContent?: React.ReactNode;
   siteName: string;
 }
 
@@ -46,6 +47,7 @@ export function LegalDocumentPage({
   contactHeading = "Contact",
   contactText,
   contactContent,
+  supplementaryContent,
   siteName,
 }: LegalDocumentPageProps) {
   return (
@@ -99,6 +101,12 @@ export function LegalDocumentPage({
             </section>
           ))}
         </div>
+
+        {supplementaryContent ? (
+          <div className="mt-10 max-w-3xl text-sm leading-relaxed text-hcx-text-secondary">
+            {supplementaryContent}
+          </div>
+        ) : null}
 
         <section className="mt-12 rounded-xl border border-hcx-border bg-hcx-card p-6">
           <SectionHeading>{contactHeading}</SectionHeading>
