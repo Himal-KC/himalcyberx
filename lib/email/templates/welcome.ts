@@ -9,7 +9,7 @@ import {
   buildEmailDocument,
   buildEmailHeading,
   buildEmailParagraph,
-  buildEmailSignature,
+  buildEmailSignatureBanner,
   buildSubscriberOuterFooter,
 } from "@/lib/email/templates/email-shell";
 
@@ -44,7 +44,7 @@ export function buildWelcomeEmail(
         Security reminder: HimalCyberX will never ask for your password or sensitive account credentials by email.
       </p>
     `),
-    buildEmailSignature(),
+    buildEmailSignatureBanner(),
   ].join("");
 
   const html = buildEmailDocument({

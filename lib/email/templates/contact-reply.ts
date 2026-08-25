@@ -4,7 +4,7 @@ import {
   buildEmailBodySection,
   buildEmailBrandHeader,
   buildEmailDocument,
-  buildEmailSignature,
+  buildEmailSignatureBanner,
   buildTransactionalOuterFooter,
 } from "@/lib/email/templates/email-shell";
 import { buildReplySubject } from "@/lib/messages/reply-subject";
@@ -40,7 +40,7 @@ export function buildContactReplyEmail(
   const bodyHtml = [
     buildEmailBrandHeader({ compact: true }),
     buildEmailBodySection(formatReplyBodyHtml(body)),
-    buildEmailSignature({ compact: true }),
+    buildEmailSignatureBanner(),
   ].join("");
 
   const html = buildEmailDocument({

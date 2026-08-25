@@ -10,7 +10,7 @@ import {
   buildEmailDocument,
   buildEmailHeading,
   buildEmailParagraph,
-  buildEmailSignature,
+  buildEmailSignatureBanner,
   buildTransactionalOuterFooter,
 } from "@/lib/email/templates/email-shell";
 
@@ -42,7 +42,7 @@ export function buildContactAcknowledgementEmail(
         { muted: true },
       )}
     `),
-    buildEmailSignature({ compact: true }),
+    buildEmailSignatureBanner(),
   ].join("");
 
   const html = buildEmailDocument({
