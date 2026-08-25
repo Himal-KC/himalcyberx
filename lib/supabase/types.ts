@@ -237,6 +237,47 @@ export type SubscriberInsert = {
 
 export type SubscriberUpdate = Partial<SubscriberInsert>;
 
+export interface ContentNotification {
+  id: string;
+  content_type: ContentNotificationContentType;
+  content_id: string;
+  notification_type: ContentNotificationBroadcastType;
+  status: ContentNotificationStatus;
+  attempted_count: number;
+  sent_count: number;
+  failed_count: number;
+  last_error: string | null;
+  sent_at: string | null;
+  created_at: string;
+}
+
+export type ContentNotificationContentType = "article" | "lab" | "tutorial";
+
+export type ContentNotificationBroadcastType = "published";
+
+export type ContentNotificationStatus =
+  | "pending"
+  | "sending"
+  | "sent"
+  | "partial"
+  | "failed";
+
+export type ContentNotificationInsert = {
+  content_type: ContentNotificationContentType;
+  content_id: string;
+  notification_type?: ContentNotificationBroadcastType;
+  status?: ContentNotificationStatus;
+  attempted_count?: number;
+  sent_count?: number;
+  failed_count?: number;
+  last_error?: string | null;
+  sent_at?: string | null;
+  id?: string;
+  created_at?: string;
+};
+
+export type ContentNotificationUpdate = Partial<ContentNotificationInsert>;
+
 export type MessageStatus = "new" | "read" | "archived";
 
 export interface Message {
@@ -372,6 +413,12 @@ export interface Database {
         Row: Subscriber;
         Insert: SubscriberInsert;
         Update: SubscriberUpdate;
+        Relationships: TableRelationship[];
+      };
+      content_notifications: {
+        Row: ContentNotification;
+        Insert: ContentNotificationInsert;
+        Update: ContentNotificationUpdate;
         Relationships: TableRelationship[];
       };
       messages: {

@@ -17,6 +17,7 @@ import {
   logSafeDbError,
 } from "@/lib/supabase/admin-session";
 import { isRlsError } from "@/lib/supabase/errors";
+import { notifySubscribersOfNewlyPublicContent } from "@/lib/notifications/publish-notification";
 
 export interface LabActionState {
   success?: boolean;
@@ -82,7 +83,9 @@ export async function createLab(
   const { data, error } = await supabase
     .from("labs")
     .insert(insertPayload)
-    .select("id, slug")
+    .select(
+      "id, slug, title, description, featured_image, published_at, status",
+    )
     .single();
 
   if (error) {
@@ -106,6 +109,12 @@ export async function createLab(
       ),
     };
   }
+
+  await notifySubscribersOfNewlyPublicContent({
+    contentType: "lab",
+    previous: null,
+    next: data,
+  });
 
   revalidateLabPaths(data.slug);
   redirect("/admin/labs");
@@ -156,7 +165,9 @@ export async function updateLab(
     .from("labs")
     .update(updatePayload)
     .eq("id", labId)
-    .select("slug")
+    .select(
+      "id, slug, title, description, featured_image, published_at, status",
+    )
     .single();
 
   if (error) {
@@ -174,6 +185,15 @@ export async function updateLab(
       ),
     };
   }
+
+  await notifySubscribersOfNewlyPublicContent({
+    contentType: "lab",
+    previous: {
+      status: existing.status,
+      published_at: existing.published_at,
+    },
+    next: data,
+  });
 
   revalidateLabPaths(data.slug);
   if (existing.slug !== data.slug) {

@@ -2,6 +2,7 @@ import {
   HIMALCYBERX_SITE_URL,
   WELCOME_EMAIL_SUBJECT,
 } from "@/lib/email/constants";
+import { escapeHtml } from "@/lib/email/templates/email-html";
 
 export interface WelcomeEmailContent {
   subject: string;
@@ -112,13 +113,4 @@ This message was sent to ${toEmail} because you subscribed to the HimalCyberX ne
     html,
     text,
   };
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 }

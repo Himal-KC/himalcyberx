@@ -26,6 +26,7 @@ import {
   deleteArticleImage,
   extractArticleImageStoragePath,
 } from "@/lib/storage/article-images";
+import { notifySubscribersOfNewlyPublicContent } from "@/lib/notifications/publish-notification";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ArticleUpdate } from "@/lib/supabase/types";
 
@@ -105,7 +106,9 @@ export async function createArticle(
   const { data, error } = await supabase
     .from("articles")
     .insert(insertPayload)
-    .select("id, slug")
+    .select(
+      "id, slug, title, excerpt, featured_image, published_at, status",
+    )
     .single();
 
   if (error) {
@@ -129,6 +132,12 @@ export async function createArticle(
       ),
     };
   }
+
+  await notifySubscribersOfNewlyPublicContent({
+    contentType: "article",
+    previous: null,
+    next: data,
+  });
 
   revalidateArticlePaths(data.slug);
   redirect("/admin/articles");
@@ -198,7 +207,9 @@ export async function updateArticle(
     .from("articles")
     .update(updatePayload)
     .eq("id", articleId)
-    .select("slug")
+    .select(
+      "id, slug, title, excerpt, featured_image, published_at, status",
+    )
     .single();
 
   if (error) {
@@ -214,6 +225,15 @@ export async function updateArticle(
       ),
     };
   }
+
+  await notifySubscribersOfNewlyPublicContent({
+    contentType: "article",
+    previous: {
+      status: existing.status,
+      published_at: existing.published_at,
+    },
+    next: data,
+  });
 
   revalidateArticlePaths(data.slug);
   if (existing.slug !== data.slug) {

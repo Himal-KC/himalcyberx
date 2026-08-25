@@ -23,6 +23,7 @@ import {
   logSafeDbError,
 } from "@/lib/supabase/admin-session";
 import { isRlsError } from "@/lib/supabase/errors";
+import { notifySubscribersOfNewlyPublicContent } from "@/lib/notifications/publish-notification";
 
 export interface TutorialActionState {
   success?: boolean;
@@ -88,7 +89,9 @@ export async function createTutorial(
   const { data, error } = await supabase
     .from("tutorials")
     .insert(insertPayload)
-    .select("id, slug")
+    .select(
+      "id, slug, title, description, featured_image, published_at, status",
+    )
     .single();
 
   if (error) {
@@ -112,6 +115,12 @@ export async function createTutorial(
       ),
     };
   }
+
+  await notifySubscribersOfNewlyPublicContent({
+    contentType: "tutorial",
+    previous: null,
+    next: data,
+  });
 
   revalidateTutorialPaths(data.slug);
   redirect("/admin/tutorials");
@@ -162,7 +171,9 @@ export async function updateTutorial(
     .from("tutorials")
     .update(updatePayload)
     .eq("id", tutorialId)
-    .select("slug")
+    .select(
+      "id, slug, title, description, featured_image, published_at, status",
+    )
     .single();
 
   if (error) {
@@ -180,6 +191,15 @@ export async function updateTutorial(
       ),
     };
   }
+
+  await notifySubscribersOfNewlyPublicContent({
+    contentType: "tutorial",
+    previous: {
+      status: existing.status,
+      published_at: existing.published_at,
+    },
+    next: data,
+  });
 
   revalidateTutorialPaths(data.slug);
   if (existing.slug !== data.slug) {
