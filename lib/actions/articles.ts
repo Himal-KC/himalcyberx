@@ -107,7 +107,7 @@ export async function createArticle(
     .from("articles")
     .insert(insertPayload)
     .select(
-      "id, slug, title, excerpt, featured_image, published_at, status",
+      "id, slug, title, excerpt, featured_image, featured_image_alt, published_at, status",
     )
     .single();
 
@@ -208,7 +208,7 @@ export async function updateArticle(
     .update(updatePayload)
     .eq("id", articleId)
     .select(
-      "id, slug, title, excerpt, featured_image, published_at, status",
+      "id, slug, title, excerpt, featured_image, featured_image_alt, published_at, status",
     )
     .single();
 

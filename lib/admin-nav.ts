@@ -10,6 +10,7 @@ export const adminNavItems: AdminNavItem[] = [
   { label: "Cyber Labs", href: "/admin/labs" },
   { label: "Tutorials", href: "/admin/tutorials" },
   { label: "Subscribers", href: "/admin/subscribers" },
+  { label: "Email Preview", href: "/admin/email-preview" },
   { label: "Messages", href: "/admin/messages" },
   { label: "Settings", href: "/admin/settings" },
 ];

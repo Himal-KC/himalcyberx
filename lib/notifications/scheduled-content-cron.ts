@@ -106,7 +106,7 @@ async function fetchArticleCandidates(
   const supabase = createServiceServerClient();
   const { data, error } = await supabase
     .from("articles")
-    .select("id, slug, title, excerpt, featured_image, published_at, status")
+    .select("id, slug, title, excerpt, featured_image, featured_image_alt, published_at, status")
     .eq("status", "published")
     .not("published_at", "is", null)
     .lte("published_at", nowIso)

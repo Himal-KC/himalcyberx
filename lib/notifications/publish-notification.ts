@@ -23,6 +23,7 @@ export interface PublishNotificationContentBase {
   slug: string;
   title: string;
   featured_image: string | null;
+  featured_image_alt?: string | null;
   published_at: string | null;
   status: string;
 }
@@ -60,6 +61,7 @@ export function buildPublishNotificationEmailInput(
     description: getPublishNotificationDescription(content),
     url: buildContentNotificationUrl(contentType, content.slug),
     featuredImage: content.featured_image,
+    featuredImageAlt: content.featured_image_alt ?? null,
     publishedAt: content.published_at,
   };
 }
