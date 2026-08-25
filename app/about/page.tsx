@@ -9,7 +9,7 @@ import { getSiteSettings } from "@/lib/settings/site-settings";
 export const metadata: Metadata = buildPageMetadata({
   title: "About | Cybersecurity Research & Learning",
   description:
-    "Learn about HimalCyberX, an independent platform for cybersecurity research, threat intelligence, digital forensics, hands-on labs and practical security education.",
+    "Learn about HimalCyberX, its cybersecurity research focus, editorial approach, source standards and commitment to practical, defensive security education.",
   path: "/about",
 });
 
@@ -22,8 +22,8 @@ export default async function AboutPage() {
       <PageHero
         label="About HimalCyberX"
         title="Cybersecurity Research, Learning & Practical Security"
-        description="HimalCyberX is an independent cybersecurity platform focused on practical security education, threat research and hands-on technical learning."
-        supportingText="Built to make cybersecurity knowledge clear, practical and accessible."
+        description="HimalCyberX is an independent cybersecurity research and learning platform focused on threat intelligence, vulnerability research, digital forensics, cyber labs, tutorials, AI security and defensive security education."
+        supportingText="We publish practical, evidence-based content to help readers understand real threats and apply responsible defensive security practices."
         compact
       />
       <AboutContent settings={settings} />

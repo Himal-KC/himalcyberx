@@ -47,30 +47,46 @@ const principles = [
   {
     title: "Practical",
     description:
-      "Focus on knowledge that can be applied in real technical environments.",
+      "Content should help readers understand real threats and apply defensive techniques in technical environments.",
   },
   {
     title: "Evidence-Based",
     description:
-      "Research should rely on credible public sources, technical documentation and verifiable information.",
+      "Claims are grounded in credible public sources, technical documentation and verifiable information where possible.",
   },
   {
     title: "Defensive",
     description:
-      "Security education should promote authorized, ethical and responsible practice.",
+      "Research and education should support authorized testing, risk reduction and responsible security practice.",
   },
   {
     title: "Accessible",
     description:
-      "Complex cybersecurity topics should be explained clearly without removing important technical detail.",
+      "Complex topics are explained clearly without removing the technical detail readers need to learn effectively.",
   },
 ] as const;
 
-const editorialPoints = [
-  "Public and reputable sources are preferred when researching and publishing content.",
-  "Technical claims should be verifiable and grounded in credible documentation.",
-  "Content may be updated as threats, vulnerabilities and technologies change.",
-  "Labs and tutorials are intended for authorized, educational and controlled environments.",
+const researchStandards = [
+  "Primary and reputable sources are prioritised, including official vendor advisories, government cybersecurity agencies, NIST and NVD references, security research organisations and technical documentation.",
+  "Verified facts are distinguished from analysis, commentary and informed opinion.",
+  "Speculation is not presented as confirmed evidence.",
+  "Articles may be updated when significant technical facts, exploitation status or mitigation guidance changes.",
+  "Primary references are linked where practical so readers can review source material.",
+  "Labs and tutorials are framed for authorised, educational and controlled environments.",
+] as const;
+
+const correctionTriggers = [
+  "a vendor publishes new advisory or remediation information;",
+  "exploitation status or threat activity changes materially;",
+  "patches, mitigations or defensive guidance are updated; or",
+  "a factual error is identified and confirmed.",
+] as const;
+
+const trustLinks = [
+  { label: "Contact", href: "/contact" },
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
+  { label: "Disclaimer", href: "/disclaimer" },
 ] as const;
 
 interface AboutContentProps {
@@ -107,6 +123,25 @@ function buildSocialLinks(settings: PublicSiteSettings) {
   return links;
 }
 
+function TrustLinks() {
+  return (
+    <nav aria-label="Trust and policy links" className="mt-6">
+      <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-hcx-text-secondary">
+        {trustLinks.map((link) => (
+          <li key={link.href}>
+            <Link
+              href={link.href}
+              className={`transition-colors hover:text-hcx-cyan ${focusRing}`}
+            >
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 export function AboutContent({ settings }: AboutContentProps) {
   const socialLinks = buildSocialLinks(settings);
 
@@ -116,21 +151,26 @@ export function AboutContent({ settings }: AboutContentProps) {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading
             label="The Platform"
-            title="About HimalCyberX"
+            title="What is HimalCyberX?"
             compact
           />
           <div className="max-w-3xl space-y-4 text-base leading-relaxed text-hcx-text-secondary">
             <p>
-              HimalCyberX brings together cybersecurity research, practical
-              tutorials and hands-on labs in one place. The platform focuses on
-              understanding real security threats, learning defensive techniques
-              and developing practical technical skills through clear, structured
-              content.
+              {settings.siteName} is an independent cybersecurity research and
+              learning platform. It brings together practical security education,
+              threat research and hands-on technical content in one place.
             </p>
             <p>
-              Content is designed for students, security learners, IT
-              professionals and anyone interested in developing a stronger
-              understanding of modern cybersecurity.
+              The platform covers threat intelligence, vulnerability research,
+              digital forensics, cyber labs, tutorials, AI security and defensive
+              security education. Content is designed to help readers understand
+              real-world threats, evaluate risk and develop practical defensive
+              skills through clear, structured material.
+            </p>
+            <p>
+              {settings.siteName} is intended for students, security learners,
+              IT professionals and anyone building a stronger understanding of
+              modern cybersecurity—without marketing hype or exaggerated claims.
             </p>
           </div>
         </div>
@@ -170,7 +210,12 @@ export function AboutContent({ settings }: AboutContentProps) {
 
       <section className="border-b border-hcx-border bg-hcx-bg-secondary/40 py-10 md:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <SectionHeading label="Mission" title="Our Approach" compact />
+          <SectionHeading
+            label="Editorial Approach"
+            title="Content Principles"
+            description="How HimalCyberX approaches research, education and published material."
+            compact
+          />
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {principles.map((principle) => (
@@ -192,14 +237,31 @@ export function AboutContent({ settings }: AboutContentProps) {
 
       <section className="border-b border-hcx-border py-10 md:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <SectionHeading title="Behind HimalCyberX" compact />
+          <SectionHeading
+            label="Editorial Identity"
+            title="Who Creates the Content"
+            compact
+          />
 
           <div className="max-w-3xl">
             <p className="text-base leading-relaxed text-hcx-text-secondary">
-              {settings.siteName} is developed and maintained by{" "}
-              {settings.publicAuthorName}, with a focus on cybersecurity
-              research, digital forensics, practical security labs and technical
-              learning.
+              {settings.publicAuthorName} researches, writes and curates content
+              for {settings.siteName}, including articles, threat intelligence
+              summaries, cyber labs and tutorials. The platform is independently
+              maintained with a focus on practical, defensive cybersecurity
+              education.
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-hcx-text-secondary">
+              Editorial work prioritises clarity, technical accuracy and
+              responsible presentation of security information. Public contact
+              details are not displayed here; use the{" "}
+              <Link
+                href="/contact"
+                className={`text-hcx-cyan hover:underline ${focusRing}`}
+              >
+                Contact page
+              </Link>{" "}
+              for enquiries or correction requests.
             </p>
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -247,16 +309,17 @@ export function AboutContent({ settings }: AboutContentProps) {
         </div>
       </section>
 
-      <section className="border-b border-hcx-border py-10 md:py-12">
+      <section className="border-b border-hcx-border bg-hcx-bg-secondary/40 py-10 md:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <SectionHeading
             label="Editorial Standards"
-            title="Research & Editorial Principles"
+            title="How We Research and Publish"
+            description="HimalCyberX aims to publish useful, defensible cybersecurity information with clear sourcing and responsible framing."
             compact
           />
 
           <ul className="max-w-3xl space-y-3 text-sm leading-relaxed text-hcx-text-secondary">
-            {editorialPoints.map((point) => (
+            {researchStandards.map((point) => (
               <li key={point} className="flex gap-3">
                 <span
                   className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-hcx-cyan"
@@ -266,6 +329,70 @@ export function AboutContent({ settings }: AboutContentProps) {
               </li>
             ))}
           </ul>
+
+          <TrustLinks />
+        </div>
+      </section>
+
+      <section className="border-b border-hcx-border py-10 md:py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <SectionHeading title="Corrections & Updates" compact />
+
+          <div className="max-w-3xl space-y-4 text-sm leading-relaxed text-hcx-text-secondary">
+            <p>
+              Cybersecurity information changes quickly. Articles, labs and
+              tutorials on {settings.siteName} may be corrected or updated when
+              significant technical facts change or when new reliable
+              information becomes available.
+            </p>
+            <p>Updates may be made when, for example:</p>
+            <ul className="list-disc space-y-2 pl-5">
+              {correctionTriggers.map((trigger) => (
+                <li key={trigger}>{trigger}</li>
+              ))}
+            </ul>
+            <p>
+              If you believe published content contains a factual error, please
+              reach out through the{" "}
+              <Link
+                href="/contact"
+                className={`text-hcx-cyan hover:underline ${focusRing}`}
+              >
+                Contact page
+              </Link>{" "}
+              with relevant references where possible.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-hcx-border bg-hcx-bg-secondary/40 py-10 md:py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <SectionHeading
+            label="Responsible Use"
+            title="Ethical Security Research"
+            compact
+          />
+
+          <div className="max-w-3xl space-y-4 text-sm leading-relaxed text-hcx-text-secondary">
+            <p>
+              {settings.siteName} supports ethical and responsible security
+              research. Labs, tutorials and technical guidance are intended for
+              systems you own, systems where you have explicit authorization to
+              test, or dedicated training environments.
+            </p>
+            <p>
+              The site does not encourage unauthorized access, malicious
+              activity or misuse of security techniques. For more detail, see the{" "}
+              <Link
+                href="/disclaimer"
+                className={`text-hcx-cyan hover:underline ${focusRing}`}
+              >
+                Disclaimer
+              </Link>
+              .
+            </p>
+          </div>
         </div>
       </section>
 
