@@ -21,7 +21,8 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "resend": "^6.22.1",
-    "sanitize-html": "^2.17.7"
+    "sanitize-html": "^2.17.7",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

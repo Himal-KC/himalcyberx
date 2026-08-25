@@ -9,8 +9,19 @@ export interface WelcomeEmailContent {
   text: string;
 }
 
-export function buildWelcomeEmail(toEmail: string): WelcomeEmailContent {
+export function buildWelcomeEmail(
+  toEmail: string,
+  unsubscribeUrl?: string | null,
+): WelcomeEmailContent {
   const siteUrl = HIMALCYBERX_SITE_URL;
+  const unsubscribeFooter = unsubscribeUrl
+    ? `<p style="margin:12px 0 0;font-size:12px;line-height:1.6;color:#64748b;">
+            <a href="${escapeHtml(unsubscribeUrl)}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a>
+          </p>`
+    : "";
+  const unsubscribeText = unsubscribeUrl
+    ? `\n\nUnsubscribe: ${unsubscribeUrl}`
+    : "";
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -72,6 +83,7 @@ export function buildWelcomeEmail(toEmail: string): WelcomeEmailContent {
           </table>
           <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:#64748b;max-width:600px;">
             This message was sent to ${escapeHtml(toEmail)} because you subscribed to the HimalCyberX newsletter.
+            ${unsubscribeFooter}
           </p>
         </td>
       </tr>
@@ -91,7 +103,7 @@ Visit HimalCyberX: ${siteUrl}
 
 Security reminder: HimalCyberX will never ask for your password or sensitive account credentials by email. If you did not subscribe, you can safely ignore this message.
 
-This message was sent to ${toEmail} because you subscribed to the HimalCyberX newsletter.
+This message was sent to ${toEmail} because you subscribed to the HimalCyberX newsletter.${unsubscribeText}
 
 © ${new Date().getFullYear()} HimalCyberX. All rights reserved.`;
 
