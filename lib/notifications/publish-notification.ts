@@ -1,5 +1,7 @@
 import "server-only";
 
+import { resolveContentNotificationOutcome } from "@/lib/notifications/broadcast-outcome";
+import type { ContentNotificationStatus } from "@/lib/notifications/constants";
 import {
   buildContentNotificationUrl,
   type ContentNotificationEmailInput,
@@ -7,7 +9,8 @@ import {
 import type { ContentNotificationContentType } from "@/lib/notifications/constants";
 import {
   claimContentNotificationRecord,
-  runClaimedContentNotificationBroadcast,
+  deliverContentNotificationBroadcast,
+  markContentNotificationSending,
 } from "@/lib/notifications/content-notifications";
 import {
   shouldSendLabOrTutorialPublishedNotification,
@@ -28,6 +31,15 @@ export type PublishNotificationContent =
   | (PublishNotificationContentBase & { excerpt: string })
   | (PublishNotificationContentBase & { description: string });
 
+export type PublicContentNotificationOutcome = Extract<
+  ContentNotificationStatus,
+  "sent" | "partial" | "failed"
+>;
+
+export type PublicContentNotificationResult =
+  | { outcome: "skipped" }
+  | { outcome: PublicContentNotificationOutcome };
+
 function getPublishNotificationDescription(
   content: PublishNotificationContent,
 ): string {
@@ -36,6 +48,20 @@ function getPublishNotificationDescription(
   }
 
   return content.description;
+}
+
+export function buildPublishNotificationEmailInput(
+  contentType: ContentNotificationContentType,
+  content: PublishNotificationContent,
+): ContentNotificationEmailInput {
+  return {
+    contentType,
+    title: content.title,
+    description: getPublishNotificationDescription(content),
+    url: buildContentNotificationUrl(contentType, content.slug),
+    featuredImage: content.featured_image,
+    publishedAt: content.published_at,
+  };
 }
 
 function shouldNotifyForContentType(
@@ -50,18 +76,46 @@ function shouldNotifyForContentType(
   return shouldSendLabOrTutorialPublishedNotification({ previous, next });
 }
 
-function buildPublishNotificationEmailInput(
-  contentType: ContentNotificationContentType,
-  next: PublishNotificationContent,
-): ContentNotificationEmailInput {
-  return {
+/**
+ * Claims and delivers a one-time notification for publicly available content.
+ * Reused by admin publish actions and the scheduled-content cron.
+ */
+export async function deliverPublicContentNotification({
+  contentType,
+  content,
+}: {
+  contentType: ContentNotificationContentType;
+  content: PublishNotificationContent;
+}): Promise<PublicContentNotificationResult> {
+  const recordId = await claimContentNotificationRecord({
     contentType,
-    title: next.title,
-    description: getPublishNotificationDescription(next),
-    url: buildContentNotificationUrl(contentType, next.slug),
-    featuredImage: next.featured_image,
-    publishedAt: next.published_at,
-  };
+    contentId: content.id,
+  });
+
+  if (!recordId) {
+    return { outcome: "skipped" };
+  }
+
+  const marked = await markContentNotificationSending(recordId);
+  if (!marked) {
+    return { outcome: "skipped" };
+  }
+
+  const summary = await deliverContentNotificationBroadcast({
+    recordId,
+    emailInput: buildPublishNotificationEmailInput(contentType, content),
+  });
+
+  const resolved = resolveContentNotificationOutcome(summary);
+  if (
+    resolved.status === "sent" ||
+    resolved.status === "partial" ||
+    resolved.status === "failed"
+  ) {
+    return { outcome: resolved.status };
+  }
+
+  return { outcome: "skipped" };
 }
 
 export async function notifySubscribersOfNewlyPublicContent({
@@ -85,17 +139,11 @@ export async function notifySubscribersOfNewlyPublicContent({
     return;
   }
 
-  const recordId = await claimContentNotificationRecord({
+  await deliverPublicContentNotification({
     contentType,
-    contentId: next.id,
-  });
-
-  if (!recordId) {
-    return;
-  }
-
-  await runClaimedContentNotificationBroadcast({
-    recordId,
-    emailInput: buildPublishNotificationEmailInput(contentType, next),
+    content: next,
   });
 }
+
+export type CronNotificationContentRow = PublishNotificationContentBase &
+  ({ excerpt: string } | { description: string });

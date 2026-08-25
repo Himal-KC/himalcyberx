@@ -14,6 +14,10 @@ export type ContentNotificationBroadcastType =
 
 export const CONTENT_NOTIFICATION_BATCH_SIZE = 25;
 
+export const CRON_NOTIFICATION_MAX_ITEMS_PER_RUN = 20;
+
+export const CRON_NOTIFICATION_CANDIDATES_PER_TYPE = 10;
+
 export const CONTENT_NOTIFICATION_STATUSES = [
   "pending",
   "sending",
