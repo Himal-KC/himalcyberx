@@ -1,3 +1,4 @@
+import { prepareRichContentForSave } from "@/lib/content/sanitize-on-save";
 import type { TutorialFormInput } from "@/lib/tutorials/validation";
 import type { TutorialInsert, TutorialStatus } from "@/lib/supabase/types";
 
@@ -19,11 +20,11 @@ export function buildTutorialInsertPayload({
     status,
     featured: input.featured,
     estimated_time: input.estimatedTime || null,
-    requirements: input.requirements || null,
-    introduction: input.introduction || null,
-    instructions: input.instructions || null,
-    key_takeaways: input.keyTakeaways || null,
-    security_notes: input.securityNotes || null,
+    requirements: prepareRichContentForSave(input.requirements) || null,
+    introduction: prepareRichContentForSave(input.introduction) || null,
+    instructions: prepareRichContentForSave(input.instructions) || null,
+    key_takeaways: prepareRichContentForSave(input.keyTakeaways) || null,
+    security_notes: prepareRichContentForSave(input.securityNotes) || null,
   };
 
   if (input.featured_image) {

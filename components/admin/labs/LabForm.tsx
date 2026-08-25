@@ -7,6 +7,7 @@ import { LAB_CATEGORIES, LAB_DIFFICULTIES } from "@/lib/labs/constants";
 import { slugifyTitle } from "@/lib/labs/validation";
 import type { Lab } from "@/lib/supabase/types";
 import { FeaturedImageUploader } from "@/components/admin/articles/FeaturedImageUploader";
+import { RichContentField } from "@/components/admin/editor/RichContentField";
 import { focusRing } from "@/lib/page-data";
 
 const inputClass =
@@ -61,6 +62,16 @@ export function LabForm({ action, lab = null }: LabFormProps) {
   const [title, setTitle] = useState(lab?.title ?? "");
   const [slug, setSlug] = useState(lab?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(lab?.slug));
+  const [introduction, setIntroduction] = useState(lab?.introduction ?? "");
+  const [learningObjectives, setLearningObjectives] = useState(
+    lab?.learning_objectives ?? "",
+  );
+  const [requirementsTools, setRequirementsTools] = useState(
+    lab?.requirements_tools ?? "",
+  );
+  const [instructions, setInstructions] = useState(lab?.instructions ?? "");
+  const [expectedResult, setExpectedResult] = useState(lab?.expected_result ?? "");
+  const [securityNotes, setSecurityNotes] = useState(lab?.security_notes ?? "");
 
   function handleTitleChange(nextTitle: string) {
     setTitle(nextTitle);
@@ -155,123 +166,82 @@ export function LabForm({ action, lab = null }: LabFormProps) {
               )}
             </div>
 
-            <div>
-              <label htmlFor="introduction" className={labelClass}>
-                Lab Introduction
-              </label>
-              <textarea
-                id="introduction"
-                name="introduction"
-                rows={6}
-                defaultValue={lab?.introduction ?? ""}
-                disabled={isPending}
-                placeholder="Introduce the lab scenario and learning goals..."
-                aria-invalid={Boolean(state.fieldErrors?.introduction)}
-                className={inputClass}
-              />
-              {state.fieldErrors?.introduction && (
-                <p className={errorClass}>{state.fieldErrors.introduction}</p>
-              )}
-            </div>
+            <RichContentField
+              id="introduction"
+              name="introduction"
+              label="Lab Introduction"
+              value={introduction}
+              onChange={setIntroduction}
+              disabled={isPending}
+              invalid={Boolean(state.fieldErrors?.introduction)}
+              error={state.fieldErrors?.introduction}
+              minHeightClass="min-h-[12rem]"
+            />
 
-            <div>
-              <label htmlFor="learning_objectives" className={labelClass}>
-                Learning Objectives
-              </label>
-              <textarea
-                id="learning_objectives"
-                name="learning_objectives"
-                rows={5}
-                defaultValue={lab?.learning_objectives ?? ""}
-                disabled={isPending}
-                placeholder="What learners should be able to do after completing this lab..."
-                aria-invalid={Boolean(state.fieldErrors?.learning_objectives)}
-                className={inputClass}
-              />
-              {state.fieldErrors?.learning_objectives && (
-                <p className={errorClass}>
-                  {state.fieldErrors.learning_objectives}
-                </p>
-              )}
-            </div>
+            <RichContentField
+              id="learning_objectives"
+              name="learning_objectives"
+              label="Learning Objectives"
+              value={learningObjectives}
+              onChange={setLearningObjectives}
+              disabled={isPending}
+              invalid={Boolean(state.fieldErrors?.learning_objectives)}
+              error={state.fieldErrors?.learning_objectives}
+              minHeightClass="min-h-[10rem]"
+              enableTables={false}
+            />
 
-            <div>
-              <label htmlFor="requirements_tools" className={labelClass}>
-                Requirements / Tools
-              </label>
-              <textarea
-                id="requirements_tools"
-                name="requirements_tools"
-                rows={4}
-                defaultValue={lab?.requirements_tools ?? ""}
-                disabled={isPending}
-                placeholder="Required software, tools, and environment setup..."
-                aria-invalid={Boolean(state.fieldErrors?.requirements_tools)}
-                className={inputClass}
-              />
-              {state.fieldErrors?.requirements_tools && (
-                <p className={errorClass}>
-                  {state.fieldErrors.requirements_tools}
-                </p>
-              )}
-            </div>
+            <RichContentField
+              id="requirements_tools"
+              name="requirements_tools"
+              label="Requirements / Tools"
+              value={requirementsTools}
+              onChange={setRequirementsTools}
+              disabled={isPending}
+              invalid={Boolean(state.fieldErrors?.requirements_tools)}
+              error={state.fieldErrors?.requirements_tools}
+              minHeightClass="min-h-[10rem]"
+              enableTables={false}
+            />
 
-            <div>
-              <label htmlFor="instructions" className={labelClass}>
-                Step-by-Step Instructions
-              </label>
-              <textarea
-                id="instructions"
-                name="instructions"
-                rows={16}
-                defaultValue={lab?.instructions ?? ""}
-                disabled={isPending}
-                placeholder="Detailed lab steps learners should follow..."
-                aria-invalid={Boolean(state.fieldErrors?.instructions)}
-                className={`${inputClass} min-h-[20rem] font-mono leading-relaxed`}
-              />
-              {state.fieldErrors?.instructions && (
-                <p className={errorClass}>{state.fieldErrors.instructions}</p>
-              )}
-            </div>
+            <RichContentField
+              id="instructions"
+              name="instructions"
+              label="Step-by-Step Instructions"
+              value={instructions}
+              onChange={setInstructions}
+              disabled={isPending}
+              invalid={Boolean(state.fieldErrors?.instructions)}
+              error={state.fieldErrors?.instructions}
+              minHeightClass="min-h-[20rem]"
+              helperText="Use headings, code blocks, and tables for structured lab steps."
+            />
 
-            <div>
-              <label htmlFor="expected_result" className={labelClass}>
-                Expected Result
-              </label>
-              <textarea
-                id="expected_result"
-                name="expected_result"
-                rows={4}
-                defaultValue={lab?.expected_result ?? ""}
-                disabled={isPending}
-                placeholder="What learners should observe when the lab is completed correctly..."
-                aria-invalid={Boolean(state.fieldErrors?.expected_result)}
-                className={inputClass}
-              />
-              {state.fieldErrors?.expected_result && (
-                <p className={errorClass}>{state.fieldErrors.expected_result}</p>
-              )}
-            </div>
+            <RichContentField
+              id="expected_result"
+              name="expected_result"
+              label="Expected Result"
+              value={expectedResult}
+              onChange={setExpectedResult}
+              disabled={isPending}
+              invalid={Boolean(state.fieldErrors?.expected_result)}
+              error={state.fieldErrors?.expected_result}
+              minHeightClass="min-h-[10rem]"
+              enableTables={false}
+            />
 
-            <div>
-              <label htmlFor="security_notes" className={labelClass}>
-                Security Notes
-              </label>
-              <textarea
-                id="security_notes"
-                name="security_notes"
-                rows={4}
-                defaultValue={lab?.security_notes ?? ""}
-                disabled={isPending}
-                placeholder="Authorized use, legal and safety reminders..."
-                aria-invalid={Boolean(state.fieldErrors?.security_notes)}
-                className={inputClass}
-              />
-              {state.fieldErrors?.security_notes && (
-                <p className={errorClass}>{state.fieldErrors.security_notes}</p>
-              )}
-            </div>
+            <RichContentField
+              id="security_notes"
+              name="security_notes"
+              label="Security Notes"
+              value={securityNotes}
+              onChange={setSecurityNotes}
+              disabled={isPending}
+              invalid={Boolean(state.fieldErrors?.security_notes)}
+              error={state.fieldErrors?.security_notes}
+              minHeightClass="min-h-[10rem]"
+              enableTables={false}
+            />
           </div>
         </section>
 

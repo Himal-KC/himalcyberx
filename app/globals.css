@@ -284,3 +284,116 @@ body {
 .article-editor-content:focus {
   outline: none;
 }
+
+.article-content h4,
+.article-editor-content h4 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--hcx-text);
+}
+
+.article-content hr,
+.article-editor-content hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid var(--hcx-border);
+}
+
+.article-content u,
+.article-editor-content u {
+  text-underline-offset: 2px;
+}
+
+.article-content s,
+.article-content del,
+.article-editor-content s,
+.article-editor-content del {
+  color: var(--hcx-text-secondary);
+}
+
+.article-content .hcx-text-muted,
+.article-editor-content .hcx-text-muted {
+  color: var(--hcx-text-secondary);
+}
+
+.article-content .hcx-text-accent,
+.article-editor-content .hcx-text-accent {
+  color: var(--hcx-cyan);
+}
+
+.article-content .hcx-text-success,
+.article-editor-content .hcx-text-success {
+  color: var(--hcx-green);
+}
+
+.article-content .hcx-text-warning,
+.article-editor-content .hcx-text-warning {
+  color: var(--hcx-orange);
+}
+
+.article-content .hcx-text-danger,
+.article-editor-content .hcx-text-danger {
+  color: var(--hcx-red);
+}
+
+.article-content .hcx-text-small,
+.article-editor-content .hcx-text-small {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.article-content .hcx-text-lead,
+.article-editor-content .hcx-text-lead {
+  font-size: 1.2rem;
+  line-height: 1.75;
+  color: color-mix(in srgb, var(--hcx-text) 92%, transparent);
+}
+
+.article-content .hcx-font-sans,
+.article-editor-content .hcx-font-sans {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.article-content .hcx-font-mono,
+.article-editor-content .hcx-font-mono,
+.article-content .hcx-font-tech,
+.article-editor-content .hcx-font-tech {
+  font-family: var(--font-tech);
+}
+
+.article-content .hcx-table-wrap,
+.article-editor-content .hcx-editor-table,
+.article-content table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.article-content .hcx-code-block-wrap,
+.article-editor-content .hcx-code-block-wrap {
+  position: relative;
+  margin: 1.5rem 0;
+}
+
+.article-content .hcx-copy-code-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+}
+
+.article-content pre.hcx-code-block,
+.article-editor-content pre.hcx-code-block {
+  margin: 0;
+}
+
+.article-content thead th,
+.article-editor-content thead th {
+  background: color-mix(in srgb, var(--hcx-cyan) 8%, var(--hcx-bg-secondary));
+  color: var(--hcx-cyan);
+}

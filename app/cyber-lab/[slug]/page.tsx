@@ -5,7 +5,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { DifficultyBadge } from "@/components/cyber-lab/DifficultyBadge";
-import { PlainTextLabContent } from "@/components/cyber-lab/PlainTextLabContent";
+import { RichContentRenderer } from "@/components/content/RichContentRenderer";
 import { RelatedContentSection } from "@/components/related/RelatedContentSection";
 import { JsonLd } from "@/components/seo/JsonLd";
 import {
@@ -65,7 +65,7 @@ function LabSection({
         {title}
       </h2>
       <div className="mt-4">
-        <PlainTextLabContent content={content} />
+        <RichContentRenderer content={content} preserveLineBreaks />
       </div>
     </section>
   );

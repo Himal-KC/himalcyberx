@@ -1,4 +1,5 @@
 import { slugifyTitle } from "@/lib/articles/validation";
+import { getRichContentTextLength } from "@/lib/content/html";
 import {
   TUTORIAL_DIFFICULTIES,
   TUTORIAL_STATUSES,
@@ -92,11 +93,11 @@ export function validateTutorialInput(
     if (!input.estimatedTime) {
       fieldErrors.estimated_time = "Estimated time is required when publishing.";
     }
-    if (input.introduction.length < 50) {
+    if (getRichContentTextLength(input.introduction) < 50) {
       fieldErrors.introduction =
         "Introduction must be at least 50 characters when publishing.";
     }
-    if (input.instructions.length < 100) {
+    if (getRichContentTextLength(input.instructions) < 100) {
       fieldErrors.instructions =
         "Step-by-step instructions must be at least 100 characters when publishing.";
     }

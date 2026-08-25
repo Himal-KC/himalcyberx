@@ -10,6 +10,7 @@ import {
 import { slugifyTitle } from "@/lib/tutorials/validation";
 import type { Tutorial } from "@/lib/supabase/types";
 import { FeaturedImageUploader } from "@/components/admin/articles/FeaturedImageUploader";
+import { RichContentField } from "@/components/admin/editor/RichContentField";
 import { focusRing } from "@/lib/page-data";
 
 const inputClass =
@@ -64,6 +65,11 @@ export function TutorialForm({ action, tutorial = null }: TutorialFormProps) {
   const [title, setTitle] = useState(tutorial?.title ?? "");
   const [slug, setSlug] = useState(tutorial?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(tutorial?.slug));
+  const [introduction, setIntroduction] = useState(tutorial?.introduction ?? "");
+  const [requirements, setRequirements] = useState(tutorial?.requirements ?? "");
+  const [instructions, setInstructions] = useState(tutorial?.instructions ?? "");
+  const [keyTakeaways, setKeyTakeaways] = useState(tutorial?.key_takeaways ?? "");
+  const [securityNotes, setSecurityNotes] = useState(tutorial?.security_notes ?? "");
 
   function handleTitleChange(nextTitle: string) {
     setTitle(nextTitle);
@@ -158,100 +164,69 @@ export function TutorialForm({ action, tutorial = null }: TutorialFormProps) {
               )}
             </div>
 
-            <div>
-              <label htmlFor="introduction" className={labelClass}>
-                Introduction
-              </label>
-              <textarea
-                id="introduction"
-                name="introduction"
-                rows={6}
-                defaultValue={tutorial?.introduction ?? ""}
-                disabled={isPending}
-                placeholder="Introduce the tutorial topic and learning goals..."
-                aria-invalid={Boolean(state.fieldErrors?.introduction)}
-                className={inputClass}
-              />
-              {state.fieldErrors?.introduction && (
-                <p className={errorClass}>{state.fieldErrors.introduction}</p>
-              )}
-            </div>
+            <RichContentField
+              id="introduction"
+              name="introduction"
+              label="Introduction"
+              value={introduction}
+              onChange={setIntroduction}
+              disabled={isPending}
+              invalid={Boolean(state.fieldErrors?.introduction)}
+              error={state.fieldErrors?.introduction}
+              minHeightClass="min-h-[12rem]"
+            />
 
-            <div>
-              <label htmlFor="requirements" className={labelClass}>
-                Requirements
-              </label>
-              <textarea
-                id="requirements"
-                name="requirements"
-                rows={4}
-                defaultValue={tutorial?.requirements ?? ""}
-                disabled={isPending}
-                placeholder="Prerequisites, tools, and setup needed..."
-                aria-invalid={Boolean(state.fieldErrors?.requirements)}
-                className={inputClass}
-              />
-              {state.fieldErrors?.requirements && (
-                <p className={errorClass}>{state.fieldErrors.requirements}</p>
-              )}
-            </div>
+            <RichContentField
+              id="requirements"
+              name="requirements"
+              label="Requirements"
+              value={requirements}
+              onChange={setRequirements}
+              disabled={isPending}
+              invalid={Boolean(state.fieldErrors?.requirements)}
+              error={state.fieldErrors?.requirements}
+              minHeightClass="min-h-[10rem]"
+              enableTables={false}
+            />
 
-            <div>
-              <label htmlFor="instructions" className={labelClass}>
-                Step-by-Step Instructions
-              </label>
-              <textarea
-                id="instructions"
-                name="instructions"
-                rows={16}
-                defaultValue={tutorial?.instructions ?? ""}
-                disabled={isPending}
-                placeholder="Detailed tutorial steps learners should follow..."
-                aria-invalid={Boolean(state.fieldErrors?.instructions)}
-                className={`${inputClass} min-h-[20rem] font-mono leading-relaxed`}
-              />
-              {state.fieldErrors?.instructions && (
-                <p className={errorClass}>{state.fieldErrors.instructions}</p>
-              )}
-            </div>
+            <RichContentField
+              id="instructions"
+              name="instructions"
+              label="Step-by-Step Instructions"
+              value={instructions}
+              onChange={setInstructions}
+              disabled={isPending}
+              invalid={Boolean(state.fieldErrors?.instructions)}
+              error={state.fieldErrors?.instructions}
+              minHeightClass="min-h-[20rem]"
+              helperText="Use headings, code blocks, and tables for structured lab steps."
+            />
 
-            <div>
-              <label htmlFor="key_takeaways" className={labelClass}>
-                Key Takeaways
-              </label>
-              <textarea
-                id="key_takeaways"
-                name="key_takeaways"
-                rows={5}
-                defaultValue={tutorial?.key_takeaways ?? ""}
-                disabled={isPending}
-                placeholder="Summarize the most important points learners should remember..."
-                aria-invalid={Boolean(state.fieldErrors?.key_takeaways)}
-                className={inputClass}
-              />
-              {state.fieldErrors?.key_takeaways && (
-                <p className={errorClass}>{state.fieldErrors.key_takeaways}</p>
-              )}
-            </div>
+            <RichContentField
+              id="key_takeaways"
+              name="key_takeaways"
+              label="Key Takeaways"
+              value={keyTakeaways}
+              onChange={setKeyTakeaways}
+              disabled={isPending}
+              invalid={Boolean(state.fieldErrors?.key_takeaways)}
+              error={state.fieldErrors?.key_takeaways}
+              minHeightClass="min-h-[10rem]"
+              enableTables={false}
+            />
 
-            <div>
-              <label htmlFor="security_notes" className={labelClass}>
-                Security Notes
-              </label>
-              <textarea
-                id="security_notes"
-                name="security_notes"
-                rows={4}
-                defaultValue={tutorial?.security_notes ?? ""}
-                disabled={isPending}
-                placeholder="Authorized use, legal and safety reminders..."
-                aria-invalid={Boolean(state.fieldErrors?.security_notes)}
-                className={inputClass}
-              />
-              {state.fieldErrors?.security_notes && (
-                <p className={errorClass}>{state.fieldErrors.security_notes}</p>
-              )}
-            </div>
+            <RichContentField
+              id="security_notes"
+              name="security_notes"
+              label="Security Notes"
+              value={securityNotes}
+              onChange={setSecurityNotes}
+              disabled={isPending}
+              invalid={Boolean(state.fieldErrors?.security_notes)}
+              error={state.fieldErrors?.security_notes}
+              minHeightClass="min-h-[10rem]"
+              enableTables={false}
+            />
           </div>
         </section>
 

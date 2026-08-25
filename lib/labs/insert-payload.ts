@@ -1,3 +1,4 @@
+import { prepareRichContentForSave } from "@/lib/content/sanitize-on-save";
 import type { LabFormInput } from "@/lib/labs/validation";
 import type { LabInsert, LabStatus } from "@/lib/supabase/types";
 
@@ -19,12 +20,12 @@ export function buildLabInsertPayload({
     status,
     featured: input.featured,
     estimated_time: input.estimatedTime || null,
-    learning_objectives: input.learningObjectives || null,
-    requirements_tools: input.requirementsTools || null,
-    introduction: input.introduction || null,
-    instructions: input.instructions || null,
-    expected_result: input.expectedResult || null,
-    security_notes: input.securityNotes || null,
+    learning_objectives: prepareRichContentForSave(input.learningObjectives) || null,
+    requirements_tools: prepareRichContentForSave(input.requirementsTools) || null,
+    introduction: prepareRichContentForSave(input.introduction) || null,
+    instructions: prepareRichContentForSave(input.instructions) || null,
+    expected_result: prepareRichContentForSave(input.expectedResult) || null,
+    security_notes: prepareRichContentForSave(input.securityNotes) || null,
   };
 
   if (input.featured_image) {

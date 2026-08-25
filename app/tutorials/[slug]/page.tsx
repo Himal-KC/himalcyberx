@@ -5,7 +5,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { DifficultyBadge } from "@/components/cyber-lab/DifficultyBadge";
-import { PlainTextTutorialContent } from "@/components/tutorials/PlainTextTutorialContent";
+import { RichContentRenderer } from "@/components/content/RichContentRenderer";
 import { RelatedContentSection } from "@/components/related/RelatedContentSection";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildTechArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
@@ -75,7 +75,7 @@ function TutorialSection({
         {title}
       </h2>
       <div className="mt-4">
-        <PlainTextTutorialContent content={content} />
+        <RichContentRenderer content={content} preserveLineBreaks />
       </div>
     </section>
   );

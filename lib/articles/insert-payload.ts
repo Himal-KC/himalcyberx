@@ -2,6 +2,7 @@ import type {
   ArticleFormInput,
   ArticleFormStatus,
 } from "@/lib/articles/validation";
+import { prepareRichContentForSave } from "@/lib/content/sanitize-on-save";
 import type { ArticleInsert } from "@/lib/supabase/types";
 
 function optionalText(value: string): string | null {
@@ -23,7 +24,7 @@ export function buildArticleInsertPayload({
     title: input.title,
     slug: input.slug,
     excerpt: input.excerpt,
-    content: input.content,
+    content: prepareRichContentForSave(input.content),
     author,
     status,
     featured: input.featured,
