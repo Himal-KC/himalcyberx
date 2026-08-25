@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CookiePreferencesLink } from "@/components/consent/CookiePreferencesLink";
 import { GitHubIcon, LinkedInIcon, XIcon } from "@/components/icons";
 import {
   footerCompanyLinks,
@@ -211,6 +212,7 @@ export function Footer({ settings: settingsProp }: FooterProps) {
                 {link.label}
               </Link>
             ))}
+            <CookiePreferencesLink />
           </nav>
         </div>
       </div>

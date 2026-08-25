@@ -79,8 +79,9 @@ function buildPrivacySections(siteName: string): LegalSection[] {
       title: "Cookies and Analytics",
       paragraphs: [
         `${siteName} may use cookies or similar technologies needed for essential site operation, including administrative authentication mechanisms that apply only to site administrators.`,
-        "When configured, the site may use Google Analytics (GA4) to understand how visitors use public pages and to improve content. Analytics is not loaded on admin pages.",
-        "At present, this website does not use a separate cookie consent banner. If analytics, advertising or similar technologies change materially, this Privacy Policy will be updated accordingly.",
+        "When configured, the site may use Google Analytics (GA4) to understand how visitors use public pages and to improve content. Analytics is optional, is not loaded on admin pages, and is disabled by default until you choose to accept analytics cookies.",
+        "You can accept analytics, reject non-essential cookies, or change your choice at any time using the Cookie Preferences control in the site footer. Your choice is stored locally in your browser using a first-party preference record.",
+        "If third-party advertising is introduced in the future, separate advertising consent will be handled through an appropriate mechanism and this Privacy Policy will be updated accordingly.",
       ],
     },
     {
