@@ -23,7 +23,10 @@ export function MessageRowActions({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  function handleStatusChange(status: "read" | "new", successText: string) {
+  function handleStatusChange(
+    status: "read" | "new" | "spam",
+    successText: string,
+  ) {
     startTransition(async () => {
       const result = await updateMessageStatus(message.id, status);
       if (result.error) {
@@ -87,12 +90,38 @@ export function MessageRowActions({
         </button>
       )}
 
-      {message.status !== "archived" && (
+      {message.status === "spam" && (
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() =>
+            handleStatusChange("new", "Message restored from spam.")
+          }
+          className={`${actionClass} text-hcx-cyan hover:underline`}
+        >
+          Not Spam
+        </button>
+      )}
+
+      {message.status !== "archived" && message.status !== "spam" && (
         <ArchiveMessageButton
           messageId={message.id}
           messageSubject={message.subject}
           onSuccess={onSuccess}
         />
+      )}
+
+      {message.status !== "spam" && message.status !== "archived" && (
+        <button
+          type="button"
+          disabled={isPending}
+          onClick={() =>
+            handleStatusChange("spam", "Message marked as spam.")
+          }
+          className={`${actionClass} text-hcx-red hover:underline`}
+        >
+          Spam
+        </button>
       )}
     </div>
   );

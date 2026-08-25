@@ -1,5 +1,12 @@
 export const NEWSLETTER_FROM_EMAIL = "HimalCyberX <updates@himalcyberx.com>";
 
+export const CONTACT_FROM_EMAIL = "HimalCyberX <contact@himalcyberx.com>";
+
+export const CONTACT_REPLY_TO_EMAIL = "contact@himalcyberx.com";
+
+export const CONTACT_ACKNOWLEDGEMENT_SUBJECT =
+  "We received your message | HimalCyberX";
+
 export const WELCOME_EMAIL_SUBJECT = "Welcome to HimalCyberX";
 
 export const HIMALCYBERX_SITE_URL = "https://himalcyberx.com";

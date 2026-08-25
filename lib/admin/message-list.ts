@@ -21,6 +21,7 @@ export function parseMessageListFilters(
       status === "new" ||
       status === "read" ||
       status === "archived" ||
+      status === "spam" ||
       status === "all"
         ? status
         : "all",
@@ -48,6 +49,8 @@ export function getMessageFilterEmptyMessage(
       return "No read messages.";
     case "archived":
       return "No archived messages.";
+    case "spam":
+      return "No spam messages.";
     case "all":
     default:
       return "No messages match your search.";

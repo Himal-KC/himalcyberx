@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { MessagesManager } from "@/components/admin/messages/MessagesManager";
+import { getAdminMessageReplies } from "@/lib/supabase/admin-message-replies";
 import { getAdminMessages } from "@/lib/supabase/admin-messages";
 
 export const metadata: Metadata = {
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminMessagesPage() {
-  const messages = await getAdminMessages();
+  const [messages, replies] = await Promise.all([
+    getAdminMessages(),
+    getAdminMessageReplies(),
+  ]);
 
   return (
     <div>
@@ -21,12 +25,13 @@ export default async function AdminMessagesPage() {
           MESSAGES
         </h1>
         <p className="mt-2 max-w-2xl text-sm text-hcx-text-secondary">
-          Review contact form submissions and manage message status.
+          Review contact form submissions, reply to visitors, and manage message
+          status.
         </p>
       </div>
 
       <Suspense fallback={null}>
-        <MessagesManager messages={messages} />
+        <MessagesManager messages={messages} replies={replies} />
       </Suspense>
     </div>
   );

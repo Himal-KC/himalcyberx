@@ -134,10 +134,22 @@ export async function sendResendEmailWithRetry(
   payload: ResendEmailPayload,
   logScope = "sendResendEmail",
 ): Promise<boolean> {
+  const result = await sendResendEmailWithResult(payload, logScope);
+  return result.ok;
+}
+
+export type ResendSendResult =
+  | { ok: true; emailId: string | null }
+  | { ok: false };
+
+export async function sendResendEmailWithResult(
+  payload: ResendEmailPayload,
+  logScope = "sendResendEmail",
+): Promise<ResendSendResult> {
   const resend = createResendClient();
   if (!resend) {
     logEmailFailure(logScope, "RESEND_API_KEY is not configured");
-    return false;
+    return { ok: false };
   }
 
   for (let attempt = 1; attempt <= RESEND_MAX_RETRY_ATTEMPTS; attempt += 1) {
@@ -145,18 +157,22 @@ export async function sendResendEmailWithRetry(
       const response = await resend.emails.send(payload);
 
       if (!response.error) {
-        return true;
+        const emailId =
+          response.data && typeof response.data.id === "string"
+            ? response.data.id
+            : null;
+        return { ok: true, emailId };
       }
 
       if (isResendPermanentError(response.error)) {
         logEmailFailure(`${logScope}:recipient`, response.error);
-        return false;
+        return { ok: false };
       }
 
       if (isResendRateLimitError(response.error)) {
         if (attempt >= RESEND_MAX_RETRY_ATTEMPTS) {
           logEmailFailure(logScope, "Resend rate limited request");
-          return false;
+          return { ok: false };
         }
 
         logEmailFailure(logScope, "Resend rate limited request");
@@ -165,11 +181,11 @@ export async function sendResendEmailWithRetry(
       }
 
       logEmailFailure(`${logScope}:recipient`, response.error);
-      return false;
+      return { ok: false };
     } catch (error) {
       if (attempt >= RESEND_MAX_RETRY_ATTEMPTS) {
         logEmailFailure(`${logScope}:recipient`, error);
-        return false;
+        return { ok: false };
       }
 
       await sleep(
@@ -180,5 +196,5 @@ export async function sendResendEmailWithRetry(
     }
   }
 
-  return false;
+  return { ok: false };
 }

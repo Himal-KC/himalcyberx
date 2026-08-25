@@ -17,6 +17,7 @@ import {
 } from "@/lib/form-validation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createPublicServerClient } from "@/lib/supabase/public-server";
+import { sendContactAcknowledgementEmail } from "@/lib/email/send-contact-acknowledgement";
 import { getClientIp } from "@/lib/rate-limit/client-ip";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { RATE_LIMIT_MESSAGES } from "@/lib/rate-limit/messages";
@@ -128,6 +129,14 @@ export async function submitContactForm(
         success: false,
         message: formatDevErrorMessage(error, GENERIC_ERROR_MESSAGE),
       };
+    }
+
+    try {
+      await sendContactAcknowledgementEmail(name, email);
+    } catch (ackError) {
+      if (isDevelopment()) {
+        console.error("[submitContactForm:acknowledgement]", ackError);
+      }
     }
 
     return {

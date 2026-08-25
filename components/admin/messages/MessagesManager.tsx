@@ -1,19 +1,17 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
-import { updateMessageStatus } from "@/lib/actions/messages";
+import { useMemo, useState } from "react";
 import {
   getMessageFilterEmptyMessage,
   messageListFiltersAreActive,
   parseMessageListFilters,
   type MessageStatusFilter,
 } from "@/lib/admin/message-list";
-import { ArchiveMessageButton } from "@/components/admin/messages/ArchiveMessageButton";
+import { MessageDetailModal } from "@/components/admin/messages/MessageDetailModal";
 import { MessageRowActions } from "@/components/admin/messages/MessageRowActions";
 import { MessageStatusBadge } from "@/components/admin/messages/MessageStatusBadge";
-import { PlainTextMessageContent } from "@/components/admin/messages/PlainTextMessageContent";
-import type { Message, MessageStatus } from "@/lib/supabase/types";
+import type { Message, MessageReply } from "@/lib/supabase/types";
 import { focusRing } from "@/lib/page-data";
 
 function formatDate(value: string | null): string {
@@ -29,9 +27,10 @@ function formatDate(value: string | null): string {
 
 interface MessagesManagerProps {
   messages: Message[];
+  replies: MessageReply[];
 }
 
-export function MessagesManager({ messages }: MessagesManagerProps) {
+export function MessagesManager({ messages, replies }: MessagesManagerProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -42,7 +41,6 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [flashIsError, setFlashIsError] = useState(false);
-  const [isPending, startTransition] = useTransition();
 
   function setStatusFilter(status: MessageStatusFilter) {
     const params = new URLSearchParams(searchParams.toString());
@@ -101,6 +99,22 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
   const selectedMessage =
     messages.find((message) => message.id === selectedId) ?? null;
 
+  const repliesByMessageId = useMemo(() => {
+    const grouped = new Map<string, MessageReply[]>();
+
+    for (const reply of replies) {
+      const existing = grouped.get(reply.message_id) ?? [];
+      existing.push(reply);
+      grouped.set(reply.message_id, existing);
+    }
+
+    return grouped;
+  }, [replies]);
+
+  const selectedReplies = selectedMessage
+    ? (repliesByMessageId.get(selectedMessage.id) ?? [])
+    : [];
+
   function showSuccess(message: string) {
     setFlashIsError(false);
     setFlashMessage(message);
@@ -109,24 +123,6 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
   function showError(message: string) {
     setFlashIsError(true);
     setFlashMessage(message);
-  }
-
-  function handleStatusChange(messageId: string, status: MessageStatus) {
-    startTransition(async () => {
-      const result = await updateMessageStatus(messageId, status);
-      if (result.error) {
-        showError(result.error);
-        return;
-      }
-
-      const successMessages: Record<MessageStatus, string> = {
-        new: "Message marked as new.",
-        read: "Message marked as read.",
-        archived: "Message archived successfully.",
-      };
-      showSuccess(successMessages[status]);
-      router.refresh();
-    });
   }
 
   return (
@@ -207,6 +203,7 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
                 ["new", "New"],
                 ["read", "Read"],
                 ["archived", "Archived"],
+                ["spam", "Spam"],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -353,118 +350,15 @@ export function MessagesManager({ messages }: MessagesManagerProps) {
         </>
       )}
 
-      {selectedMessage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          role="presentation"
-          onClick={() => !isPending && setSelectedId(null)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="message-detail-title"
-            className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-hcx-border bg-hcx-card shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="border-b border-hcx-border px-6 py-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="font-tech text-xs font-semibold uppercase tracking-[0.15em] text-hcx-cyan">
-                    Message Detail
-                  </p>
-                  <h2
-                    id="message-detail-title"
-                    className="mt-2 text-lg font-semibold text-hcx-text"
-                  >
-                    {selectedMessage.subject}
-                  </h2>
-                </div>
-                <MessageStatusBadge status={selectedMessage.status} />
-              </div>
-            </div>
-
-            <div className="overflow-y-auto px-6 py-5">
-              <dl className="grid gap-4 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-hcx-text-secondary">Name</dt>
-                  <dd className="mt-1 font-medium text-hcx-text">
-                    {selectedMessage.name}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-hcx-text-secondary">Email</dt>
-                  <dd className="mt-1 break-all text-hcx-text">
-                    {selectedMessage.email}
-                  </dd>
-                </div>
-                <div className="sm:col-span-2">
-                  <dt className="text-hcx-text-secondary">Received Date</dt>
-                  <dd className="mt-1 text-hcx-text">
-                    {formatDate(selectedMessage.created_at)}
-                  </dd>
-                </div>
-              </dl>
-
-              <div className="mt-6">
-                <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-hcx-text-secondary">
-                  Full Message
-                </h3>
-                <div className="mt-3 rounded-lg border border-hcx-border bg-hcx-bg/40 p-4">
-                  <PlainTextMessageContent content={selectedMessage.message} />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap justify-end gap-3 border-t border-hcx-border px-6 py-4">
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={() => setSelectedId(null)}
-                className={`rounded-lg border border-hcx-border px-4 py-2 text-sm font-medium text-hcx-text transition-colors hover:bg-hcx-bg disabled:opacity-60 ${focusRing}`}
-              >
-                Close
-              </button>
-              {(selectedMessage.status === "read" ||
-                selectedMessage.status === "archived") && (
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() =>
-                    handleStatusChange(selectedMessage.id, "new")
-                  }
-                  className={`rounded-lg border border-hcx-border px-4 py-2 text-sm font-medium text-hcx-cyan transition-colors hover:bg-hcx-bg disabled:opacity-60 ${focusRing}`}
-                >
-                  Mark as New
-                </button>
-              )}
-              {(selectedMessage.status === "new" ||
-                selectedMessage.status === "archived") && (
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() =>
-                    handleStatusChange(selectedMessage.id, "read")
-                  }
-                  className={`rounded-lg bg-hcx-cyan px-4 py-2 text-sm font-semibold text-hcx-bg transition-opacity hover:opacity-90 disabled:opacity-60 ${focusRing}`}
-                >
-                  Mark as Read
-                </button>
-              )}
-              {selectedMessage.status !== "archived" && (
-                <ArchiveMessageButton
-                  messageId={selectedMessage.id}
-                  messageSubject={selectedMessage.subject}
-                  onSuccess={(message) => {
-                    showSuccess(message);
-                    setSelectedId(null);
-                  }}
-                  className={`rounded-lg border border-hcx-orange/30 bg-hcx-orange/10 px-4 py-2 text-sm font-medium text-hcx-orange transition-colors hover:bg-hcx-orange/15 ${focusRing}`}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {selectedMessage ? (
+        <MessageDetailModal
+          message={selectedMessage}
+          replies={selectedReplies}
+          onClose={() => setSelectedId(null)}
+          onSuccess={showSuccess}
+          onError={showError}
+        />
+      ) : null}
     </div>
   );
 }

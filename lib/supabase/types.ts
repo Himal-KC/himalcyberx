@@ -278,7 +278,7 @@ export type ContentNotificationInsert = {
 
 export type ContentNotificationUpdate = Partial<ContentNotificationInsert>;
 
-export type MessageStatus = "new" | "read" | "archived";
+export type MessageStatus = "new" | "read" | "archived" | "spam";
 
 export interface Message {
   id: string;
@@ -290,6 +290,38 @@ export interface Message {
   created_at: string;
   read_at: string | null;
 }
+
+export type MessageReplyDirection = "outbound" | "inbound";
+
+export type MessageReplyDeliveryStatus = "pending" | "sent" | "failed";
+
+export interface MessageReply {
+  id: string;
+  message_id: string;
+  direction: MessageReplyDirection;
+  sender_email: string;
+  recipient_email: string;
+  body: string;
+  subject: string | null;
+  resend_email_id: string | null;
+  delivery_status: MessageReplyDeliveryStatus;
+  sent_at: string | null;
+  created_at: string;
+}
+
+export type MessageReplyInsert = {
+  message_id: string;
+  direction: MessageReplyDirection;
+  sender_email: string;
+  recipient_email: string;
+  body: string;
+  subject?: string | null;
+  resend_email_id?: string | null;
+  delivery_status?: MessageReplyDeliveryStatus;
+  sent_at?: string | null;
+  id?: string;
+  created_at?: string;
+};
 
 export type MessageInsert = {
   name: string;
@@ -425,6 +457,12 @@ export interface Database {
         Row: Message;
         Insert: MessageInsert;
         Update: MessageUpdate;
+        Relationships: TableRelationship[];
+      };
+      message_replies: {
+        Row: MessageReply;
+        Insert: MessageReplyInsert;
+        Update: Partial<MessageReplyInsert>;
         Relationships: TableRelationship[];
       };
       site_settings: {

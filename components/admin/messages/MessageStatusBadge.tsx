@@ -16,6 +16,10 @@ const statusStyles: Record<
     label: "Archived",
     className: "border-hcx-text-secondary/30 bg-hcx-bg text-hcx-text-secondary",
   },
+  spam: {
+    label: "Spam",
+    className: "border-hcx-red/30 bg-hcx-red/10 text-hcx-red",
+  },
 };
 
 export function MessageStatusBadge({ status }: { status: MessageStatus }) {
