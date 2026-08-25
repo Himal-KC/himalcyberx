@@ -20,6 +20,7 @@ const STATIC_ROUTES: Array<{
   { path: "/contact", changeFrequency: "monthly", priority: 0.6 },
   { path: "/privacy", changeFrequency: "yearly", priority: 0.3 },
   { path: "/terms", changeFrequency: "yearly", priority: 0.3 },
+  { path: "/disclaimer", changeFrequency: "yearly", priority: 0.3 },
 ];
 
 function buildContentSitemapEntries(

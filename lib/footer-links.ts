@@ -13,6 +13,7 @@ export const footerCompanyLinks = [
   { label: "Contact", href: "/contact" },
   { label: "Search", href: "/search" },
   { label: "Privacy", href: "/privacy" },
+  { label: "Disclaimer", href: "/disclaimer" },
 ] as const;
 
 export const footerLegalLinks = [

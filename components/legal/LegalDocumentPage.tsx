@@ -8,6 +8,7 @@ export interface LegalSection {
   title: string;
   paragraphs: string[];
   list?: string[];
+  closingParagraphs?: string[];
 }
 
 interface LegalDocumentPageProps {
@@ -20,7 +21,8 @@ interface LegalDocumentPageProps {
   introduction: string;
   sections: LegalSection[];
   contactHeading?: string;
-  contactText: string;
+  contactText?: string;
+  contactContent?: React.ReactNode;
   siteName: string;
 }
 
@@ -43,6 +45,7 @@ export function LegalDocumentPage({
   sections,
   contactHeading = "Contact",
   contactText,
+  contactContent,
   siteName,
 }: LegalDocumentPageProps) {
   return (
@@ -84,6 +87,14 @@ export function LegalDocumentPage({
                     ))}
                   </ul>
                 )}
+                {section.closingParagraphs?.map((paragraph) => (
+                  <p
+                    key={paragraph}
+                    className="text-sm leading-relaxed text-hcx-text-secondary"
+                  >
+                    {paragraph}
+                  </p>
+                ))}
               </div>
             </section>
           ))}
@@ -91,16 +102,22 @@ export function LegalDocumentPage({
 
         <section className="mt-12 rounded-xl border border-hcx-border bg-hcx-card p-6">
           <SectionHeading>{contactHeading}</SectionHeading>
-          <p className="mt-4 text-sm leading-relaxed text-hcx-text-secondary">
-            {contactText}{" "}
-            <Link
-              href="/contact"
-              className={`text-hcx-cyan hover:underline ${focusRing}`}
-            >
-              Contact {siteName}
-            </Link>
-            .
-          </p>
+          {contactContent ? (
+            <div className="mt-4 text-sm leading-relaxed text-hcx-text-secondary">
+              {contactContent}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm leading-relaxed text-hcx-text-secondary">
+              {contactText}{" "}
+              <Link
+                href="/contact"
+                className={`text-hcx-cyan hover:underline ${focusRing}`}
+              >
+                Contact {siteName}
+              </Link>
+              .
+            </p>
+          )}
         </section>
       </div>
     </PageShell>
