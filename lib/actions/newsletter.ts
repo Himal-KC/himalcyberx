@@ -1,6 +1,7 @@
 "use server";
 
 import type { FormActionState } from "@/lib/form-types";
+import { sendWelcomeEmail } from "@/lib/email/resend";
 import {
   HONEYPOT_FIELD_NAME,
   isHoneypotFilled,
@@ -108,6 +109,8 @@ export async function subscribeNewsletter(
         message: "Unable to complete your subscription. Please try again.",
       };
     }
+
+    await sendWelcomeEmail(email);
 
     return {
       success: true,
