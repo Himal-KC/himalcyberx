@@ -5,6 +5,7 @@ import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisu
 import { DifficultyBadge } from "@/components/cyber-lab/DifficultyBadge";
 import { linkFocus } from "@/components/cyber-lab/constants";
 import { ArrowRightIcon } from "@/components/icons";
+import { formatCardExcerpt } from "@/lib/format-card-excerpt";
 
 interface PublishedLabCardProps {
   lab: PublicLabCard;
@@ -51,7 +52,7 @@ export function PublishedLabCard({ lab }: PublishedLabCardProps) {
         </h3>
 
         <p className="mt-3 flex-1 text-sm leading-relaxed text-hcx-text-secondary">
-          {lab.description}
+          {formatCardExcerpt(lab.description)}
         </p>
 
         <div className="mt-4 border-t border-hcx-border pt-4">

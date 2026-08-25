@@ -3,6 +3,7 @@ import type { ArticleLabel } from "@/lib/articles";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { ContentLabelBadge } from "@/components/ContentLabelBadge";
 import { articlePath } from "@/lib/articles";
+import { formatCardExcerpt } from "@/lib/format-card-excerpt";
 import { focusRing } from "@/lib/page-data";
 
 interface ArticleGridCardProps {
@@ -60,7 +61,7 @@ export function ArticleGridCard({
           </Link>
         </h3>
         <p className="mt-2 flex-1 text-sm leading-relaxed text-hcx-text-secondary">
-          {description}
+          {formatCardExcerpt(description)}
         </p>
         <div className="mt-4 border-t border-hcx-border pt-4">
           <p className="text-sm font-medium text-hcx-text/90">{author}</p>

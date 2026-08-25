@@ -4,6 +4,7 @@ import { labPath } from "@/lib/supabase/public-labs";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { gridPattern, buttonFocus } from "@/components/cyber-lab/constants";
 import { ArrowRightIcon } from "@/components/icons";
+import { formatCardExcerpt } from "@/lib/format-card-excerpt";
 
 interface FeaturedLabProps {
   lab: PublicLabCard | null;
@@ -54,7 +55,7 @@ export function FeaturedLab({ lab }: FeaturedLabProps) {
                 </Link>
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-hcx-text-secondary md:text-base">
-                {lab.description}
+                {formatCardExcerpt(lab.description)}
               </p>
             </div>
 

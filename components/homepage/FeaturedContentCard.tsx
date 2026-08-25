@@ -4,6 +4,7 @@ import { ArrowRightIcon } from "@/components/icons";
 import type { HomepageFeaturedItem } from "@/lib/supabase/public-homepage";
 import type { SearchContentType } from "@/lib/search";
 import { getSearchTypeLabel, getTypeBadgeClass } from "@/lib/search";
+import { formatCardExcerpt } from "@/lib/format-card-excerpt";
 import { focusRing } from "@/lib/page-data";
 
 function getFeaturedCtaLabel(type: SearchContentType): string {
@@ -60,7 +61,7 @@ export function FeaturedContentPrimaryCard({
             {item.title}
           </h3>
           <p className="mt-4 line-clamp-3 text-base leading-relaxed text-hcx-text-secondary md:text-[17px]">
-            {item.description}
+            {formatCardExcerpt(item.description)}
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
