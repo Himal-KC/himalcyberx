@@ -9,7 +9,6 @@ import {
   buildEmailDocument,
   buildEmailHeading,
   buildEmailParagraph,
-  buildEmailSignature,
   buildEmailSignatureBanner,
   buildFeaturedImageBanner,
   buildSubscriberOuterFooter,
@@ -97,7 +96,6 @@ export function buildContentNotificationEmail(
       </div>
     `),
     buildEmailSignatureBanner(),
-    buildEmailSignature(),
   ].join("");
 
   const html = buildEmailDocument({
