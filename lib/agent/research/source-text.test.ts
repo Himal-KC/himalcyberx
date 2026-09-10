@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
+import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
-import {
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const testDir = dirname(fileURLToPath(import.meta.url));
+const {
   deduplicateStatements,
   extractCleanStatements,
   isCompleteSentence,
   isNoiseFragment,
-} from "./source-text.ts";
+} = (await import(
+  pathToFileURL(join(testDir, "source-text.ts")).href
+)) as typeof import("./source-text");
 
 describe("source-text hardening", () => {
   it("rejects truncated snippets", () => {
