@@ -6,6 +6,7 @@ export interface AdminNavItem {
 export const adminNavItems: AdminNavItem[] = [
   { label: "Overview", href: "/admin" },
   { label: "Articles", href: "/admin/articles" },
+  { label: "HCX Agent", href: "/admin/agent" },
   { label: "Categories", href: "/admin/categories" },
   { label: "Cyber Labs", href: "/admin/labs" },
   { label: "Tutorials", href: "/admin/tutorials" },

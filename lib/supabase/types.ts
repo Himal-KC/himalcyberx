@@ -1,8 +1,26 @@
+import type {
+  AGENT_CONTENT_TYPES,
+  AGENT_FACT_CHECK_STATUSES,
+  AGENT_RUN_STAGES,
+  AGENT_RUN_STATUSES,
+  AGENT_SOURCE_TYPES,
+} from "@/lib/agent/constants";
+
 export type ArticleStatus = "draft" | "published" | "archived";
 
 export type ArticleContentType = "real" | "demo";
 
 export type ArticlePattern = "network" | "grid" | "circuit" | "featured";
+
+export type AgentContentType = (typeof AGENT_CONTENT_TYPES)[number];
+
+export type AgentRunStatus = (typeof AGENT_RUN_STATUSES)[number];
+
+export type AgentRunStage = (typeof AGENT_RUN_STAGES)[number];
+
+export type AgentFactCheckStatus = (typeof AGENT_FACT_CHECK_STATUSES)[number];
+
+export type AgentSourceType = (typeof AGENT_SOURCE_TYPES)[number];
 
 /** @deprecated Use ArticleStatus */
 export type PublicationStatus = "draft" | "published";
@@ -36,8 +54,14 @@ export interface Article {
   seo_description: string | null;
   og_title: string | null;
   og_description: string | null;
+  seo_keywords: string[] | null;
   pattern: ArticlePattern | null;
   status: ArticleStatus;
+  agent_run_id: string | null;
+  ai_generated: boolean;
+  quality_score: number | null;
+  fact_check_status: AgentFactCheckStatus | null;
+  last_verified_at: string | null;
   body: Record<string, unknown> | null;
   key_takeaways: string[] | null;
   hcx_analysis: Record<string, unknown> | null;
@@ -64,8 +88,14 @@ export type ArticleInsert = {
   seo_description?: string | null;
   og_title?: string | null;
   og_description?: string | null;
+  seo_keywords?: string[] | null;
   pattern?: ArticlePattern | null;
   status: ArticleStatus;
+  agent_run_id?: string | null;
+  ai_generated?: boolean;
+  quality_score?: number | null;
+  fact_check_status?: AgentFactCheckStatus | null;
+  last_verified_at?: string | null;
   body?: Record<string, unknown> | null;
   key_takeaways?: string[] | null;
   hcx_analysis?: Record<string, unknown> | null;
@@ -104,6 +134,82 @@ export interface ArticleSource {
   created_at: string;
 }
 
+export interface AgentRun {
+  id: string;
+  topic: string;
+  content_type: AgentContentType;
+  status: AgentRunStatus;
+  stage: AgentRunStage;
+  article_id: string | null;
+  tutorial_id: string | null;
+  lab_id: string | null;
+  research_summary: string | null;
+  recommended_angle: string | null;
+  primary_keyword: string | null;
+  secondary_keywords: string[] | null;
+  quality_score: number | null;
+  fact_check_status: AgentFactCheckStatus | null;
+  error_message: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AgentRunInsert = {
+  topic: string;
+  content_type: AgentContentType;
+  status?: AgentRunStatus;
+  stage?: AgentRunStage;
+  article_id?: string | null;
+  tutorial_id?: string | null;
+  lab_id?: string | null;
+  research_summary?: string | null;
+  recommended_angle?: string | null;
+  primary_keyword?: string | null;
+  secondary_keywords?: string[] | null;
+  quality_score?: number | null;
+  fact_check_status?: AgentFactCheckStatus | null;
+  error_message?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  id?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type AgentRunUpdate = Partial<AgentRunInsert>;
+
+export interface AgentSource {
+  id: string;
+  agent_run_id: string;
+  title: string;
+  url: string;
+  publisher: string | null;
+  source_type: AgentSourceType;
+  published_at: string | null;
+  accessed_at: string;
+  supports_claims: string[] | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export type AgentSourceInsert = {
+  agent_run_id: string;
+  title: string;
+  url: string;
+  publisher?: string | null;
+  source_type?: AgentSourceType;
+  published_at?: string | null;
+  accessed_at?: string;
+  supports_claims?: string[] | null;
+  sort_order?: number;
+  id?: string;
+  created_at?: string;
+};
+
+export type AgentSourceUpdate = Partial<AgentSourceInsert>;
+
 export type LabStatus = "draft" | "published";
 
 export type LabDifficulty = "Beginner" | "Intermediate" | "Advanced";
@@ -124,6 +230,17 @@ export interface Lab {
   security_notes: string | null;
   featured: boolean;
   featured_image: string | null;
+  featured_image_alt: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  seo_keywords: string[] | null;
+  og_title: string | null;
+  og_description: string | null;
+  agent_run_id: string | null;
+  ai_generated: boolean;
+  quality_score: number | null;
+  fact_check_status: AgentFactCheckStatus | null;
+  last_verified_at: string | null;
   status: LabStatus;
   published_at: string | null;
   sort_order: number | null;
@@ -153,6 +270,17 @@ export type LabInsert = {
   security_notes?: string | null;
   featured?: boolean;
   featured_image?: string | null;
+  featured_image_alt?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_keywords?: string[] | null;
+  og_title?: string | null;
+  og_description?: string | null;
+  agent_run_id?: string | null;
+  ai_generated?: boolean;
+  quality_score?: number | null;
+  fact_check_status?: AgentFactCheckStatus | null;
+  last_verified_at?: string | null;
   status: LabStatus;
   published_at?: string | null;
   sort_order?: number | null;
@@ -182,6 +310,17 @@ export interface Tutorial {
   security_notes: string | null;
   featured: boolean;
   featured_image: string | null;
+  featured_image_alt: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  seo_keywords: string[] | null;
+  og_title: string | null;
+  og_description: string | null;
+  agent_run_id: string | null;
+  ai_generated: boolean;
+  quality_score: number | null;
+  fact_check_status: AgentFactCheckStatus | null;
+  last_verified_at: string | null;
   status: TutorialStatus;
   published_at: string | null;
   sort_order: number | null;
@@ -203,6 +342,17 @@ export type TutorialInsert = {
   security_notes?: string | null;
   featured?: boolean;
   featured_image?: string | null;
+  featured_image_alt?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_keywords?: string[] | null;
+  og_title?: string | null;
+  og_description?: string | null;
+  agent_run_id?: string | null;
+  ai_generated?: boolean;
+  quality_score?: number | null;
+  fact_check_status?: AgentFactCheckStatus | null;
+  last_verified_at?: string | null;
   status: TutorialStatus;
   published_at?: string | null;
   sort_order?: number | null;
@@ -423,6 +573,18 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<ArticleSource>;
+        Relationships: TableRelationship[];
+      };
+      agent_runs: {
+        Row: AgentRun;
+        Insert: AgentRunInsert;
+        Update: AgentRunUpdate;
+        Relationships: TableRelationship[];
+      };
+      agent_sources: {
+        Row: AgentSource;
+        Insert: AgentSourceInsert;
+        Update: AgentSourceUpdate;
         Relationships: TableRelationship[];
       };
       labs: {

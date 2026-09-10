@@ -1,7 +1,11 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-export type RateLimitScope = "newsletter" | "contact" | "admin-login";
+export type RateLimitScope =
+  | "newsletter"
+  | "contact"
+  | "admin-login"
+  | "agent-research";
 
 const LIMIT_CONFIG: Record<
   RateLimitScope,
@@ -10,6 +14,7 @@ const LIMIT_CONFIG: Record<
   newsletter: { requests: 5, window: "10 m" },
   contact: { requests: 3, window: "10 m" },
   "admin-login": { requests: 5, window: "15 m" },
+  "agent-research": { requests: 10, window: "30 m" },
 };
 
 let redisClient: Redis | null | undefined;
