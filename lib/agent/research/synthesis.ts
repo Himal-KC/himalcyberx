@@ -5,15 +5,13 @@ import type { AgentContentType } from "@/lib/supabase/types";
 import type {
   ContentAwarenessResult,
   ResearchConfidence,
+  ResearchQuality,
   ResearchSource,
   UncertainClaim,
   VerifiedClaim,
   VerifiedClaimType,
 } from "@/lib/agent/types";
-import {
-  deduplicateStatements,
-  isCompleteSentence,
-} from "@/lib/agent/research/source-text";
+import { deduplicateStatements } from "@/lib/agent/research/source-text";
 
 export interface ResearchSynthesisInput {
   topic: string;
@@ -25,6 +23,7 @@ export interface ResearchSynthesisInput {
   unpromotedDiscoveryCount: number;
   pageBackedClaimCount: number;
   highRelevanceClaimCount: number;
+  researchQuality?: ResearchQuality;
 }
 
 export interface ResearchSynthesisOutput {
@@ -71,8 +70,13 @@ function countClaimsByOrigin(verifiedClaims: VerifiedClaim[]): {
     "official_guidance",
     "preparedness",
     "response",
+    "recovery",
+    "backup",
+    "authentication",
+    "network_security",
     "guidance",
     "general",
+    "mitigation",
   ]);
 
   let structured = 0;
@@ -134,7 +138,11 @@ function buildKeyFindings(verifiedClaims: VerifiedClaim[]): string[] {
     "mitigation",
     "official_guidance",
     "preparedness",
+    "backup",
+    "authentication",
+    "network_security",
     "response",
+    "recovery",
     "guidance",
     "general",
     "disclosure_date",
@@ -162,13 +170,10 @@ function buildKeyFindings(verifiedClaims: VerifiedClaim[]): string[] {
     return (leftIndex === -1 ? 99 : leftIndex) - (rightIndex === -1 ? 99 : rightIndex);
   });
 
-  const findings = deduplicateStatements(
-    ordered
-      .map((claim) => claim.statement)
-      .filter((statement) => isCompleteSentence(statement)),
+  return deduplicateStatements(ordered.map((claim) => claim.statement)).slice(
+    0,
+    7,
   );
-
-  return findings.slice(0, Math.min(7, findings.length));
 }
 
 function topPublishers(sources: ResearchSource[]): string[] {
@@ -187,6 +192,7 @@ function buildSummary(
   unpromotedDiscoveryCount: number,
   pageBackedClaimCount: number,
   highRelevanceClaimCount: number,
+  researchQuality?: ResearchQuality,
 ): string {
   const publishers = topPublishers(sources);
   const findings = buildKeyFindings(verifiedClaims);
@@ -195,9 +201,17 @@ function buildSummary(
     (claim) =>
       claim.relevanceLevel === "high" || claim.relevanceLevel === "medium",
   );
+  const hasOfficialSource = sources.some(
+    (source) =>
+      source.sourceType === "official" || source.sourceType === "primary",
+  );
 
   if (verifiedClaims.length === 0) {
-    return `Research on "${topic}" identified ${sources.length} authoritative source${sources.length === 1 ? "" : "s"}, but no clean verified claims could be extracted from fetched page evidence.`;
+    if (hasOfficialSource && sources.length > 0) {
+      return `Research on "${topic}" found ${sources.length} authoritative source${sources.length === 1 ? "" : "s"}, but insufficient page-verifiable topic-specific evidence was extracted. Authoritative sources were found, but deterministic claim extraction could not recover enough strong verified statements.`;
+    }
+
+    return `Research on "${topic}" did not identify credible authoritative evidence for this topic.`;
   }
 
   const publisherText =
@@ -218,9 +232,13 @@ function buildSummary(
 
   if (findings.length >= 1) {
     parts.push(findings[0]);
-  } else if (pageBackedClaimCount < 2 || highRelevanceClaimCount < 2) {
+  } else if (
+    researchQuality === "needs_review" ||
+    pageBackedClaimCount < 2 ||
+    highRelevanceClaimCount < 2
+  ) {
     parts.push(
-      "The research brief has limited topic-relevant evidence and should be reviewed before content generation.",
+      "Authoritative sources were found, but some evidence could not be fully verified automatically and the brief should be reviewed before content generation.",
     );
   }
 
@@ -261,7 +279,11 @@ function buildRecommendedAngle(
       claim.type === "guidance" ||
       claim.type === "official_guidance" ||
       claim.type === "preparedness" ||
-      claim.type === "response",
+      claim.type === "backup" ||
+      claim.type === "authentication" ||
+      claim.type === "network_security" ||
+      claim.type === "response" ||
+      claim.type === "recovery",
   );
 
   if (contentType === "article") {
@@ -363,6 +385,7 @@ export function synthesizeResearchBrief(
     unpromotedDiscoveryCount,
     pageBackedClaimCount,
     highRelevanceClaimCount,
+    researchQuality,
   } = input;
 
   const { primaryKeyword, secondaryKeywords } = buildKeywords(
@@ -388,6 +411,7 @@ export function synthesizeResearchBrief(
       unpromotedDiscoveryCount,
       pageBackedClaimCount,
       highRelevanceClaimCount,
+      researchQuality,
     ),
     recommendedAngle: buildRecommendedAngle(
       topic,

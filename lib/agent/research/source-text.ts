@@ -24,6 +24,14 @@ const PROPOSITION_VERBS =
 
 const MIN_STATEMENT_LENGTH = 40;
 const MAX_STATEMENT_LENGTH = 280;
+const MIN_GUIDANCE_LENGTH = 25;
+const MAX_GUIDANCE_LENGTH = 220;
+
+const ACTIONABLE_GUIDANCE_VERBS =
+  /\b(maintain|implement|patch|update|segment|enable|disable|monitor|test|backup|restore|encrypt|isolate|contain|deploy|configure|apply|use|avoid|limit|restrict|verify|review|document|train|ensure|create|develop|establish|remove|install|enforce|regularly|promptly)\b/i;
+
+const IMPERATIVE_START =
+  /^(Maintain|Implement|Patch|Update|Segment|Enable|Disable|Monitor|Test|Backup|Restore|Encrypt|Isolate|Contain|Apply|Use|Avoid|Limit|Restrict|Verify|Review|Document|Train|Ensure|Create|Develop|Establish|Deploy|Configure|Remove|Install|Enforce|Regularly|Promptly)\b/i;
 
 export function normalizeSourceText(text: string): string {
   return text
@@ -231,6 +239,106 @@ export function splitIntoCandidateSentences(text: string): string[] {
   return parts;
 }
 
+function isGuidanceNoise(text: string): boolean {
+  const normalized = normalizeSourceText(text);
+  if (!normalized) {
+    return true;
+  }
+
+  for (const pattern of NOISE_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return true;
+    }
+  }
+
+  const lower = normalized.toLowerCase();
+  const noiseTokens = [
+    "skip to main content",
+    "open menu",
+    "close menu",
+    "click here",
+    "learn more",
+    "cookie policy",
+    "privacy policy",
+    "terms of use",
+  ];
+
+  return noiseTokens.some((token) => lower.includes(token));
+}
+
+export function isActionableGuidanceStatement(text: string): boolean {
+  const normalized = normalizeSourceText(text);
+  if (!normalized) {
+    return false;
+  }
+
+  if (normalized.length < MIN_GUIDANCE_LENGTH) {
+    return false;
+  }
+
+  if (normalized.length > MAX_GUIDANCE_LENGTH) {
+    return false;
+  }
+
+  if (isGuidanceNoise(normalized)) {
+    return false;
+  }
+
+  if (isPartialQuotation(normalized)) {
+    return false;
+  }
+
+  if (isEntityListFragment(normalized)) {
+    return false;
+  }
+
+  if (!ACTIONABLE_GUIDANCE_VERBS.test(normalized)) {
+    return false;
+  }
+
+  const imperative = IMPERATIVE_START.test(normalized);
+  const endsProperly = /[.!?]["”']?$/.test(normalized);
+
+  if (!imperative && !endsProperly) {
+    return false;
+  }
+
+  if (imperative && !endsProperly) {
+    return normalized.split(/\s+/).length >= 4;
+  }
+
+  if (normalized.split(/\s+/).length <= 2) {
+    return false;
+  }
+
+  return true;
+}
+
+export function extractActionableGuidanceStatements(text: string): string[] {
+  const lines = text
+    .split(/\n+/)
+    .map((line) => normalizeSourceText(line))
+    .filter(Boolean);
+  const statements: string[] = [];
+  const seen = new Set<string>();
+
+  for (const line of lines) {
+    if (!isActionableGuidanceStatement(line)) {
+      continue;
+    }
+
+    const key = line.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    statements.push(line.endsWith(".") ? line : `${line}.`);
+  }
+
+  return statements;
+}
+
 export function extractCleanStatements(text: string): string[] {
   const candidates = splitIntoCandidateSentences(text);
   const statements: string[] = [];
@@ -258,7 +366,9 @@ export function statementExistsInSourceText(
   statement: string,
   sourceText: string,
 ): boolean {
-  const normalizedStatement = normalizeSourceText(statement).toLowerCase();
+  const normalizedStatement = normalizeSourceText(statement)
+    .replace(/\.$/, "")
+    .toLowerCase();
   const normalizedSource = normalizeSourceText(sourceText).toLowerCase();
 
   if (!normalizedStatement || !normalizedSource) {
@@ -269,9 +379,15 @@ export function statementExistsInSourceText(
     return true;
   }
 
+  const withPeriod = `${normalizedStatement}.`;
+  if (normalizedSource.includes(withPeriod)) {
+    return true;
+  }
+
   const prefixLength = Math.min(90, normalizedStatement.length);
   const prefix = normalizedStatement.slice(0, prefixLength);
-  return prefix.length >= 40 && normalizedSource.includes(prefix);
+  const minPrefix = normalizedStatement.length < 40 ? 15 : 40;
+  return prefix.length >= minPrefix && normalizedSource.includes(prefix);
 }
 
 export function truncateDiscoveryExcerpt(text: string, maxLength = 220): string {
@@ -333,4 +449,35 @@ export function deduplicateStatements(statements: string[]): string[] {
   }
 
   return result;
+}
+
+export type CandidateRejectionReason =
+  | "incomplete"
+  | "boilerplate"
+  | "promotional"
+  | "low_relevance"
+  | "duplicate"
+  | "heading_only"
+  | "unsupported"
+  | "too_short";
+
+export function extractPageCandidates(blocks: string[]): {
+  prose: string[];
+  guidance: string[];
+} {
+  const prose: string[] = [];
+  const guidance: string[] = [];
+  const pageText = blocks.join("\n");
+
+  for (const block of blocks) {
+    prose.push(...extractCleanStatements(block));
+    guidance.push(...extractActionableGuidanceStatements(block));
+  }
+
+  return {
+    prose: deduplicateStatements(prose),
+    guidance: deduplicateStatements(guidance).filter((statement) =>
+      statementExistsInSourceText(statement, pageText),
+    ),
+  };
 }

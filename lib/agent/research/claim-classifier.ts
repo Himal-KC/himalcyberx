@@ -18,6 +18,9 @@ const GENERIC_EXPLOITATION_CONTEXT = [
   /\binformation on\b.+\bvulnerabilit/i,
 ];
 
+const ACTIONABLE_VERB =
+  /\b(maintain|implement|patch|update|segment|enable|disable|monitor|test|backup|restore|encrypt|isolate|contain|deploy|configure|apply|use|avoid|limit|restrict|verify|review|document|train|ensure|create|develop|establish|remove|install|enforce|regularly|promptly)\b/i;
+
 function isSpecificExploitationClaim(statement: string): boolean {
   if (GENERIC_EXPLOITATION_CONTEXT.some((pattern) => pattern.test(statement))) {
     return false;
@@ -26,68 +29,12 @@ function isSpecificExploitationClaim(statement: string): boolean {
   return EXPLOITATION_STATUS_PATTERNS.some((pattern) => pattern.test(statement));
 }
 
-function hasActionableMitigation(statement: string): boolean {
-  const lower = statement.toLowerCase();
-  const hasMitigationTerm =
-    /\bmitigat|\bremediat|\bpatch\b|\bworkaround\b|\bupdate\b/.test(lower);
-
-  if (!hasMitigationTerm) {
-    return false;
-  }
-
-  return (
-    /\bshould\b|\brecommend|\bapply\b|\bdeploy\b|\bimplement\b|\benable\b|\bdisable\b|\bremove\b|\bupgrade\b/i.test(
-      statement,
-    ) || /\bcve-\d{4}-\d+\b/i.test(statement)
-  );
-}
-
-function hasActionablePreparedness(statement: string): boolean {
-  const lower = statement.toLowerCase();
-  const hasPrepTerm =
-    /\bpreparedness\b|\bpreparation\b|\bprepare\b|\bprevent\b|\bplan\b/.test(
-      lower,
-    );
-
-  if (!hasPrepTerm) {
-    return false;
-  }
-
-  return (
-    hasActionableMitigation(statement) ||
-    /\bmaintain\b|\btest\b|\bbackup\b|\brestore\b|\bdevelop\b|\bestablish\b/i.test(
-      statement,
-    )
-  );
-}
-
-function hasActionableResponse(statement: string): boolean {
-  const lower = statement.toLowerCase();
-  const hasResponseTerm =
-    /\brespond\b|\bincident response\b|\brecovery\b|\bcontain\b|\bisolate\b/.test(
-      lower,
-    );
-
-  if (!hasResponseTerm) {
-    return false;
-  }
-
-  return (
-    /\bshould\b|\brecommend|\bsteps\b|\bplan\b|\bprocedure\b|\bplaybook\b/i.test(
-      statement,
-    ) || /\bcve-\d{4}-\d+\b/i.test(statement)
-  );
-}
-
-function hasStructuredCvssEvidence(statement: string): boolean {
-  return /\bcvss\b/i.test(statement) && /\b(score|vector|severity)\b/i.test(statement);
-}
-
 function hasPatchEvidence(statement: string): boolean {
   return (
-    /\bpatch\b|\bsecurity update\b|\bfixed in\b|\bupdated version\b/i.test(
+    /\bpatch\b|\bsecurity update\b|\bfixed in\b|\bupdated version\b|\bkb\d+/i.test(
       statement,
-    ) && /\b(cve-\d{4}-\d+|\d+\.\d+|\brelease\b|\bversion\b)/i.test(statement)
+    ) &&
+    /\b(cve-\d{4}-\d+|\d+\.\d+|\brelease\b|\bversion\b|kb\d+)/i.test(statement)
   );
 }
 
@@ -98,27 +45,65 @@ export function classifyWebClaimType(statement: string): VerifiedClaimType {
     return "exploitation_status";
   }
 
-  if (/\bcve-\d{4}-\d+\b/.test(lower)) {
-    return "cve_id";
-  }
-
-  if (hasStructuredCvssEvidence(statement)) {
-    return "cvss";
-  }
-
   if (hasPatchEvidence(statement)) {
     return "patch_information";
   }
 
-  if (hasActionablePreparedness(statement)) {
+  if (/\bcve-\d{4}-\d+\b/.test(lower)) {
+    return "cve_id";
+  }
+
+  if (/\bcvss\b/i.test(statement) && /\b(score|vector|severity)\b/i.test(statement)) {
+    return "cvss";
+  }
+
+  if (/\bbackup|\bbackups\b|\boffline\b/.test(lower) && ACTIONABLE_VERB.test(statement)) {
+    return "backup";
+  }
+
+  if (
+    /\brestor|\brecovery\b/.test(lower) &&
+    ACTIONABLE_VERB.test(statement)
+  ) {
+    return "recovery";
+  }
+
+  if (
+    /\bmfa\b|\bmultifactor|\bauthentication\b|\bphishing-resistant\b/i.test(
+      statement,
+    ) &&
+    ACTIONABLE_VERB.test(statement)
+  ) {
+    return "authentication";
+  }
+
+  if (
+    /\bsegment|\blateral\b|\bnetwork\b/.test(lower) &&
+    ACTIONABLE_VERB.test(statement)
+  ) {
+    return "network_security";
+  }
+
+  if (
+    /\bpreparedness\b|\bpreparation\b|\bprepare\b|\bprevent\b|\bplan\b/.test(
+      lower,
+    ) &&
+    ACTIONABLE_VERB.test(statement)
+  ) {
     return "preparedness";
   }
 
-  if (hasActionableMitigation(statement)) {
+  if (
+    /\bmitigat|\bremediat|\bpatch|\bpatches\b/.test(lower) &&
+    ACTIONABLE_VERB.test(statement)
+  ) {
     return "mitigation";
   }
 
-  if (hasActionableResponse(statement)) {
+  if (
+    /\brespond\b|\bincident response\b|\bcontain\b|\bisolate\b/.test(lower) &&
+    ACTIONABLE_VERB.test(statement)
+  ) {
     return "response";
   }
 
@@ -134,11 +119,7 @@ export function classifyWebClaimType(statement: string): VerifiedClaimType {
     return "techniques";
   }
 
-  if (
-    /\brecommend|\badvis|\bguidance\b|\bofficial\b/i.test(statement) &&
-    hasActionableMitigation(statement) === false &&
-    /\bshould\b|\bmust\b|\borganizations?\b/i.test(statement)
-  ) {
+  if (ACTIONABLE_VERB.test(statement)) {
     return "official_guidance";
   }
 
@@ -146,5 +127,5 @@ export function classifyWebClaimType(statement: string): VerifiedClaimType {
     return "official_guidance";
   }
 
-  return "guidance";
+  return "general";
 }

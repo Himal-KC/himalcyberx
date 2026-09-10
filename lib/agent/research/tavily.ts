@@ -7,12 +7,24 @@ import {
   matchAuthoritativeDomain,
   normalizeResearchUrl,
 } from "@/lib/agent/research/authoritative-domains";
+import {
+  buildPdfHtmlFallbackQueries,
+  buildResearchSearchQueries,
+  countFocusedHtmlSources,
+} from "@/lib/agent/research/search-queries";
+import {
+  isGenericIndexPage,
+  isLikelyPdfUrl,
+  scoreSourcePathQuality,
+} from "@/lib/agent/research/source-quality";
 import { getTavilyApiKey, hasTavilyApiKey } from "@/lib/agent/research/env";
 import { truncateDiscoveryExcerpt } from "@/lib/agent/research/source-text";
 
 const TAVILY_SEARCH_URL = "https://api.tavily.com/search";
 const REQUEST_TIMEOUT_MS = 20_000;
-const MAX_RESULTS = 8;
+const MAX_RESULTS_PER_QUERY = 6;
+const MAX_TOTAL_SOURCES = 10;
+const MIN_FOCUSED_HTML_SOURCES = 3;
 
 interface TavilySearchResult {
   title?: string;
@@ -31,10 +43,7 @@ export interface TavilySearchOutcome {
   ok: boolean;
   sources: ResearchSource[];
   error?: string;
-}
-
-function buildCybersecurityQuery(topic: string): string {
-  return `${topic} cybersecurity vulnerability threat advisory`;
+  queryCount?: number;
 }
 
 async function fetchTavily(
@@ -137,6 +146,41 @@ function deduplicateSources(sources: ResearchSource[]): ResearchSource[] {
   return deduped;
 }
 
+function rankDiscoveredSources(sources: ResearchSource[]): ResearchSource[] {
+  return [...sources].sort((left, right) => {
+    const leftPath = scoreSourcePathQuality(left.url);
+    const rightPath = scoreSourcePathQuality(right.url);
+    if (rightPath !== leftPath) {
+      return rightPath - leftPath;
+    }
+
+    const leftAuthority = matchAuthoritativeDomain(left.url);
+    const rightAuthority = matchAuthoritativeDomain(right.url);
+    const leftPriority = leftAuthority?.priority ?? 999;
+    const rightPriority = rightAuthority?.priority ?? 999;
+    return leftPriority - rightPriority;
+  });
+}
+
+async function runTavilyQuery(query: string): Promise<ResearchSource[]> {
+  const response = await fetchTavily({
+    query,
+    search_depth: "advanced",
+    max_results: MAX_RESULTS_PER_QUERY,
+    include_domains: AUTHORITATIVE_SEARCH_DOMAINS,
+    include_answer: false,
+    include_raw_content: false,
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  return (response.data.results ?? [])
+    .map((result, index) => normalizeTavilyResult(result, index))
+    .filter((source): source is ResearchSource => source !== null);
+}
+
 export async function searchAuthoritativeSources(
   topic: string,
 ): Promise<TavilySearchOutcome> {
@@ -148,36 +192,78 @@ export async function searchAuthoritativeSources(
     };
   }
 
-  const response = await fetchTavily({
-    query: buildCybersecurityQuery(topic),
-    search_depth: "advanced",
-    max_results: MAX_RESULTS,
-    include_domains: AUTHORITATIVE_SEARCH_DOMAINS,
-    include_answer: false,
-    include_raw_content: false,
-  });
+  const queries = buildResearchSearchQueries(topic);
+  let queryCount = 0;
+  let collected: ResearchSource[] = [];
 
-  if (!response.ok) {
-    return { ok: false, sources: [], error: response.error };
+  for (const query of queries) {
+    const batch = await runTavilyQuery(query);
+    queryCount += 1;
+    collected = deduplicateSources([...collected, ...batch]);
+
+    const focusedHtmlCount = countFocusedHtmlSources(
+      collected,
+      isLikelyPdfUrl,
+      isGenericIndexPage,
+    );
+
+    if (focusedHtmlCount >= MIN_FOCUSED_HTML_SOURCES) {
+      break;
+    }
   }
 
-  const normalized = (response.data.results ?? [])
-    .map((result, index) => normalizeTavilyResult(result, index))
-    .filter((source): source is ResearchSource => source !== null);
+  const focusedHtmlCount = countFocusedHtmlSources(
+    collected,
+    isLikelyPdfUrl,
+    isGenericIndexPage,
+  );
 
-  const ranked = deduplicateSources(normalized).sort((left, right) => {
-    const leftAuthority = matchAuthoritativeDomain(left.url);
-    const rightAuthority = matchAuthoritativeDomain(right.url);
-    const leftPriority = leftAuthority?.priority ?? 999;
-    const rightPriority = rightAuthority?.priority ?? 999;
-    return leftPriority - rightPriority;
-  });
+  const pdfUrls = collected
+    .filter((source) => isLikelyPdfUrl(source.url))
+    .map((source) => source.url);
+
+  if (focusedHtmlCount < MIN_FOCUSED_HTML_SOURCES && queryCount < 3) {
+    const fallbackQueries = buildPdfHtmlFallbackQueries(topic, pdfUrls).slice(
+      0,
+      3 - queryCount,
+    );
+
+    for (const query of fallbackQueries) {
+      const batch = await runTavilyQuery(query);
+      queryCount += 1;
+      collected = deduplicateSources([...collected, ...batch]);
+
+      const updatedFocusedCount = countFocusedHtmlSources(
+        collected,
+        isLikelyPdfUrl,
+        isGenericIndexPage,
+      );
+
+      if (updatedFocusedCount >= MIN_FOCUSED_HTML_SOURCES) {
+        break;
+      }
+    }
+  }
+
+  if (collected.length === 0) {
+    return {
+      ok: false,
+      sources: [],
+      error: "No authoritative cybersecurity sources were found for this topic.",
+      queryCount,
+    };
+  }
+
+  const ranked = rankDiscoveredSources(collected)
+    .slice(0, MAX_TOTAL_SOURCES)
+    .map((source, index) => ({
+      ...source,
+      sortOrder: index,
+    }));
 
   return {
     ok: true,
-    sources: ranked.slice(0, MAX_RESULTS).map((source, index) => ({
-      ...source,
-      sortOrder: index,
-    })),
+    sources: ranked,
+    queryCount,
   };
 }

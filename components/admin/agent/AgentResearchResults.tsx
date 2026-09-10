@@ -59,6 +59,14 @@ function claimTypeLabel(type: VerifiedClaimType): string {
       return "Preparedness";
     case "response":
       return "Response";
+    case "recovery":
+      return "Recovery";
+    case "backup":
+      return "Backup";
+    case "authentication":
+      return "Authentication";
+    case "network_security":
+      return "Network security";
     case "guidance":
       return "Guidance";
     default:
@@ -146,6 +154,19 @@ export function AgentResearchResults({ research }: { research: ResearchResult })
           {research.recommendedAngle}
         </p>
       </div>
+
+      {research.researchQuality === "needs_review" ? (
+        <div className="mt-4 rounded-lg border border-hcx-orange/30 bg-hcx-orange/5 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-hcx-orange">
+            Research Needs Review
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-hcx-text-secondary">
+            Authoritative sources were found, but some evidence could not be
+            fully verified automatically. Content may still be generated as a
+            draft and must pass later fact-checking before publication.
+          </p>
+        </div>
+      ) : null}
 
       <div className="mt-4 rounded-lg border border-hcx-border bg-hcx-bg/40 p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-hcx-text-secondary">

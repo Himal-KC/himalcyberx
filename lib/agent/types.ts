@@ -66,6 +66,10 @@ export type VerifiedClaimType =
   | "official_guidance"
   | "preparedness"
   | "response"
+  | "recovery"
+  | "backup"
+  | "authentication"
+  | "network_security"
   | "guidance"
   | "general";
 
@@ -91,6 +95,24 @@ export interface UncertainClaim {
   sources?: ClaimSourceRef[];
 }
 
+export interface ResearchExtractionStats {
+  discoveredSourceCount: number;
+  deduplicatedSourceCount: number;
+  htmlSourceCount: number;
+  pdfSourceCount: number;
+  successfulFetchCount: number;
+  failedFetchCount: number;
+  candidateBlockCount: number;
+  validCandidateCount: number;
+  rejectedIncompleteCount: number;
+  rejectedBoilerplateCount: number;
+  rejectedPromotionalCount: number;
+  rejectedLowRelevanceCount: number;
+  duplicateCandidateCount: number;
+  verifiedClaimCount: number;
+  highRelevanceClaimCount: number;
+}
+
 export interface ResearchResult {
   agentRunId: string;
   topic: string;
@@ -107,6 +129,8 @@ export interface ResearchResult {
   relatedHCXContent: ContentSimilarityMatch[];
   researchConfidence: ResearchConfidence;
   researchQuality: ResearchQuality;
+  canGenerateDraft: boolean;
+  extractionStats?: ResearchExtractionStats;
 }
 
 export interface ArticlePlan {

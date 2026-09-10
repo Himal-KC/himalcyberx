@@ -2,18 +2,24 @@ import "server-only";
 
 import { classifyWebClaimType } from "@/lib/agent/research/claim-classifier";
 import {
+  isGenericOrPromotionalLanguage,
   scoreClaimRelevance,
   shouldPromoteWebClaim,
 } from "@/lib/agent/research/relevance";
 import type { CveVerificationResult } from "@/lib/agent/research/cve";
 import type { KevEntry, KevLookupResult } from "@/lib/agent/research/cisa-kev";
 import type { FetchedSourcePage } from "@/lib/agent/research/fetch-source";
+import { isLikelyPdfUrl } from "@/lib/agent/research/source-quality";
 import {
   deduplicateStatements,
   extractCleanStatements,
+  extractPageCandidates,
   isCompleteSentence,
+  isNoiseFragment,
   statementExistsInSourceText,
+  type CandidateRejectionReason,
 } from "@/lib/agent/research/source-text";
+import type { ResearchExtractionStats } from "@/lib/agent/types";
 import type {
   ClaimSourceRef,
   ResearchSource,
@@ -124,6 +130,63 @@ export interface ClaimExtractionOutput {
   highRelevanceClaimCount: number;
   successfulPageFetchCount: number;
   failedPageFetchCount: number;
+  extractionStats: ResearchExtractionStats;
+}
+
+function createExtractionStats(
+  sources: ResearchSource[],
+): ResearchExtractionStats {
+  const htmlSourceCount = sources.filter(
+    (source) => !isLikelyPdfUrl(source.url),
+  ).length;
+
+  return {
+    discoveredSourceCount: sources.length,
+    deduplicatedSourceCount: sources.length,
+    htmlSourceCount,
+    pdfSourceCount: sources.length - htmlSourceCount,
+    successfulFetchCount: 0,
+    failedFetchCount: 0,
+    candidateBlockCount: 0,
+    validCandidateCount: 0,
+    rejectedIncompleteCount: 0,
+    rejectedBoilerplateCount: 0,
+    rejectedPromotionalCount: 0,
+    rejectedLowRelevanceCount: 0,
+    duplicateCandidateCount: 0,
+    verifiedClaimCount: 0,
+    highRelevanceClaimCount: 0,
+  };
+}
+
+function recordRejection(
+  stats: ResearchExtractionStats,
+  reason: CandidateRejectionReason,
+): void {
+  switch (reason) {
+    case "incomplete":
+      stats.rejectedIncompleteCount += 1;
+      break;
+    case "boilerplate":
+      stats.rejectedBoilerplateCount += 1;
+      break;
+    case "promotional":
+      stats.rejectedPromotionalCount += 1;
+      break;
+    case "low_relevance":
+      stats.rejectedLowRelevanceCount += 1;
+      break;
+    case "duplicate":
+      stats.duplicateCandidateCount += 1;
+      break;
+    case "heading_only":
+    case "unsupported":
+    case "too_short":
+      stats.rejectedIncompleteCount += 1;
+      break;
+    default:
+      break;
+  }
 }
 
 function structuredClaimRelevance(topic: string, statement: string) {
@@ -151,6 +214,7 @@ function extractPageBackedClaims(
   topic: string,
   sources: ResearchSource[],
   fetchedPages: Map<string, FetchedSourcePage>,
+  stats: ResearchExtractionStats,
 ): Array<{
   statement: string;
   source: ResearchSource;
@@ -165,6 +229,7 @@ function extractPageBackedClaims(
     relevanceScore: number;
     relevanceLevel: VerifiedClaim["relevanceLevel"];
   }> = [];
+  const seenStatements = new Set<string>();
 
   for (const source of sources) {
     const fetched = fetchedPages.get(source.url);
@@ -172,32 +237,69 @@ function extractPageBackedClaims(
       continue;
     }
 
-    const statements = extractCleanStatements(fetched.text);
-    for (const statement of statements.slice(0, 5)) {
-      if (!statementExistsInSourceText(statement, fetched.text)) {
+    const pageText = fetched.text;
+    const contentBlocks =
+      fetched.blocks.length > 0
+        ? fetched.blocks
+        : [{ text: pageText, blockType: "prose" as const, headingContext: null }];
+
+    for (const block of contentBlocks) {
+      if (block.blockType === "heading") {
+        recordRejection(stats, "heading_only");
         continue;
       }
 
-      const claimType = classifyWebClaimType(statement);
-      const relevance = scoreClaimRelevance({
-        topic,
-        statement,
-        claimType,
-        sourceTitle: source.title,
-        sourceUrl: source.url,
-      });
+      stats.candidateBlockCount += 1;
+      const { prose, guidance } = extractPageCandidates([block.text]);
+      const candidates = deduplicateStatements([...prose, ...guidance]);
 
-      if (!shouldPromoteWebClaim(relevance)) {
-        continue;
+      for (const statement of candidates) {
+        if (!statementExistsInSourceText(statement, pageText)) {
+          recordRejection(stats, "unsupported");
+          continue;
+        }
+
+        if (isNoiseFragment(statement)) {
+          recordRejection(stats, "boilerplate");
+          continue;
+        }
+
+        if (isGenericOrPromotionalLanguage(statement)) {
+          recordRejection(stats, "promotional");
+          continue;
+        }
+
+        const statementKey = statement.toLowerCase();
+        if (seenStatements.has(statementKey)) {
+          recordRejection(stats, "duplicate");
+          continue;
+        }
+
+        const claimType = classifyWebClaimType(statement);
+        const relevance = scoreClaimRelevance({
+          topic,
+          statement,
+          claimType,
+          sourceTitle: source.title,
+          sourceUrl: source.url,
+          headingContext: block.headingContext,
+        });
+
+        if (!shouldPromoteWebClaim(relevance)) {
+          recordRejection(stats, "low_relevance");
+          continue;
+        }
+
+        seenStatements.add(statementKey);
+        stats.validCandidateCount += 1;
+        promotable.push({
+          statement,
+          source,
+          type: claimType,
+          relevanceScore: relevance.relevanceScore,
+          relevanceLevel: relevance.relevanceLevel,
+        });
       }
-
-      promotable.push({
-        statement,
-        source,
-        type: claimType,
-        relevanceScore: relevance.relevanceScore,
-        relevanceLevel: relevance.relevanceLevel,
-      });
     }
   }
 
@@ -217,6 +319,7 @@ export function extractClaims({
   const verifiedClaims: VerifiedClaim[] = [];
   const uncertainClaims: UncertainClaim[] = [];
   const sourceClaimMap = new Map<string, string[]>();
+  const extractionStats = createExtractionStats(sources);
 
   let successfulPageFetchCount = 0;
   let failedPageFetchCount = 0;
@@ -442,7 +545,15 @@ export function extractClaims({
     }
   }
 
-  const promotable = extractPageBackedClaims(topic, sources, fetchedPages);
+  extractionStats.successfulFetchCount = successfulPageFetchCount;
+  extractionStats.failedFetchCount = failedPageFetchCount;
+
+  const promotable = extractPageBackedClaims(
+    topic,
+    sources,
+    fetchedPages,
+    extractionStats,
+  );
   const uniqueStatements = deduplicateStatements(
     promotable.map((item) => item.statement),
   );
@@ -471,6 +582,9 @@ export function extractClaims({
     (claim) => claim.relevanceLevel === "high",
   ).length;
 
+  extractionStats.verifiedClaimCount = verifiedClaims.length;
+  extractionStats.highRelevanceClaimCount = highRelevanceClaimCount;
+
   const sourcesWithDiscovery = sources.filter((source) => source.discoveryContext);
   const unpromotedDiscoveryCount = Math.max(
     0,
@@ -495,7 +609,20 @@ export function extractClaims({
       id: nextClaimId("uncertain"),
       label: "Source page evidence",
       reason:
-        "Authoritative sources were discovered, but no clean verified claims could be extracted from fetched page content.",
+        "Authoritative sources were found, but insufficient page-verifiable topic-specific evidence was extracted.",
+    });
+  }
+
+  if (
+    highRelevanceClaimCount < 2 &&
+    pageBackedClaimCount > 0 &&
+    cveResults.length === 0
+  ) {
+    uncertainClaims.push({
+      id: nextClaimId("uncertain"),
+      label: "Evidence coverage",
+      reason:
+        "Some verified claims were extracted, but fewer than two strong topic-relevant claims are available for a passed research brief.",
     });
   }
 
@@ -508,6 +635,7 @@ export function extractClaims({
     highRelevanceClaimCount,
     successfulPageFetchCount,
     failedPageFetchCount,
+    extractionStats,
   };
 }
 

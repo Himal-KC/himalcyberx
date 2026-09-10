@@ -23,6 +23,10 @@ const PAGE_BACKED_CLAIM_TYPES = new Set<VerifiedClaimType>([
   "official_guidance",
   "preparedness",
   "response",
+  "recovery",
+  "backup",
+  "authentication",
+  "network_security",
   "guidance",
   "general",
   "mitigation",
@@ -78,6 +82,7 @@ export function evaluateResearchQuality({
   const onlySecondarySources =
     sources.length > 0 &&
     sources.every((source) => source.sourceType === "secondary");
+  const hasAuthoritativeDiscovery = sources.length > 0 && hasOfficialSource;
 
   const structuredClaims = countStructuredClaims(verifiedClaims);
   const pageBackedClaims = countPageBackedClaims(verifiedClaims);
@@ -94,14 +99,12 @@ export function evaluateResearchQuality({
     return "failed";
   }
 
-  const weakEvidenceOnly =
-    verifiedClaims.length === 0 ||
-    (topicHasCve && structuredClaims === 0 && !hasCveUnavailable) ||
-    (!topicHasCve &&
-      (pageBackedClaimCount < 2 || highRelevanceClaimCount === 0));
-
-  if (weakEvidenceOnly) {
+  if (topicHasCve && structuredClaims === 0 && !hasCveUnavailable) {
     return "failed";
+  }
+
+  if (verifiedClaims.length === 0) {
+    return hasAuthoritativeDiscovery ? "needs_review" : "failed";
   }
 
   const exploitationUncertain = uncertainClaims.some((claim) =>
@@ -143,12 +146,9 @@ export function evaluateResearchQuality({
     researchConfidence === "low" ||
     verifiedClaims.length < 2 ||
     (!topicHasCve &&
-      (pageBackedClaims < 2 || highRelevanceClaimCount < 2))
+      (pageBackedClaims < 2 || highRelevanceClaimCount < 2)) ||
+    hasAuthoritativeDiscovery
   ) {
-    return "needs_review";
-  }
-
-  if (hasOfficialSource && verifiedClaims.length >= 2) {
     return "needs_review";
   }
 

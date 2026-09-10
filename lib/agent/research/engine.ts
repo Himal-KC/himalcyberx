@@ -7,6 +7,7 @@ import {
   attachDiscoveryContext,
   buildDiscoveryContexts,
 } from "@/lib/agent/research/discovery-context";
+import { deriveCanGenerateDraft } from "@/lib/agent/research/derive-can-generate";
 import {
   applyClaimLabelsToSources,
   extractClaims,
@@ -16,7 +17,10 @@ import { extractCveIds, verifyCvesInTopic } from "@/lib/agent/research/cve";
 import { hasTavilyApiKey } from "@/lib/agent/research/env";
 import { fetchAuthoritativeSourcePages } from "@/lib/agent/research/fetch-source";
 import { evaluateResearchQuality } from "@/lib/agent/research/quality";
-import { synthesizeResearchBrief } from "@/lib/agent/research/synthesis";
+import {
+  deriveResearchConfidence,
+  synthesizeResearchBrief,
+} from "@/lib/agent/research/synthesis";
 import { searchAuthoritativeSources } from "@/lib/agent/research/tavily";
 import type {
   ContentAwarenessResult,
@@ -174,9 +178,7 @@ export async function runAgentResearch(
     topic,
     attachDiscoveryContext(tavily.sources),
   );
-  const fetchedPages = await fetchAuthoritativeSourcePages(
-    sourcesWithDiscovery.map((source) => source.url),
-  );
+  const fetchedPages = await fetchAuthoritativeSourcePages(sourcesWithDiscovery);
 
   const claimExtraction = extractClaims({
     topic,
@@ -191,13 +193,10 @@ export async function runAgentResearch(
     claimExtraction.sourceClaimMap,
   );
 
-  const synthesis = synthesizeResearchBrief({
-    topic,
-    contentType,
+  const researchConfidence = deriveResearchConfidence({
     sources: sourcesWithClaims,
     verifiedClaims: claimExtraction.verifiedClaims,
     uncertainClaims: claimExtraction.uncertainClaims,
-    awareness,
     unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
     pageBackedClaimCount: claimExtraction.pageBackedClaimCount,
     highRelevanceClaimCount: claimExtraction.highRelevanceClaimCount,
@@ -208,7 +207,7 @@ export async function runAgentResearch(
     verifiedClaims: claimExtraction.verifiedClaims,
     uncertainClaims: claimExtraction.uncertainClaims,
     cveResults,
-    researchConfidence: synthesis.researchConfidence,
+    researchConfidence,
     unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
     pageBackedClaimCount: claimExtraction.pageBackedClaimCount,
     highRelevanceClaimCount: claimExtraction.highRelevanceClaimCount,
@@ -217,15 +216,33 @@ export async function runAgentResearch(
     topicHasCve: cveIds.length > 0,
   });
 
+  const finalSynthesis = synthesizeResearchBrief({
+    topic,
+    contentType,
+    sources: sourcesWithClaims,
+    verifiedClaims: claimExtraction.verifiedClaims,
+    uncertainClaims: claimExtraction.uncertainClaims,
+    awareness,
+    unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
+    pageBackedClaimCount: claimExtraction.pageBackedClaimCount,
+    highRelevanceClaimCount: claimExtraction.highRelevanceClaimCount,
+    researchQuality,
+  });
+
+  const canGenerateDraft = deriveCanGenerateDraft(
+    researchQuality,
+    sourcesWithClaims,
+  );
+
   if (researchQuality === "failed") {
     await failRun(
       supabase,
       runId,
-      "Research did not meet the minimum evidence threshold.",
+      finalSynthesis.summary,
     );
     return {
       ok: false,
-      error: "Research did not meet the minimum evidence threshold.",
+      error: finalSynthesis.summary,
       agentRunId: runId,
     };
   }
@@ -253,10 +270,10 @@ export async function runAgentResearch(
   }
 
   const updated = await updateAgentRun(supabase, runId, {
-    research_summary: synthesis.summary,
-    recommended_angle: synthesis.recommendedAngle,
-    primary_keyword: synthesis.primaryKeyword,
-    secondary_keywords: synthesis.secondaryKeywords,
+    research_summary: finalSynthesis.summary,
+    recommended_angle: finalSynthesis.recommendedAngle,
+    primary_keyword: finalSynthesis.primaryKeyword,
+    secondary_keywords: finalSynthesis.secondaryKeywords,
     stage: "planning",
     status: "ready",
     error_message: null,
@@ -271,6 +288,10 @@ export async function runAgentResearch(
     };
   }
 
+  if (process.env.NODE_ENV === "development") {
+    console.info("[agent-research] extraction stats", claimExtraction.extractionStats);
+  }
+
   const relatedHCXContent = [
     ...awareness.similarContent,
     ...awareness.relatedContent,
@@ -280,18 +301,20 @@ export async function runAgentResearch(
     agentRunId: runId,
     topic,
     contentType,
-    summary: synthesis.summary,
-    recommendedAngle: synthesis.recommendedAngle,
-    primaryKeyword: synthesis.primaryKeyword,
-    secondaryKeywords: synthesis.secondaryKeywords,
-    keyFindings: synthesis.keyFindings,
+    summary: finalSynthesis.summary,
+    recommendedAngle: finalSynthesis.recommendedAngle,
+    primaryKeyword: finalSynthesis.primaryKeyword,
+    secondaryKeywords: finalSynthesis.secondaryKeywords,
+    keyFindings: finalSynthesis.keyFindings,
     verifiedClaims: claimExtraction.verifiedClaims,
     uncertainClaims: claimExtraction.uncertainClaims,
     discoveryContexts: buildDiscoveryContexts(sourcesWithClaims),
     sources: sourcesWithClaims,
     relatedHCXContent,
-    researchConfidence: synthesis.researchConfidence,
+    researchConfidence: finalSynthesis.researchConfidence,
     researchQuality,
+    canGenerateDraft,
+    extractionStats: claimExtraction.extractionStats,
   };
 
   return { ok: true, result };

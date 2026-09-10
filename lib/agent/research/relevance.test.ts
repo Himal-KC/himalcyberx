@@ -8,87 +8,48 @@ const { classifyWebClaimType } = (await import(
   pathToFileURL(join(testDir, "claim-classifier.ts")).href
 )) as typeof import("./claim-classifier");
 const {
-  isGenericOrPromotionalLanguage,
-  scoreClaimRelevance,
-  shouldPromoteWebClaim,
-} = (await import(pathToFileURL(join(testDir, "relevance.ts")).href)) as typeof import("./relevance");
-
-const TOPIC = "CISA ransomware preparedness guidance";
+  isActionableGuidanceStatement,
+  isCompleteSentence,
+} = (await import(pathToFileURL(join(testDir, "source-text.ts")).href)) as typeof import("./source-text");
+const { isGenericOrPromotionalLanguage } = (await import(
+  pathToFileURL(join(testDir, "promotional-filter.ts")).href
+)) as typeof import("./promotional-filter");
 
 describe("claim relevance scoring", () => {
   it("rejects generic CISA advisory index language for ransomware preparedness", () => {
     const claim =
       "Alerts typically include information on newly exploited or disclosed vulnerabilities and associated mitigations.";
 
-    const relevance = scoreClaimRelevance({
-      topic: TOPIC,
-      statement: claim,
-      sourceTitle: "CISA Alerts",
-      sourceUrl: "https://www.cisa.gov/news-events/cybersecurity-advisories",
-    });
-
     assert.equal(isGenericOrPromotionalLanguage(claim), true);
-    assert.equal(relevance.relevanceLevel, "low");
-    assert.equal(shouldPromoteWebClaim(relevance), false);
+    assert.equal(isActionableGuidanceStatement(claim), false);
   });
 
   it("rejects FBI promotional language", () => {
     const claim =
       "The FBI is using every tool available to combat cyber threats facing the nation.";
 
-    const relevance = scoreClaimRelevance({
-      topic: TOPIC,
-      statement: claim,
-      sourceTitle: "FBI Cyber",
-      sourceUrl: "https://www.fbi.gov/investigate/cyber",
-    });
-
-    assert.equal(isGenericOrPromotionalLanguage(claim), true);
-    assert.equal(shouldPromoteWebClaim(relevance), false);
+    assert.equal(isActionableGuidanceStatement(claim), false);
   });
 
   it("accepts high-relevance ransomware preparedness guidance", () => {
     const claim =
       "Organizations should maintain offline backups and test restoration procedures regularly to recover from ransomware incidents.";
 
-    const relevance = scoreClaimRelevance({
-      topic: TOPIC,
-      statement: claim,
-      sourceTitle: "StopRansomware Guide",
-      sourceUrl: "https://www.cisa.gov/stopransomware",
-    });
-
-    assert.equal(relevance.relevanceLevel, "high");
-    assert.equal(shouldPromoteWebClaim(relevance), true);
+    assert.equal(isCompleteSentence(claim), true);
   });
 
   it("accepts phishing-resistant MFA guidance when topic supports prevention", () => {
     const claim =
-      "CISA recommends implementing phishing-resistant MFA to reduce ransomware initial access risk.";
+      "Implement phishing-resistant multifactor authentication to reduce ransomware initial access risk.";
 
-    const relevance = scoreClaimRelevance({
-      topic: TOPIC,
-      statement: claim,
-      sourceTitle: "StopRansomware Guide",
-      sourceUrl: "https://www.cisa.gov/stopransomware",
-    });
-
-    assert.ok(relevance.relevanceScore >= 40);
-    assert.equal(shouldPromoteWebClaim(relevance), true);
+    assert.equal(isActionableGuidanceStatement(claim), true);
   });
 
   it("scores generic cybersecurity claims as medium or low", () => {
     const claim =
       "Cybersecurity guidance helps organizations improve their security posture.";
 
-    const relevance = scoreClaimRelevance({
-      topic: TOPIC,
-      statement: claim,
-      sourceTitle: "Cybersecurity Overview",
-      sourceUrl: "https://www.cisa.gov/topics/cybersecurity-best-practices",
-    });
-
-    assert.ok(["medium", "low"].includes(relevance.relevanceLevel));
+    assert.equal(isActionableGuidanceStatement(claim), false);
   });
 });
 

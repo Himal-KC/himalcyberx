@@ -1,17 +1,28 @@
 import "server-only";
 
-import sanitizeHtml from "sanitize-html";
 import {
   isValidResearchUrl,
   matchAuthoritativeDomain,
   normalizeResearchUrl,
 } from "@/lib/agent/research/authoritative-domains";
+import {
+  blocksToPageText,
+  extractHtmlBlocks,
+  type ExtractedHtmlBlock,
+} from "@/lib/agent/research/html-extract";
+import {
+  selectUrlsForFetch,
+  type FetchSelectionInput,
+} from "@/lib/agent/research/fetch-selection";
+import { isLikelyPdfUrl } from "@/lib/agent/research/source-quality";
 import { normalizeSourceText } from "@/lib/agent/research/source-text";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RESPONSE_BYTES = 1_500_000;
 const MAX_REDIRECTS = 3;
-const MAX_PAGES_PER_RUN = 8;
+
+export type { FetchSelectionInput } from "@/lib/agent/research/fetch-selection";
+export { selectUrlsForFetch } from "@/lib/agent/research/fetch-selection";
 
 export type FetchedSourceStatus =
   | "ok"
@@ -27,23 +38,7 @@ export interface FetchedSourcePage {
   status: FetchedSourceStatus;
   contentType: string | null;
   text: string | null;
-}
-
-function stripHtmlBoilerplate(html: string): string {
-  const withoutScripts = html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-    .replace(/<header[\s\S]*?<\/header>/gi, " ")
-    .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
-    .replace(/<nav[\s\S]*?<\/nav>/gi, " ");
-
-  const stripped = sanitizeHtml(withoutScripts, {
-    allowedTags: [],
-    allowedAttributes: {},
-  });
-
-  return normalizeSourceText(stripped);
+  blocks: ExtractedHtmlBlock[];
 }
 
 async function fetchWithRedirects(
@@ -132,6 +127,7 @@ export async function fetchAuthoritativeSourcePage(
       status: "invalid_url",
       contentType: null,
       text: null,
+      blocks: [],
     };
   }
 
@@ -141,6 +137,17 @@ export async function fetchAuthoritativeSourcePage(
       status: "not_authoritative",
       contentType: null,
       text: null,
+      blocks: [],
+    };
+  }
+
+  if (isLikelyPdfUrl(normalizedUrl)) {
+    return {
+      url: normalizedUrl,
+      status: "pdf_unsupported",
+      contentType: "application/pdf",
+      text: null,
+      blocks: [],
     };
   }
 
@@ -151,16 +158,20 @@ export async function fetchAuthoritativeSourcePage(
       status: response.status,
       contentType: null,
       text: null,
+      blocks: [],
     };
   }
 
-  const text = stripHtmlBoilerplate(response.body);
+  const blocks = extractHtmlBlocks(response.body);
+  const text = normalizeSourceText(blocksToPageText(blocks));
+
   if (!text || text.length < 80) {
     return {
       url: normalizedUrl,
       status: "fetch_failed",
       contentType: response.contentType,
       text: null,
+      blocks: [],
     };
   }
 
@@ -169,21 +180,38 @@ export async function fetchAuthoritativeSourcePage(
     status: "ok",
     contentType: response.contentType,
     text,
+    blocks,
   };
 }
 
 export async function fetchAuthoritativeSourcePages(
-  urls: string[],
+  sources: FetchSelectionInput[],
 ): Promise<Map<string, FetchedSourcePage>> {
-  const uniqueUrls = [...new Set(urls)].slice(0, MAX_PAGES_PER_RUN);
+  const urls = selectUrlsForFetch(sources);
   const results = new Map<string, FetchedSourcePage>();
 
   const fetched = await Promise.all(
-    uniqueUrls.map(async (url) => fetchAuthoritativeSourcePage(url)),
+    urls.map(async (url) => fetchAuthoritativeSourcePage(url)),
   );
 
   for (const page of fetched) {
     results.set(page.url, page);
+  }
+
+  for (const source of sources) {
+    if (results.has(source.url)) {
+      continue;
+    }
+
+    if (isLikelyPdfUrl(source.url)) {
+      results.set(source.url, {
+        url: source.url,
+        status: "pdf_unsupported",
+        contentType: "application/pdf",
+        text: null,
+        blocks: [],
+      });
+    }
   }
 
   return results;

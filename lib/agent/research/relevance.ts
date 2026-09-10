@@ -1,3 +1,5 @@
+import { isGenericOrPromotionalLanguage as isPromotionalLanguage } from "@/lib/agent/research/promotional-filter";
+import { scoreSourcePathQuality } from "@/lib/agent/research/source-quality";
 import type { AgentContentType } from "@/lib/supabase/types";
 import type { ResearchSource, VerifiedClaimType } from "@/lib/agent/types";
 
@@ -64,6 +66,7 @@ export interface ClaimRelevanceInput {
   claimType?: VerifiedClaimType;
   sourceTitle?: string | null;
   sourceUrl?: string | null;
+  headingContext?: string | null;
   contentType?: AgentContentType;
 }
 
@@ -157,36 +160,6 @@ const ACTIONABLE_PATTERNS = [
   /\bconfigure/i,
   /\buse\b.+\bto\b/i,
   /\borganizations?\s+(should|must|need)/i,
-];
-
-const PROMOTIONAL_PATTERNS = [
-  /\busing every tool available\b/i,
-  /\bstands ready\b/i,
-  /\bstand ready\b/i,
-  /\bcommitment to\b/i,
-  /\bempowering\b/i,
-  /\bleading the nation\b/i,
-  /\bprotecting the nation\b/i,
-  /\bworking tirelessly\b/i,
-  /\bwe are dedicated\b/i,
-  /\bour mission\b/i,
-  /\bmission is to\b/i,
-  /\bpartnership with\b/i,
-  /\bworking together\b/i,
-  /\balerts?\s+(typically|may|often|usually)\s+include\b/i,
-  /\bthis (page|site|section)\s+(contains|provides|includes)\b/i,
-  /\bvisit our website\b/i,
-  /\blearn more about\b/i,
-  /\bfor more information\b/i,
-  /\bclick here\b/i,
-];
-
-const PAGE_DESCRIPTION_PATTERNS = [
-  /\balerts?\s+(typically|may|often)\s+include\s+information\b/i,
-  /\bnewly exploited or disclosed vulnerabilities\b/i,
-  /\bthis advisory (page|index)\b/i,
-  /\bthese pages (contain|provide|list)\b/i,
-  /\bgeneral information about\b/i,
 ];
 
 function uniqueTokens(values: string[]): string[] {
@@ -341,29 +314,14 @@ function phraseOverlapBonus(topic: string, statement: string): number {
 }
 
 export function isGenericOrPromotionalLanguage(statement: string): boolean {
-  const normalized = statement.trim();
-  if (!normalized) {
-    return true;
-  }
-
-  if (PROMOTIONAL_PATTERNS.some((pattern) => pattern.test(normalized))) {
-    return true;
-  }
-
-  if (PAGE_DESCRIPTION_PATTERNS.some((pattern) => pattern.test(normalized))) {
-    return true;
-  }
-
-  return false;
+  return isPromotionalLanguage(statement);
 }
 
 export function hasActionableGuidance(statement: string): boolean {
   return ACTIONABLE_PATTERNS.some((pattern) => pattern.test(statement));
 }
 
-export function isPageDescriptionFragment(statement: string): boolean {
-  return PAGE_DESCRIPTION_PATTERNS.some((pattern) => pattern.test(statement));
-}
+export { isPageDescriptionFragment } from "@/lib/agent/research/promotional-filter";
 
 function sourceTitleBonus(topic: string, sourceTitle: string | null | undefined): number {
   if (!sourceTitle?.trim()) {
@@ -413,8 +371,24 @@ function scoreToLevel(score: number): RelevanceLevel {
   return "low";
 }
 
+function headingContextBonus(
+  topic: string,
+  headingContext: string | null | undefined,
+): number {
+  if (!headingContext?.trim()) {
+    return 0;
+  }
+
+  const overlap = weightedOverlapScore(
+    topicImportantTokens(topic),
+    tokenizeRelevanceText(headingContext),
+  );
+
+  return Math.min(18, Math.round(overlap * 0.22));
+}
+
 export function scoreClaimRelevance(input: ClaimRelevanceInput): ClaimRelevanceResult {
-  const { topic, statement, sourceTitle } = input;
+  const { topic, statement, sourceTitle, headingContext } = input;
   const claimTokens = tokenizeRelevanceText(statement);
   const importantTopicTokens = topicImportantTokens(topic);
 
@@ -429,6 +403,7 @@ export function scoreClaimRelevance(input: ClaimRelevanceInput): ClaimRelevanceR
   let score = weightedOverlapScore(importantTopicTokens, claimTokens);
   score += phraseOverlapBonus(topic, statement);
   score += sourceTitleBonus(topic, sourceTitle);
+  score += headingContextBonus(topic, headingContext);
   score -= genericTermPenalty(statement);
 
   if (hasActionableGuidance(statement)) {
@@ -502,10 +477,16 @@ export function scoreSourceRelevance(
   const titleScore = weightedOverlapScore(importantTopicTokens, titleTokens);
   const pathScore = weightedOverlapScore(importantTopicTokens, pathTokens);
   const excerptScore = weightedOverlapScore(importantTopicTokens, excerptTokens);
+  const pathQuality = scoreSourcePathQuality(source.url);
 
   return Math.min(
     100,
-    Math.round(titleScore * 0.55 + pathScore * 0.25 + excerptScore * 0.2),
+    Math.round(
+      titleScore * 0.4 +
+        pathScore * 0.2 +
+        excerptScore * 0.15 +
+        pathQuality * 0.25,
+    ),
   );
 }
 

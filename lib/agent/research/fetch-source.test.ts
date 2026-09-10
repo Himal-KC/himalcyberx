@@ -13,7 +13,7 @@ describe("fetch-source behavior expectations", () => {
     const statement =
       "Organizations should maintain offline backups and test restoration procedures to prepare for ransomware incidents.";
 
-    assert.equal(classifyWebClaimType(statement), "preparedness");
+    assert.equal(classifyWebClaimType(statement), "backup");
   });
 
   it("keeps NVD structured claim types separate from web classification", () => {
