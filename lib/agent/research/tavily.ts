@@ -8,6 +8,7 @@ import {
   normalizeResearchUrl,
 } from "@/lib/agent/research/authoritative-domains";
 import { getTavilyApiKey, hasTavilyApiKey } from "@/lib/agent/research/env";
+import { truncateDiscoveryExcerpt } from "@/lib/agent/research/source-text";
 
 const TAVILY_SEARCH_URL = "https://api.tavily.com/search";
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -106,7 +107,7 @@ function normalizeTavilyResult(
 
   const title = result.title?.trim() || authority.publisher;
   const publishedAt = result.published_date?.trim() || null;
-  const snippet = result.content?.trim().slice(0, 500) || null;
+  const snippet = result.content?.trim() || null;
 
   return {
     title,
@@ -114,7 +115,8 @@ function normalizeTavilyResult(
     publisher: authority.publisher,
     sourceType: authority.sourceType,
     publishedAt,
-    supportsClaims: snippet ? [snippet] : null,
+    discoveryContext: snippet ? truncateDiscoveryExcerpt(snippet, 500) : null,
+    supportsClaims: null,
     sortOrder,
   };
 }

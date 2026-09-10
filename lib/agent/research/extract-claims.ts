@@ -1,12 +1,22 @@
 import "server-only";
 
+import {
+  extractPromotableStatementsFromSources,
+} from "@/lib/agent/research/discovery-context";
 import type { CveVerificationResult } from "@/lib/agent/research/cve";
 import type { KevEntry, KevLookupResult } from "@/lib/agent/research/cisa-kev";
+import {
+  deduplicateStatements,
+  extractCleanStatements,
+  isCompleteSentence,
+} from "@/lib/agent/research/source-text";
 import type {
   ClaimSourceRef,
   ResearchSource,
   UncertainClaim,
   VerifiedClaim,
+  VerifiedClaimConfidence,
+  VerifiedClaimType,
 } from "@/lib/agent/types";
 
 let claimCounter = 0;
@@ -51,6 +61,44 @@ function formatCpeProduct(cpe: string): string {
   return cpe;
 }
 
+function addVerifiedClaim(
+  verifiedClaims: VerifiedClaim[],
+  sourceClaimMap: Map<string, string[]>,
+  claim: {
+    type: VerifiedClaimType;
+    statement: string;
+    sources: ClaimSourceRef[];
+    confidence: VerifiedClaimConfidence;
+  },
+): void {
+  const duplicate = verifiedClaims.some(
+    (existing) =>
+      existing.type === claim.type &&
+      existing.statement.toLowerCase() === claim.statement.toLowerCase(),
+  );
+
+  if (duplicate) {
+    return;
+  }
+
+  const id = nextClaimId("verified");
+  verifiedClaims.push({
+    id,
+    type: claim.type,
+    statement: claim.statement,
+    sources: claim.sources,
+    confidence: claim.confidence,
+  });
+
+  for (const ref of claim.sources) {
+    const existing = sourceClaimMap.get(ref.url) ?? [];
+    if (!existing.includes(claim.statement)) {
+      existing.push(claim.statement);
+      sourceClaimMap.set(ref.url, existing);
+    }
+  }
+}
+
 export interface ClaimExtractionInput {
   topic: string;
   sources: ResearchSource[];
@@ -62,6 +110,7 @@ export interface ClaimExtractionOutput {
   verifiedClaims: VerifiedClaim[];
   uncertainClaims: UncertainClaim[];
   sourceClaimMap: Map<string, string[]>;
+  unpromotedDiscoveryCount: number;
 }
 
 export function extractClaims({
@@ -73,16 +122,6 @@ export function extractClaims({
   const verifiedClaims: VerifiedClaim[] = [];
   const uncertainClaims: UncertainClaim[] = [];
   const sourceClaimMap = new Map<string, string[]>();
-
-  function attachClaimToSources(claimLabel: string, refs: ClaimSourceRef[]) {
-    for (const ref of refs) {
-      const existing = sourceClaimMap.get(ref.url) ?? [];
-      if (!existing.includes(claimLabel)) {
-        existing.push(claimLabel);
-        sourceClaimMap.set(ref.url, existing);
-      }
-    }
-  }
 
   for (const cveResult of cveResults) {
     const { cveId, status, record } = cveResult;
@@ -111,85 +150,71 @@ export function extractClaims({
 
     const nvdRef = nvdSourceRef(cveId);
 
-    verifiedClaims.push({
-      id: nextClaimId("verified"),
-      label: "CVE ID",
-      value: cveId,
-      field: "cve_id",
+    addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+      type: "cve_id",
+      statement: `${cveId} is recorded in the NIST National Vulnerability Database.`,
       sources: [nvdRef],
+      confidence: "high",
     });
-    attachClaimToSources(cveId, [nvdRef]);
 
     if (record.description) {
-      verifiedClaims.push({
-        id: nextClaimId("verified"),
-        label: "Vulnerability description",
-        value: record.description,
-        field: "general",
-        sources: [nvdRef],
-      });
-      attachClaimToSources("Vulnerability description", [nvdRef]);
+      const descriptionStatements = extractCleanStatements(record.description);
+      const description =
+        descriptionStatements[0] ??
+        (isCompleteSentence(record.description) ? record.description : null);
+
+      if (description) {
+        addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+          type: "general",
+          statement: description,
+          sources: [nvdRef],
+          confidence: "high",
+        });
+      }
     }
 
     if (record.published) {
-      verifiedClaims.push({
-        id: nextClaimId("verified"),
-        label: "Disclosure date",
-        value: record.published,
-        field: "disclosure_date",
+      addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+        type: "disclosure_date",
+        statement: `NVD lists ${cveId} with a published date of ${record.published}.`,
         sources: [nvdRef],
+        confidence: "high",
       });
-      attachClaimToSources("Disclosure date", [nvdRef]);
     }
 
     if (record.cvssScore) {
       const severitySuffix = record.cvssSeverity
         ? ` (${record.cvssSeverity})`
         : "";
-      verifiedClaims.push({
-        id: nextClaimId("verified"),
-        label: "CVSS score",
-        value: `${record.cvssScore}${severitySuffix}`,
-        field: "cvss",
+      addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+        type: "cvss",
+        statement: `NVD records a CVSS base score of ${record.cvssScore}${severitySuffix} for ${cveId}.`,
         sources: [nvdRef],
+        confidence: "high",
       });
-      attachClaimToSources("CVSS score", [nvdRef]);
     }
 
     if (record.cvssVector) {
-      verifiedClaims.push({
-        id: nextClaimId("verified"),
-        label: "CVSS vector",
-        value: record.cvssVector,
-        field: "cvss",
+      addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+        type: "cvss",
+        statement: `NVD records CVSS vector ${record.cvssVector} for ${cveId}.`,
         sources: [nvdRef],
+        confidence: "high",
       });
-      attachClaimToSources("CVSS vector", [nvdRef]);
     }
 
     if (record.affectedProducts.length > 0) {
       const products = record.affectedProducts
-        .slice(0, 5)
+        .slice(0, 3)
         .map(formatCpeProduct)
         .join("; ");
 
-      verifiedClaims.push({
-        id: nextClaimId("verified"),
-        label: "Affected product/configuration",
-        value: products,
-        field: "affected_product",
+      addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+        type: "affected_product",
+        statement: `NVD associates ${cveId} with affected product/configuration entries including ${products}.`,
         sources: [nvdRef],
+        confidence: "high",
       });
-      attachClaimToSources("Affected product/configuration", [nvdRef]);
-
-      verifiedClaims.push({
-        id: nextClaimId("verified"),
-        label: "Affected versions/configuration (CPE)",
-        value: record.affectedProducts.slice(0, 5).join("; "),
-        field: "affected_versions",
-        sources: [nvdRef],
-      });
-      attachClaimToSources("Affected versions/configuration (CPE)", [nvdRef]);
     }
   }
 
@@ -217,70 +242,94 @@ export function extractClaims({
     const entry = result.entry as KevEntry;
     const kevRef = kevSourceRef(cveId);
 
-    verifiedClaims.push({
-      id: nextClaimId("verified"),
-      label: "Exploitation status",
-      value: `${cveId} is listed in the CISA Known Exploited Vulnerabilities catalog.`,
-      field: "exploitation_status",
+    addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+      type: "exploitation_status",
+      statement: `${cveId} is listed in the CISA Known Exploited Vulnerabilities catalog.`,
       sources: [kevRef],
+      confidence: "high",
     });
-    attachClaimToSources("Exploitation status", [kevRef]);
 
-    if (entry.requiredAction) {
-      verifiedClaims.push({
-        id: nextClaimId("verified"),
-        label: "Mitigation / required action",
-        value: entry.requiredAction,
-        field: "mitigation",
+    if (entry.requiredAction && isCompleteSentence(entry.requiredAction)) {
+      addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+        type: "mitigation",
+        statement: entry.requiredAction,
         sources: [kevRef],
+        confidence: "high",
       });
-      attachClaimToSources("Mitigation / required action", [kevRef]);
+    } else if (entry.requiredAction) {
+      addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+        type: "mitigation",
+        statement: `CISA KEV lists the following required action for ${cveId}: ${entry.requiredAction}`,
+        sources: [kevRef],
+        confidence: "high",
+      });
     }
 
     if (entry.dateAdded) {
-      verifiedClaims.push({
-        id: nextClaimId("verified"),
-        label: "CISA KEV date added",
-        value: entry.dateAdded,
-        field: "disclosure_date",
+      addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+        type: "disclosure_date",
+        statement: `CISA added ${cveId} to the Known Exploited Vulnerabilities catalog on ${entry.dateAdded}.`,
         sources: [kevRef],
+        confidence: "high",
       });
-      attachClaimToSources("CISA KEV date added", [kevRef]);
     }
 
     if (entry.vendorProject || entry.product) {
-      verifiedClaims.push({
-        id: nextClaimId("verified"),
-        label: "Affected product (CISA KEV)",
-        value: [entry.vendorProject, entry.product].filter(Boolean).join(" — "),
-        field: "affected_product",
+      addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+        type: "affected_product",
+        statement: `CISA KEV identifies the affected product as ${[entry.vendorProject, entry.product].filter(Boolean).join(" — ")}.`,
         sources: [kevRef],
+        confidence: "high",
       });
-      attachClaimToSources("Affected product (CISA KEV)", [kevRef]);
     }
   }
 
-  for (const source of sources) {
-    const ref = sourceToRef(source);
-    const snippet = source.supportsClaims?.join(" ").trim();
-    if (!snippet) {
+  const promotable = extractPromotableStatementsFromSources(sources);
+  const uniqueStatements = deduplicateStatements(
+    promotable.map((item) => item.statement),
+  );
+
+  let promotedFromDiscovery = 0;
+  for (const statement of uniqueStatements.slice(0, 5)) {
+    const match = promotable.find((item) => item.statement === statement);
+    if (!match) {
       continue;
     }
 
-    verifiedClaims.push({
-      id: nextClaimId("verified"),
-      label: "Source-supported context",
-      value: snippet.slice(0, 500),
-      field: "general",
-      sources: [ref],
+    addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+      type: "guidance",
+      statement,
+      sources: [sourceToRef(match.source)],
+      confidence:
+        match.source.sourceType === "official" ? "high" : "medium",
     });
-    attachClaimToSources("Source-supported context", [ref]);
+    promotedFromDiscovery += 1;
+  }
+
+  const sourcesWithDiscovery = sources.filter((source) => source.discoveryContext);
+  const unpromotedDiscoveryCount = Math.max(
+    0,
+    sourcesWithDiscovery.length - promotedFromDiscovery,
+  );
+
+  if (
+    sourcesWithDiscovery.length > 0 &&
+    promotedFromDiscovery === 0 &&
+    cveResults.length === 0
+  ) {
+    uncertainClaims.push({
+      id: nextClaimId("uncertain"),
+      label: "Discovery context",
+      reason:
+        "Authoritative sources were found, but their excerpts could not be promoted to verified claims without inference.",
+    });
   }
 
   return {
     verifiedClaims,
     uncertainClaims,
     sourceClaimMap,
+    unpromotedDiscoveryCount,
   };
 }
 
@@ -290,6 +339,6 @@ export function applyClaimLabelsToSources(
 ): ResearchSource[] {
   return sources.map((source) => ({
     ...source,
-    supportsClaims: sourceClaimMap.get(source.url) ?? source.supportsClaims ?? null,
+    supportsClaims: sourceClaimMap.get(source.url) ?? null,
   }));
 }

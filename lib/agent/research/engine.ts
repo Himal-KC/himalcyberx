@@ -4,6 +4,10 @@ import { analyzeContentAwareness } from "@/lib/agent/content-awareness";
 import { loadSiteContentInventory } from "@/lib/agent/content-inventory";
 import { lookupKevEntry } from "@/lib/agent/research/cisa-kev";
 import {
+  attachDiscoveryContext,
+  buildDiscoveryContexts,
+} from "@/lib/agent/research/discovery-context";
+import {
   applyClaimLabelsToSources,
   extractClaims,
 } from "@/lib/agent/research/extract-claims";
@@ -164,15 +168,17 @@ export async function runAgentResearch(
 
   onStage?.("building_brief");
 
+  const sourcesWithDiscovery = attachDiscoveryContext(tavily.sources);
+
   const claimExtraction = extractClaims({
     topic,
-    sources: tavily.sources,
+    sources: sourcesWithDiscovery,
     cveResults,
     kevLookups,
   });
 
   const sourcesWithClaims = applyClaimLabelsToSources(
-    tavily.sources,
+    sourcesWithDiscovery,
     claimExtraction.sourceClaimMap,
   );
 
@@ -183,6 +189,7 @@ export async function runAgentResearch(
     verifiedClaims: claimExtraction.verifiedClaims,
     uncertainClaims: claimExtraction.uncertainClaims,
     awareness,
+    unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
   });
 
   const researchQuality = evaluateResearchQuality({
@@ -191,6 +198,8 @@ export async function runAgentResearch(
     uncertainClaims: claimExtraction.uncertainClaims,
     cveResults,
     researchConfidence: synthesis.researchConfidence,
+    unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
+    topicHasCve: cveIds.length > 0,
   });
 
   if (researchQuality === "failed") {
@@ -263,6 +272,7 @@ export async function runAgentResearch(
     keyFindings: synthesis.keyFindings,
     verifiedClaims: claimExtraction.verifiedClaims,
     uncertainClaims: claimExtraction.uncertainClaims,
+    discoveryContexts: buildDiscoveryContexts(sourcesWithClaims),
     sources: sourcesWithClaims,
     relatedHCXContent,
     researchConfidence: synthesis.researchConfidence,

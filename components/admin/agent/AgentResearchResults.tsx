@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ResearchResult } from "@/lib/agent/types";
+import type { ResearchResult, VerifiedClaimType } from "@/lib/agent/types";
 import type { AgentContentType } from "@/lib/supabase/types";
 import { focusRing } from "@/lib/page-data";
 
@@ -26,6 +26,37 @@ function confidenceBadgeClass(
       return "border-hcx-cyan/40 bg-hcx-cyan/10 text-hcx-cyan";
     default:
       return "border-hcx-orange/40 bg-hcx-orange/10 text-hcx-orange";
+  }
+}
+
+function claimTypeLabel(type: VerifiedClaimType): string {
+  switch (type) {
+    case "cve_id":
+      return "CVE ID";
+    case "affected_product":
+      return "Affected product";
+    case "affected_versions":
+      return "Affected versions";
+    case "cvss":
+      return "CVSS";
+    case "exploitation_status":
+      return "Exploitation status";
+    case "disclosure_date":
+      return "Disclosure date";
+    case "mitigation":
+      return "Mitigation";
+    case "patch_information":
+      return "Patch information";
+    case "threat_actor_attribution":
+      return "Threat actor";
+    case "techniques":
+      return "Techniques";
+    case "indicators":
+      return "Indicators";
+    case "guidance":
+      return "Official guidance";
+    default:
+      return "Verified fact";
   }
 }
 
@@ -148,10 +179,17 @@ export function AgentResearchResults({ research }: { research: ResearchResult })
                   key={claim.id}
                   className="rounded-lg border border-hcx-border bg-hcx-bg/40 p-4"
                 >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-hcx-cyan">
-                    {claim.label}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-hcx-cyan">
+                      {claimTypeLabel(claim.type)}
+                    </p>
+                    <span className="rounded-full border border-hcx-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-hcx-text-secondary">
+                      {claim.confidence}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-hcx-text">
+                    {claim.statement}
                   </p>
-                  <p className="mt-2 text-sm text-hcx-text">{claim.value}</p>
                   <ul className="mt-3 space-y-1">
                     {claim.sources.map((source) => (
                       <li key={`${claim.id}-${source.url}`}>
@@ -203,6 +241,44 @@ export function AgentResearchResults({ research }: { research: ResearchResult })
         </div>
       </div>
 
+      {research.discoveryContexts.length > 0 ? (
+        <div className="mt-8">
+          <h3 className="text-sm font-semibold text-hcx-text">
+            Discovery Context
+          </h3>
+          <p className="mt-1 text-sm text-hcx-text-secondary">
+            Search excerpts used to identify sources. These are not verified
+            claims.
+          </p>
+          <ul className="mt-3 space-y-3">
+            {research.discoveryContexts.map((context) => (
+              <li
+                key={context.url}
+                className="rounded-lg border border-hcx-border/70 bg-hcx-bg/20 p-4"
+              >
+                <p className="font-medium text-hcx-text">{context.title}</p>
+                <p className="mt-1 text-xs text-hcx-text-secondary">
+                  {context.publisher ?? "Unknown publisher"}
+                </p>
+                {context.excerpt ? (
+                  <p className="mt-2 text-sm italic text-hcx-text-secondary">
+                    {context.excerpt}
+                  </p>
+                ) : null}
+                <a
+                  href={context.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`mt-2 inline-flex text-sm text-hcx-cyan hover:underline ${focusRing}`}
+                >
+                  {context.url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="mt-8">
         <h3 className="text-sm font-semibold text-hcx-text">Sources</h3>
         {research.sources.length === 0 ? (
@@ -221,6 +297,12 @@ export function AgentResearchResults({ research }: { research: ResearchResult })
                   {source.publisher ?? "Unknown publisher"}
                   {source.sourceType ? ` · ${source.sourceType}` : ""}
                 </p>
+                {source.supportsClaims && source.supportsClaims.length > 0 ? (
+                  <p className="mt-2 text-xs text-hcx-text-secondary">
+                    Supports {source.supportsClaims.length} verified claim
+                    {source.supportsClaims.length === 1 ? "" : "s"}
+                  </p>
+                ) : null}
                 <a
                   href={source.url}
                   target="_blank"

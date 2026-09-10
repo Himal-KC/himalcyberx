@@ -27,8 +27,18 @@ export interface ResearchSource {
   publisher?: string | null;
   sourceType?: AgentSourceType;
   publishedAt?: string | null;
+  /** Raw discovery excerpt from search — not a verified claim. */
+  discoveryContext?: string | null;
+  /** Claim statements this source supports (populated after extraction). */
   supportsClaims?: string[] | null;
   sortOrder?: number;
+}
+
+export interface DiscoveryContext {
+  url: string;
+  title: string;
+  publisher?: string | null;
+  excerpt?: string | null;
 }
 
 export type ResearchQuality = "passed" | "needs_review" | "failed";
@@ -41,24 +51,29 @@ export interface ClaimSourceRef {
   publisher?: string | null;
 }
 
+export type VerifiedClaimType =
+  | "cve_id"
+  | "affected_product"
+  | "affected_versions"
+  | "cvss"
+  | "exploitation_status"
+  | "disclosure_date"
+  | "mitigation"
+  | "patch_information"
+  | "threat_actor_attribution"
+  | "techniques"
+  | "indicators"
+  | "guidance"
+  | "general";
+
+export type VerifiedClaimConfidence = "high" | "medium";
+
 export interface VerifiedClaim {
   id: string;
-  label: string;
-  value: string;
-  field?:
-    | "cve_id"
-    | "affected_product"
-    | "affected_versions"
-    | "cvss"
-    | "exploitation_status"
-    | "disclosure_date"
-    | "mitigation"
-    | "patch_information"
-    | "threat_actor_attribution"
-    | "techniques"
-    | "indicators"
-    | "general";
+  type: VerifiedClaimType;
+  statement: string;
   sources: ClaimSourceRef[];
+  confidence: VerifiedClaimConfidence;
 }
 
 export interface UncertainClaim {
@@ -80,6 +95,7 @@ export interface ResearchResult {
   keyFindings: string[];
   verifiedClaims: VerifiedClaim[];
   uncertainClaims: UncertainClaim[];
+  discoveryContexts: DiscoveryContext[];
   sources: ResearchSource[];
   relatedHCXContent: ContentSimilarityMatch[];
   researchConfidence: ResearchConfidence;
