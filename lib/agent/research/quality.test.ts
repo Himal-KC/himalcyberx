@@ -20,12 +20,15 @@ const officialSource = {
 const pageBackedClaim = (
   statement: string,
   type: "preparedness" | "cve_id" = "preparedness",
+  relevanceLevel: "high" | "medium" = "high",
 ) => ({
   id: `verified-${statement.slice(0, 8)}`,
   type,
   statement,
   sources: [{ url: officialSource.url, title: officialSource.title }],
   confidence: "high" as const,
+  relevanceLevel,
+  relevanceScore: relevanceLevel === "high" ? 75 : 50,
 });
 
 describe("research quality gate", () => {
@@ -45,6 +48,7 @@ describe("research quality gate", () => {
       researchConfidence: "medium",
       unpromotedDiscoveryCount: 1,
       pageBackedClaimCount: 2,
+      highRelevanceClaimCount: 2,
       successfulPageFetchCount: 0,
       failedPageFetchCount: 1,
       topicHasCve: false,
@@ -68,6 +72,8 @@ describe("research quality gate", () => {
             },
           ],
           confidence: "high",
+          relevanceLevel: "high",
+          relevanceScore: 85,
         },
         {
           id: "verified-cvss",
@@ -80,6 +86,8 @@ describe("research quality gate", () => {
             },
           ],
           confidence: "high",
+          relevanceLevel: "high",
+          relevanceScore: 85,
         },
       ],
       uncertainClaims: [],
@@ -93,6 +101,7 @@ describe("research quality gate", () => {
       researchConfidence: "high",
       unpromotedDiscoveryCount: 0,
       pageBackedClaimCount: 0,
+      highRelevanceClaimCount: 2,
       successfulPageFetchCount: 0,
       failedPageFetchCount: 0,
       topicHasCve: true,

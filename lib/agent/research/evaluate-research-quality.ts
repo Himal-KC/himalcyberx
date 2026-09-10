@@ -36,6 +36,7 @@ export interface ResearchQualityInput {
   researchConfidence: ResearchConfidence;
   unpromotedDiscoveryCount: number;
   pageBackedClaimCount: number;
+  highRelevanceClaimCount: number;
   successfulPageFetchCount: number;
   failedPageFetchCount: number;
   topicHasCve: boolean;
@@ -59,6 +60,7 @@ export function evaluateResearchQuality({
   researchConfidence,
   unpromotedDiscoveryCount,
   pageBackedClaimCount,
+  highRelevanceClaimCount,
   successfulPageFetchCount,
   failedPageFetchCount,
   topicHasCve,
@@ -95,7 +97,8 @@ export function evaluateResearchQuality({
   const weakEvidenceOnly =
     verifiedClaims.length === 0 ||
     (topicHasCve && structuredClaims === 0 && !hasCveUnavailable) ||
-    (!topicHasCve && pageBackedClaimCount < 2);
+    (!topicHasCve &&
+      (pageBackedClaimCount < 2 || highRelevanceClaimCount === 0));
 
   if (weakEvidenceOnly) {
     return "failed";
@@ -116,7 +119,9 @@ export function evaluateResearchQuality({
     highConfidenceClaims >= 2 &&
     (topicHasCve
       ? structuredClaims >= 2
-      : pageBackedClaimCount >= 2 && successfulPageFetchCount >= 1) &&
+      : pageBackedClaimCount >= 2 &&
+        highRelevanceClaimCount >= 2 &&
+        successfulPageFetchCount >= 1) &&
     uncertainClaims.length === 0 &&
     unpromotedDiscoveryCount <= 2 &&
     failedPageFetchCount === 0 &&
@@ -137,7 +142,8 @@ export function evaluateResearchQuality({
     failedPageFetchCount > 0 ||
     researchConfidence === "low" ||
     verifiedClaims.length < 2 ||
-    (!topicHasCve && pageBackedClaims < 2)
+    (!topicHasCve &&
+      (pageBackedClaims < 2 || highRelevanceClaimCount < 2))
   ) {
     return "needs_review";
   }

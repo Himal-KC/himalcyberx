@@ -10,6 +10,7 @@ import {
 import {
   applyClaimLabelsToSources,
   extractClaims,
+  rankSourcesByTopicRelevance,
 } from "@/lib/agent/research/extract-claims";
 import { extractCveIds, verifyCvesInTopic } from "@/lib/agent/research/cve";
 import { hasTavilyApiKey } from "@/lib/agent/research/env";
@@ -169,7 +170,10 @@ export async function runAgentResearch(
 
   onStage?.("building_brief");
 
-  const sourcesWithDiscovery = attachDiscoveryContext(tavily.sources);
+  const sourcesWithDiscovery = rankSourcesByTopicRelevance(
+    topic,
+    attachDiscoveryContext(tavily.sources),
+  );
   const fetchedPages = await fetchAuthoritativeSourcePages(
     sourcesWithDiscovery.map((source) => source.url),
   );
@@ -196,6 +200,7 @@ export async function runAgentResearch(
     awareness,
     unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
     pageBackedClaimCount: claimExtraction.pageBackedClaimCount,
+    highRelevanceClaimCount: claimExtraction.highRelevanceClaimCount,
   });
 
   const researchQuality = evaluateResearchQuality({
@@ -206,6 +211,7 @@ export async function runAgentResearch(
     researchConfidence: synthesis.researchConfidence,
     unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
     pageBackedClaimCount: claimExtraction.pageBackedClaimCount,
+    highRelevanceClaimCount: claimExtraction.highRelevanceClaimCount,
     successfulPageFetchCount: claimExtraction.successfulPageFetchCount,
     failedPageFetchCount: claimExtraction.failedPageFetchCount,
     topicHasCve: cveIds.length > 0,

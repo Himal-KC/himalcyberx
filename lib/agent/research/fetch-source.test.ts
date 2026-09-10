@@ -9,9 +9,9 @@ const { classifyWebClaimType } = (await import(
 )) as typeof import("./claim-classifier");
 
 describe("fetch-source behavior expectations", () => {
-  it("classifies preparedness guidance from page statements", () => {
+  it("classifies actionable preparedness guidance from page statements", () => {
     const statement =
-      "CISA's StopRansomware Guide includes preparation, prevention, mitigation and response guidance for organizations.";
+      "Organizations should maintain offline backups and test restoration procedures to prepare for ransomware incidents.";
 
     assert.equal(classifyWebClaimType(statement), "preparedness");
   });

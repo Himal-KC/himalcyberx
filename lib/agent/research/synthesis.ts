@@ -24,6 +24,7 @@ export interface ResearchSynthesisInput {
   awareness: ContentAwarenessResult;
   unpromotedDiscoveryCount: number;
   pageBackedClaimCount: number;
+  highRelevanceClaimCount: number;
 }
 
 export interface ResearchSynthesisOutput {
@@ -112,6 +113,18 @@ function buildKeywords(topic: string, verifiedClaims: VerifiedClaim[]): {
   };
 }
 
+function relevanceRank(claim: VerifiedClaim): number {
+  if (claim.relevanceLevel === "high") {
+    return 3;
+  }
+
+  if (claim.relevanceLevel === "medium") {
+    return 2;
+  }
+
+  return 1;
+}
+
 function buildKeyFindings(verifiedClaims: VerifiedClaim[]): string[] {
   const priority: VerifiedClaimType[] = [
     "cve_id",
@@ -127,7 +140,23 @@ function buildKeyFindings(verifiedClaims: VerifiedClaim[]): string[] {
     "disclosure_date",
   ];
 
-  const ordered = [...verifiedClaims].sort((left, right) => {
+  const highRelevance = verifiedClaims.filter(
+    (claim) => claim.relevanceLevel === "high",
+  );
+  const mediumRelevance = verifiedClaims.filter(
+    (claim) => claim.relevanceLevel === "medium",
+  );
+  const candidateClaims =
+    highRelevance.length > 0
+      ? [...highRelevance, ...mediumRelevance]
+      : verifiedClaims;
+
+  const ordered = [...candidateClaims].sort((left, right) => {
+    const relevanceDelta = relevanceRank(right) - relevanceRank(left);
+    if (relevanceDelta !== 0) {
+      return relevanceDelta;
+    }
+
     const leftIndex = priority.indexOf(left.type);
     const rightIndex = priority.indexOf(right.type);
     return (leftIndex === -1 ? 99 : leftIndex) - (rightIndex === -1 ? 99 : rightIndex);
@@ -137,9 +166,9 @@ function buildKeyFindings(verifiedClaims: VerifiedClaim[]): string[] {
     ordered
       .map((claim) => claim.statement)
       .filter((statement) => isCompleteSentence(statement)),
-  ).slice(0, 7);
+  );
 
-  return findings;
+  return findings.slice(0, Math.min(7, findings.length));
 }
 
 function topPublishers(sources: ResearchSource[]): string[] {
@@ -157,10 +186,15 @@ function buildSummary(
   uncertainClaims: UncertainClaim[],
   unpromotedDiscoveryCount: number,
   pageBackedClaimCount: number,
+  highRelevanceClaimCount: number,
 ): string {
   const publishers = topPublishers(sources);
   const findings = buildKeyFindings(verifiedClaims);
   const { structured, pageBacked } = countClaimsByOrigin(verifiedClaims);
+  const relevantClaims = verifiedClaims.filter(
+    (claim) =>
+      claim.relevanceLevel === "high" || claim.relevanceLevel === "medium",
+  );
 
   if (verifiedClaims.length === 0) {
     return `Research on "${topic}" identified ${sources.length} authoritative source${sources.length === 1 ? "" : "s"}, but no clean verified claims could be extracted from fetched page evidence.`;
@@ -174,19 +208,19 @@ function buildSummary(
   const evidenceText =
     structured > 0
       ? `${structured} structured verification item${structured === 1 ? "" : "s"} were confirmed from official vulnerability data.`
-      : `${pageBacked} verified statement${pageBacked === 1 ? "" : "s"} were extracted from fetched authoritative page content.`;
+      : `${pageBacked} topic-relevant verified statement${pageBacked === 1 ? "" : "s"} were extracted from fetched authoritative page content.`;
 
   const parts = [
-    `Research on "${topic}" produced ${verifiedClaims.length} verified factual claim${verifiedClaims.length === 1 ? "" : "s"}.`,
+    `Research on "${topic}" produced ${relevantClaims.length} topic-relevant verified claim${relevantClaims.length === 1 ? "" : "s"}.`,
     publisherText,
     evidenceText,
   ];
 
-  if (findings.length >= 2) {
+  if (findings.length >= 1) {
     parts.push(findings[0]);
-  } else if (pageBackedClaimCount < 2) {
+  } else if (pageBackedClaimCount < 2 || highRelevanceClaimCount < 2) {
     parts.push(
-      "The research brief has limited page-backed evidence and should be reviewed before content generation.",
+      "The research brief has limited topic-relevant evidence and should be reviewed before content generation.",
     );
   }
 
@@ -209,14 +243,20 @@ function buildRecommendedAngle(
   awareness: ContentAwarenessResult,
   verifiedClaims: VerifiedClaim[],
 ): string {
-  const cveClaim = verifiedClaims.find((claim) => claim.type === "cve_id");
-  const kevClaim = verifiedClaims.find(
+  const relevantClaims = verifiedClaims.filter(
+    (claim) =>
+      claim.relevanceLevel === "high" ||
+      claim.relevanceLevel === "medium" ||
+      claim.relevanceLevel === undefined,
+  );
+  const cveClaim = relevantClaims.find((claim) => claim.type === "cve_id");
+  const kevClaim = relevantClaims.find(
     (claim) => claim.type === "exploitation_status",
   );
-  const mitigationClaim = verifiedClaims.find(
+  const mitigationClaim = relevantClaims.find(
     (claim) => claim.type === "mitigation",
   );
-  const guidanceClaims = verifiedClaims.filter(
+  const guidanceClaims = relevantClaims.filter(
     (claim) =>
       claim.type === "guidance" ||
       claim.type === "official_guidance" ||
@@ -261,12 +301,14 @@ export function deriveResearchConfidence({
   uncertainClaims,
   unpromotedDiscoveryCount,
   pageBackedClaimCount,
+  highRelevanceClaimCount,
 }: {
   sources: ResearchSource[];
   verifiedClaims: VerifiedClaim[];
   uncertainClaims: UncertainClaim[];
   unpromotedDiscoveryCount: number;
   pageBackedClaimCount: number;
+  highRelevanceClaimCount: number;
 }): ResearchConfidence {
   const officialCount = sources.filter(
     (source) => source.sourceType === "official",
@@ -280,19 +322,28 @@ export function deriveResearchConfidence({
     uncertainClaims.length > 0 ||
     unpromotedDiscoveryCount >= 3 ||
     verifiedClaims.length === 0 ||
-    pageBackedClaimCount < 2
+    pageBackedClaimCount < 2 ||
+    highRelevanceClaimCount < 2
   ) {
     return "low";
   }
 
   if (
     structured >= 2 ||
-    (officialCount >= 2 && pageBacked >= 2 && highConfidenceClaims >= 3)
+    (officialCount >= 2 &&
+      pageBacked >= 2 &&
+      highConfidenceClaims >= 3 &&
+      highRelevanceClaimCount >= 2)
   ) {
     return "high";
   }
 
-  if (verifiedClaims.length >= 2 && officialCount >= 1 && pageBackedClaimCount >= 2) {
+  if (
+    verifiedClaims.length >= 2 &&
+    officialCount >= 1 &&
+    pageBackedClaimCount >= 2 &&
+    highRelevanceClaimCount >= 1
+  ) {
     return "medium";
   }
 
@@ -311,6 +362,7 @@ export function synthesizeResearchBrief(
     awareness,
     unpromotedDiscoveryCount,
     pageBackedClaimCount,
+    highRelevanceClaimCount,
   } = input;
 
   const { primaryKeyword, secondaryKeywords } = buildKeywords(
@@ -324,6 +376,7 @@ export function synthesizeResearchBrief(
     uncertainClaims,
     unpromotedDiscoveryCount,
     pageBackedClaimCount,
+    highRelevanceClaimCount,
   });
 
   return {
@@ -334,6 +387,7 @@ export function synthesizeResearchBrief(
       uncertainClaims,
       unpromotedDiscoveryCount,
       pageBackedClaimCount,
+      highRelevanceClaimCount,
     ),
     recommendedAngle: buildRecommendedAngle(
       topic,

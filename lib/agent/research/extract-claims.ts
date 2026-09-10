@@ -1,6 +1,10 @@
 import "server-only";
 
 import { classifyWebClaimType } from "@/lib/agent/research/claim-classifier";
+import {
+  scoreClaimRelevance,
+  shouldPromoteWebClaim,
+} from "@/lib/agent/research/relevance";
 import type { CveVerificationResult } from "@/lib/agent/research/cve";
 import type { KevEntry, KevLookupResult } from "@/lib/agent/research/cisa-kev";
 import type { FetchedSourcePage } from "@/lib/agent/research/fetch-source";
@@ -69,6 +73,8 @@ function addVerifiedClaim(
     statement: string;
     sources: ClaimSourceRef[];
     confidence: VerifiedClaimConfidence;
+    relevanceScore?: number;
+    relevanceLevel?: VerifiedClaim["relevanceLevel"];
   },
 ): void {
   const duplicate = verifiedClaims.some(
@@ -88,6 +94,8 @@ function addVerifiedClaim(
     statement: claim.statement,
     sources: claim.sources,
     confidence: claim.confidence,
+    relevanceScore: claim.relevanceScore,
+    relevanceLevel: claim.relevanceLevel,
   });
 
   for (const ref of claim.sources) {
@@ -113,18 +121,49 @@ export interface ClaimExtractionOutput {
   sourceClaimMap: Map<string, string[]>;
   unpromotedDiscoveryCount: number;
   pageBackedClaimCount: number;
+  highRelevanceClaimCount: number;
   successfulPageFetchCount: number;
   failedPageFetchCount: number;
 }
 
+function structuredClaimRelevance(topic: string, statement: string) {
+  const relevance = scoreClaimRelevance({
+    topic,
+    statement,
+    sourceTitle: null,
+    sourceUrl: null,
+  });
+
+  if (/\bcve-\d{4}-\d+\b/i.test(topic) && /\bcve-\d{4}-\d+\b/i.test(statement)) {
+    return {
+      relevanceScore: Math.max(relevance.relevanceScore, 85),
+      relevanceLevel: "high" as const,
+    };
+  }
+
+  return {
+    relevanceScore: Math.max(relevance.relevanceScore, 70),
+    relevanceLevel: "high" as const,
+  };
+}
+
 function extractPageBackedClaims(
+  topic: string,
   sources: ResearchSource[],
   fetchedPages: Map<string, FetchedSourcePage>,
-): Array<{ statement: string; source: ResearchSource; type: VerifiedClaimType }> {
+): Array<{
+  statement: string;
+  source: ResearchSource;
+  type: VerifiedClaimType;
+  relevanceScore: number;
+  relevanceLevel: VerifiedClaim["relevanceLevel"];
+}> {
   const promotable: Array<{
     statement: string;
     source: ResearchSource;
     type: VerifiedClaimType;
+    relevanceScore: number;
+    relevanceLevel: VerifiedClaim["relevanceLevel"];
   }> = [];
 
   for (const source of sources) {
@@ -134,23 +173,41 @@ function extractPageBackedClaims(
     }
 
     const statements = extractCleanStatements(fetched.text);
-    for (const statement of statements.slice(0, 3)) {
+    for (const statement of statements.slice(0, 5)) {
       if (!statementExistsInSourceText(statement, fetched.text)) {
+        continue;
+      }
+
+      const claimType = classifyWebClaimType(statement);
+      const relevance = scoreClaimRelevance({
+        topic,
+        statement,
+        claimType,
+        sourceTitle: source.title,
+        sourceUrl: source.url,
+      });
+
+      if (!shouldPromoteWebClaim(relevance)) {
         continue;
       }
 
       promotable.push({
         statement,
         source,
-        type: classifyWebClaimType(statement),
+        type: claimType,
+        relevanceScore: relevance.relevanceScore,
+        relevanceLevel: relevance.relevanceLevel,
       });
     }
   }
 
-  return promotable;
+  return promotable.sort(
+    (left, right) => right.relevanceScore - left.relevanceScore,
+  );
 }
 
 export function extractClaims({
+  topic,
   sources,
   fetchedPages,
   cveResults,
@@ -204,11 +261,17 @@ export function extractClaims({
 
     const nvdRef = nvdSourceRef(cveId);
 
+    const structuredRelevance = structuredClaimRelevance(
+      topic,
+      `${cveId} is recorded in the NIST National Vulnerability Database.`,
+    );
+
     addVerifiedClaim(verifiedClaims, sourceClaimMap, {
       type: "cve_id",
       statement: `${cveId} is recorded in the NIST National Vulnerability Database.`,
       sources: [nvdRef],
       confidence: "high",
+      ...structuredRelevance,
     });
 
     if (record.description) {
@@ -218,12 +281,24 @@ export function extractClaims({
         (isCompleteSentence(record.description) ? record.description : null);
 
       if (description) {
-        addVerifiedClaim(verifiedClaims, sourceClaimMap, {
-          type: "general",
+        const descriptionRelevance = scoreClaimRelevance({
+          topic,
           statement: description,
-          sources: [nvdRef],
-          confidence: "high",
+          claimType: "general",
+          sourceTitle: nvdRef.title,
+          sourceUrl: nvdRef.url,
         });
+
+        if (shouldPromoteWebClaim(descriptionRelevance)) {
+          addVerifiedClaim(verifiedClaims, sourceClaimMap, {
+            type: "general",
+            statement: description,
+            sources: [nvdRef],
+            confidence: "high",
+            relevanceScore: descriptionRelevance.relevanceScore,
+            relevanceLevel: descriptionRelevance.relevanceLevel,
+          });
+        }
       }
     }
 
@@ -233,6 +308,10 @@ export function extractClaims({
         statement: `NVD lists ${cveId} with a published date of ${record.published}.`,
         sources: [nvdRef],
         confidence: "high",
+        ...structuredClaimRelevance(
+          topic,
+          `NVD lists ${cveId} with a published date of ${record.published}.`,
+        ),
       });
     }
 
@@ -245,6 +324,10 @@ export function extractClaims({
         statement: `NVD records a CVSS base score of ${record.cvssScore}${severitySuffix} for ${cveId}.`,
         sources: [nvdRef],
         confidence: "high",
+        ...structuredClaimRelevance(
+          topic,
+          `NVD records a CVSS base score of ${record.cvssScore}${severitySuffix} for ${cveId}.`,
+        ),
       });
     }
 
@@ -254,6 +337,10 @@ export function extractClaims({
         statement: `NVD records CVSS vector ${record.cvssVector} for ${cveId}.`,
         sources: [nvdRef],
         confidence: "high",
+        ...structuredClaimRelevance(
+          topic,
+          `NVD records CVSS vector ${record.cvssVector} for ${cveId}.`,
+        ),
       });
     }
 
@@ -268,6 +355,10 @@ export function extractClaims({
         statement: `NVD associates ${cveId} with affected product/configuration entries including ${products}.`,
         sources: [nvdRef],
         confidence: "high",
+        ...structuredClaimRelevance(
+          topic,
+          `NVD associates ${cveId} with affected product/configuration entries including ${products}.`,
+        ),
       });
     }
   }
@@ -301,6 +392,10 @@ export function extractClaims({
       statement: `${cveId} is listed in the CISA Known Exploited Vulnerabilities catalog.`,
       sources: [kevRef],
       confidence: "high",
+      ...structuredClaimRelevance(
+        topic,
+        `${cveId} is listed in the CISA Known Exploited Vulnerabilities catalog.`,
+      ),
     });
 
     if (entry.requiredAction && isCompleteSentence(entry.requiredAction)) {
@@ -309,13 +404,16 @@ export function extractClaims({
         statement: entry.requiredAction,
         sources: [kevRef],
         confidence: "high",
+        ...structuredClaimRelevance(topic, entry.requiredAction),
       });
     } else if (entry.requiredAction) {
+      const mitigationStatement = `CISA KEV lists the following required action for ${cveId}: ${entry.requiredAction}`;
       addVerifiedClaim(verifiedClaims, sourceClaimMap, {
         type: "mitigation",
-        statement: `CISA KEV lists the following required action for ${cveId}: ${entry.requiredAction}`,
+        statement: mitigationStatement,
         sources: [kevRef],
         confidence: "high",
+        ...structuredClaimRelevance(topic, mitigationStatement),
       });
     }
 
@@ -325,25 +423,32 @@ export function extractClaims({
         statement: `CISA added ${cveId} to the Known Exploited Vulnerabilities catalog on ${entry.dateAdded}.`,
         sources: [kevRef],
         confidence: "high",
+        ...structuredClaimRelevance(
+          topic,
+          `CISA added ${cveId} to the Known Exploited Vulnerabilities catalog on ${entry.dateAdded}.`,
+        ),
       });
     }
 
     if (entry.vendorProject || entry.product) {
+      const productStatement = `CISA KEV identifies the affected product as ${[entry.vendorProject, entry.product].filter(Boolean).join(" — ")}.`;
       addVerifiedClaim(verifiedClaims, sourceClaimMap, {
         type: "affected_product",
-        statement: `CISA KEV identifies the affected product as ${[entry.vendorProject, entry.product].filter(Boolean).join(" — ")}.`,
+        statement: productStatement,
         sources: [kevRef],
         confidence: "high",
+        ...structuredClaimRelevance(topic, productStatement),
       });
     }
   }
 
-  const promotable = extractPageBackedClaims(sources, fetchedPages);
+  const promotable = extractPageBackedClaims(topic, sources, fetchedPages);
   const uniqueStatements = deduplicateStatements(
     promotable.map((item) => item.statement),
   );
 
   let pageBackedClaimCount = 0;
+
   for (const statement of uniqueStatements.slice(0, 7)) {
     const match = promotable.find((item) => item.statement === statement);
     if (!match) {
@@ -356,9 +461,15 @@ export function extractClaims({
       sources: [sourceToRef(match.source)],
       confidence:
         match.source.sourceType === "official" ? "high" : "medium",
+      relevanceScore: match.relevanceScore,
+      relevanceLevel: match.relevanceLevel,
     });
     pageBackedClaimCount += 1;
   }
+
+  const highRelevanceClaimCount = verifiedClaims.filter(
+    (claim) => claim.relevanceLevel === "high",
+  ).length;
 
   const sourcesWithDiscovery = sources.filter((source) => source.discoveryContext);
   const unpromotedDiscoveryCount = Math.max(
@@ -394,10 +505,13 @@ export function extractClaims({
     sourceClaimMap,
     unpromotedDiscoveryCount,
     pageBackedClaimCount,
+    highRelevanceClaimCount,
     successfulPageFetchCount,
     failedPageFetchCount,
   };
 }
+
+export { rankSourcesByTopicRelevance } from "@/lib/agent/research/relevance";
 
 export function applyClaimLabelsToSources(
   sources: ResearchSource[],

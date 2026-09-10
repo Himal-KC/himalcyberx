@@ -71,12 +71,16 @@ export type VerifiedClaimType =
 
 export type VerifiedClaimConfidence = "high" | "medium";
 
+export type ClaimRelevanceLevel = "high" | "medium" | "low";
+
 export interface VerifiedClaim {
   id: string;
   type: VerifiedClaimType;
   statement: string;
   sources: ClaimSourceRef[];
   confidence: VerifiedClaimConfidence;
+  relevanceScore?: number;
+  relevanceLevel?: ClaimRelevanceLevel;
 }
 
 export interface UncertainClaim {
