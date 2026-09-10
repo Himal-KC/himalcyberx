@@ -147,6 +147,8 @@ export interface AgentRun {
   recommended_angle: string | null;
   primary_keyword: string | null;
   secondary_keywords: string[] | null;
+  research_payload: Record<string, unknown> | null;
+  generation_metadata: Record<string, unknown> | null;
   quality_score: number | null;
   fact_check_status: AgentFactCheckStatus | null;
   error_message: string | null;
@@ -168,6 +170,8 @@ export type AgentRunInsert = {
   recommended_angle?: string | null;
   primary_keyword?: string | null;
   secondary_keywords?: string[] | null;
+  research_payload?: Record<string, unknown> | null;
+  generation_metadata?: Record<string, unknown> | null;
   quality_score?: number | null;
   fact_check_status?: AgentFactCheckStatus | null;
   error_message?: string | null;

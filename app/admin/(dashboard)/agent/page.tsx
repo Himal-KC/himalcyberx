@@ -18,7 +18,7 @@ export default function AdminAgentPage() {
             HCX Content Agent
           </h1>
           <span className="inline-flex items-center rounded-full border border-hcx-cyan/30 bg-hcx-cyan/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-hcx-cyan">
-            Phase 3 — Research
+            Phase 4 — Draft Generation
           </span>
         </div>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-hcx-text-secondary">

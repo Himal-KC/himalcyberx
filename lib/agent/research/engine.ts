@@ -7,6 +7,7 @@ import {
   attachDiscoveryContext,
   buildDiscoveryContexts,
 } from "@/lib/agent/research/discovery-context";
+import { buildPersistedResearchPayload } from "@/lib/agent/generation/research-payload";
 import { deriveCanGenerateDraft } from "@/lib/agent/research/derive-can-generate";
 import {
   applyClaimLabelsToSources,
@@ -269,29 +270,6 @@ export async function runAgentResearch(
     };
   }
 
-  const updated = await updateAgentRun(supabase, runId, {
-    research_summary: finalSynthesis.summary,
-    recommended_angle: finalSynthesis.recommendedAngle,
-    primary_keyword: finalSynthesis.primaryKeyword,
-    secondary_keywords: finalSynthesis.secondaryKeywords,
-    stage: "planning",
-    status: "ready",
-    error_message: null,
-  });
-
-  if (!updated.data || updated.error) {
-    await failRun(supabase, runId, updated.error ?? "Unable to save research results.");
-    return {
-      ok: false,
-      error: updated.error ?? "Unable to save research results.",
-      agentRunId: runId,
-    };
-  }
-
-  if (process.env.NODE_ENV === "development") {
-    console.info("[agent-research] extraction stats", claimExtraction.extractionStats);
-  }
-
   const relatedHCXContent = [
     ...awareness.similarContent,
     ...awareness.relatedContent,
@@ -316,6 +294,32 @@ export async function runAgentResearch(
     canGenerateDraft,
     extractionStats: claimExtraction.extractionStats,
   };
+
+  const researchPayload = buildPersistedResearchPayload(result, awareness);
+
+  const updated = await updateAgentRun(supabase, runId, {
+    research_summary: finalSynthesis.summary,
+    recommended_angle: finalSynthesis.recommendedAngle,
+    primary_keyword: finalSynthesis.primaryKeyword,
+    secondary_keywords: finalSynthesis.secondaryKeywords,
+    research_payload: researchPayload as unknown as Record<string, unknown>,
+    stage: "planning",
+    status: "ready",
+    error_message: null,
+  });
+
+  if (!updated.data || updated.error) {
+    await failRun(supabase, runId, updated.error ?? "Unable to save research results.");
+    return {
+      ok: false,
+      error: updated.error ?? "Unable to save research results.",
+      agentRunId: runId,
+    };
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    console.info("[agent-research] extraction stats", claimExtraction.extractionStats);
+  }
 
   return { ok: true, result };
 }

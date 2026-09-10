@@ -89,3 +89,21 @@ export async function insertAgentSources(
 
   return { data: (data ?? []) as AgentSource[], error: null };
 }
+
+export async function getAgentSources(
+  supabase: AdminSupabase,
+  runId: string,
+): Promise<{ data: AgentSource[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from("agent_sources")
+    .select("*")
+    .eq("agent_run_id", runId)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    logQueryError("getAgentSources", error);
+    return { data: [], error: "Unable to load research sources." };
+  }
+
+  return { data: (data ?? []) as AgentSource[], error: null };
+}

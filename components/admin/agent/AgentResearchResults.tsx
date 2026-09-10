@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AgentGenerateDraft } from "@/components/admin/agent/AgentGenerateDraft";
 import type { ResearchResult, VerifiedClaimType } from "@/lib/agent/types";
 import type { AgentContentType } from "@/lib/supabase/types";
 import { focusRing } from "@/lib/page-data";
@@ -373,18 +374,7 @@ export function AgentResearchResults({ research }: { research: ResearchResult })
         )}
       </div>
 
-      <div className="mt-8 border-t border-hcx-border pt-6">
-        <button
-          type="button"
-          disabled
-          className="inline-flex cursor-not-allowed items-center rounded-lg border border-hcx-border px-5 py-2.5 text-sm font-semibold text-hcx-text-secondary opacity-70"
-        >
-          Generate Content
-        </button>
-        <p className="mt-2 text-sm text-hcx-text-secondary">
-          Content generation coming in Phase 4.
-        </p>
-      </div>
+      <AgentGenerateDraft research={research} />
     </section>
   );
 }

@@ -6,6 +6,9 @@ import {
   isSafeToContinueAnalysis,
 } from "@/lib/agent/content-awareness";
 import { loadSiteContentInventory } from "@/lib/agent/content-inventory";
+import { runAgentGeneration } from "@/lib/agent/generation/engine";
+import type { GenerateDraftResult } from "@/lib/agent/generation/types";
+import { hasOpenAiApiKey } from "@/lib/agent/openai/env";
 import { runAgentResearch } from "@/lib/agent/research/engine";
 import type {
   ContentDuplicateRisk,
@@ -82,6 +85,12 @@ export interface ResearchAgentTopicState {
   research?: ResearchResult;
 }
 
+export interface GenerateAgentDraftState {
+  success?: boolean;
+  error?: string;
+  draft?: GenerateDraftResult;
+}
+
 export async function researchAgentTopic(
   _prevState: ResearchAgentTopicState,
   formData: FormData,
@@ -143,6 +152,45 @@ export async function researchAgentTopic(
   return {
     success: true,
     research: outcome.result,
+  };
+}
+
+export async function generateAgentDraft(
+  _prevState: GenerateAgentDraftState,
+  formData: FormData,
+): Promise<GenerateAgentDraftState> {
+  const auth = await getAuthenticatedServerClient("generateAgentDraft");
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  if (!hasOpenAiApiKey()) {
+    return { error: "OpenAI is not configured." };
+  }
+
+  const allowed = await enforceRateLimit("agent-generation", auth.user.id);
+  if (!allowed) {
+    return { error: RATE_LIMIT_MESSAGES.agentGeneration };
+  }
+
+  const agentRunId = String(formData.get("agentRunId") ?? "").trim();
+  if (!agentRunId) {
+    return { error: "A research run is required before generating a draft." };
+  }
+
+  const outcome = await runAgentGeneration({
+    supabase: auth.supabase,
+    agentRunId,
+  });
+
+  if (!outcome.ok) {
+    return { error: outcome.error };
+  }
+
+  return {
+    success: true,
+    draft: outcome.result,
   };
 }
 
