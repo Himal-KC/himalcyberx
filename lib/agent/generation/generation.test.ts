@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import type { ArticleGeneratedDraft } from "./types";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 
@@ -12,9 +13,9 @@ const { generatedDraftSchema } = (await import(
   pathToFileURL(join(testDir, "schemas.ts")).href
 )) as typeof import("./schemas");
 function filterSourceMappings(
-  draft: ReturnType<typeof buildArticleDraft>,
+  draft: ArticleGeneratedDraft,
   allowedSourceUrls: string[],
-) {
+): ArticleGeneratedDraft {
   const allowed = new Set(
     allowedSourceUrls.map((url) => url.trim().toLowerCase()),
   );
@@ -103,7 +104,9 @@ const VERIFIED_CLAIMS = [
   },
 ];
 
-function buildArticleDraft(overrides: Record<string, unknown> = {}) {
+function buildArticleDraft(
+  overrides: Partial<ArticleGeneratedDraft> = {},
+): ArticleGeneratedDraft {
   return {
     contentType: "article" as const,
     title: "CISA Ransomware Preparedness Guidance for Defenders",
@@ -190,7 +193,7 @@ describe("Phase 4 source and link validation", () => {
     });
 
     const audit = auditGrounding({
-      draft: draft as import("./types").ArticleGeneratedDraft,
+      draft,
       verifiedClaims: VERIFIED_CLAIMS,
       allowedSourceUrls: ["https://www.cisa.gov/stopransomware"],
       allowedContentIds: new Set(),
@@ -213,7 +216,7 @@ describe("Phase 4 source and link validation", () => {
     });
 
     const audit = auditGrounding({
-      draft: draft as import("./types").ArticleGeneratedDraft,
+      draft,
       verifiedClaims: VERIFIED_CLAIMS,
       allowedSourceUrls: ["https://www.cisa.gov/stopransomware"],
       allowedContentIds: new Set(["00000000-0000-4000-8000-000000000001"]),
@@ -236,7 +239,7 @@ describe("Phase 4 source and link validation", () => {
             ],
           },
         ],
-      }) as import("./types").ArticleGeneratedDraft,
+      }),
       ["https://www.cisa.gov/stopransomware"],
     );
 
@@ -252,7 +255,7 @@ describe("Phase 4 grounding audit", () => {
     });
 
     const audit = auditGrounding({
-      draft: draft as import("./types").ArticleGeneratedDraft,
+      draft,
       verifiedClaims: VERIFIED_CLAIMS,
       allowedSourceUrls: ["https://www.cisa.gov/stopransomware"],
       allowedContentIds: new Set(),
@@ -268,7 +271,7 @@ describe("Phase 4 grounding audit", () => {
     });
 
     const audit = auditGrounding({
-      draft: draft as import("./types").ArticleGeneratedDraft,
+      draft,
       verifiedClaims: VERIFIED_CLAIMS,
       allowedSourceUrls: [
         "https://nvd.nist.gov/vuln/detail/CVE-2024-21412",
@@ -294,7 +297,7 @@ describe("Phase 4 grounding audit", () => {
     });
 
     const audit = auditGrounding({
-      draft: draft as import("./types").ArticleGeneratedDraft,
+      draft,
       verifiedClaims: VERIFIED_CLAIMS,
       allowedSourceUrls: [
         "https://nvd.nist.gov/vuln/detail/CVE-2024-21412",
@@ -384,7 +387,7 @@ describe("Phase 4 research payload", () => {
 
 describe("Phase 4 draft quality", () => {
   it("does not mark fact check as passed automatically", () => {
-    const draft = buildArticleDraft() as import("./types").ArticleGeneratedDraft;
+    const draft = buildArticleDraft();
     const quality = assessDraftQuality({
       draft,
       groundingAudit: {
