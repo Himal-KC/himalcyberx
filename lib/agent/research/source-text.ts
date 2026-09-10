@@ -16,7 +16,11 @@ const TRUNCATED_ENDINGS = [
   /[,;:]\s*$/,
   /-\s*$/,
   /\.\.\.\s*$/,
+  /…\s*$/,
 ];
+
+const PROPOSITION_VERBS =
+  /\b(is|are|was|were|has|have|had|provides|provide|includes|include|maintains|maintain|recommends|recommend|advises|advise|requires|require|supports|support|documents|document|lists|list|published|publish|identified|identify|enables|enable|helps|help|allows|allow|contains|contain|offers|offer|describes|describe|details|detail|demonstrates|demonstrate|empowers|empower|outlines|outline|explains|explain|addresses|address|protects|protect|defends|defend)\b/i;
 
 const MIN_STATEMENT_LENGTH = 40;
 const MAX_STATEMENT_LENGTH = 280;
@@ -28,6 +32,100 @@ export function normalizeSourceText(text: string): string {
     .replace(/\u00a0/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function hasUnmatchedQuotation(text: string): boolean {
+  let balance = 0;
+
+  for (const char of text) {
+    if (char === '"' || char === "\u201c") {
+      balance += 1;
+    }
+    if (char === '"' || char === "\u201d") {
+      balance -= 1;
+    }
+    if (balance < 0) {
+      return true;
+    }
+  }
+
+  return balance !== 0;
+}
+
+export function isPartialQuotation(text: string): boolean {
+  const normalized = normalizeSourceText(text);
+  const startsQuoted =
+    normalized.startsWith('"') ||
+    normalized.startsWith("\u201c") ||
+    normalized.startsWith("“");
+  const endsQuoted =
+    normalized.endsWith('"') ||
+    normalized.endsWith("\u201d") ||
+    normalized.endsWith("”");
+
+  if (startsQuoted && !endsQuoted) {
+    return true;
+  }
+
+  if (!startsQuoted && endsQuoted) {
+    return true;
+  }
+
+  return hasUnmatchedQuotation(normalized);
+}
+
+export function isEntityListFragment(text: string): boolean {
+  const normalized = normalizeSourceText(text);
+  const parenAcronyms = (normalized.match(/\([A-Z]{2,10}\)/g) ?? []).length;
+
+  if (parenAcronyms >= 2 && !hasClearProposition(normalized)) {
+    return true;
+  }
+
+  if (/,\s*U\.S\.\s*$/.test(normalized)) {
+    return true;
+  }
+
+  if (
+    /\([^)]+\)(?:,\s*[^(]+){1,}\s*,\s*(?:the\s+)?U\.S\.\s*$/i.test(normalized)
+  ) {
+    return true;
+  }
+
+  if (
+    /(?:Agency|Administration|Center|Bureau|Department)\s*\([A-Z]{2,10}\)/i.test(
+      normalized,
+    ) &&
+    /,\s*[A-Z][A-Za-z.\s]{0,12}\.\s*$/.test(normalized) &&
+    !hasClearProposition(normalized)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+export function hasClearProposition(text: string): boolean {
+  const withoutParens = text.replace(/\([^)]*\)/g, " ");
+  return PROPOSITION_VERBS.test(withoutParens);
+}
+
+export function isHeadingOrListFragment(text: string): boolean {
+  const normalized = normalizeSourceText(text);
+  if (/^[-*•]\s/.test(normalized)) {
+    return true;
+  }
+
+  if (/^[A-Z0-9\s/&-]{3,60}:$/.test(normalized)) {
+    return true;
+  }
+
+  const words = normalized.split(/\s+/);
+  if (words.length <= 6 && !hasClearProposition(normalized)) {
+    return true;
+  }
+
+  return false;
 }
 
 export function isNoiseFragment(text: string): boolean {
@@ -57,9 +155,11 @@ export function isNoiseFragment(text: string): boolean {
     "cookie policy",
     "privacy policy",
     "terms of use",
+    "accept cookies",
+    "we use cookies",
   ];
 
-  if (noiseTokens.some((token) => lower.startsWith(token))) {
+  if (noiseTokens.some((token) => lower.includes(token))) {
     return true;
   }
 
@@ -91,6 +191,22 @@ export function isCompleteSentence(text: string): boolean {
   }
 
   if (normalized.length > MAX_STATEMENT_LENGTH) {
+    return false;
+  }
+
+  if (isPartialQuotation(normalized)) {
+    return false;
+  }
+
+  if (isEntityListFragment(normalized)) {
+    return false;
+  }
+
+  if (isHeadingOrListFragment(normalized)) {
+    return false;
+  }
+
+  if (!hasClearProposition(normalized)) {
     return false;
   }
 
@@ -136,6 +252,26 @@ export function extractCleanStatements(text: string): string[] {
   }
 
   return statements;
+}
+
+export function statementExistsInSourceText(
+  statement: string,
+  sourceText: string,
+): boolean {
+  const normalizedStatement = normalizeSourceText(statement).toLowerCase();
+  const normalizedSource = normalizeSourceText(sourceText).toLowerCase();
+
+  if (!normalizedStatement || !normalizedSource) {
+    return false;
+  }
+
+  if (normalizedSource.includes(normalizedStatement)) {
+    return true;
+  }
+
+  const prefixLength = Math.min(90, normalizedStatement.length);
+  const prefix = normalizedStatement.slice(0, prefixLength);
+  return prefix.length >= 40 && normalizedSource.includes(prefix);
 }
 
 export function truncateDiscoveryExcerpt(text: string, maxLength = 220): string {

@@ -13,6 +13,7 @@ import {
 } from "@/lib/agent/research/extract-claims";
 import { extractCveIds, verifyCvesInTopic } from "@/lib/agent/research/cve";
 import { hasTavilyApiKey } from "@/lib/agent/research/env";
+import { fetchAuthoritativeSourcePages } from "@/lib/agent/research/fetch-source";
 import { evaluateResearchQuality } from "@/lib/agent/research/quality";
 import { synthesizeResearchBrief } from "@/lib/agent/research/synthesis";
 import { searchAuthoritativeSources } from "@/lib/agent/research/tavily";
@@ -169,10 +170,14 @@ export async function runAgentResearch(
   onStage?.("building_brief");
 
   const sourcesWithDiscovery = attachDiscoveryContext(tavily.sources);
+  const fetchedPages = await fetchAuthoritativeSourcePages(
+    sourcesWithDiscovery.map((source) => source.url),
+  );
 
   const claimExtraction = extractClaims({
     topic,
     sources: sourcesWithDiscovery,
+    fetchedPages,
     cveResults,
     kevLookups,
   });
@@ -190,6 +195,7 @@ export async function runAgentResearch(
     uncertainClaims: claimExtraction.uncertainClaims,
     awareness,
     unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
+    pageBackedClaimCount: claimExtraction.pageBackedClaimCount,
   });
 
   const researchQuality = evaluateResearchQuality({
@@ -199,6 +205,9 @@ export async function runAgentResearch(
     cveResults,
     researchConfidence: synthesis.researchConfidence,
     unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
+    pageBackedClaimCount: claimExtraction.pageBackedClaimCount,
+    successfulPageFetchCount: claimExtraction.successfulPageFetchCount,
+    failedPageFetchCount: claimExtraction.failedPageFetchCount,
     topicHasCve: cveIds.length > 0,
   });
 

@@ -1,14 +1,14 @@
 import "server-only";
 
-import {
-  extractPromotableStatementsFromSources,
-} from "@/lib/agent/research/discovery-context";
+import { classifyWebClaimType } from "@/lib/agent/research/claim-classifier";
 import type { CveVerificationResult } from "@/lib/agent/research/cve";
 import type { KevEntry, KevLookupResult } from "@/lib/agent/research/cisa-kev";
+import type { FetchedSourcePage } from "@/lib/agent/research/fetch-source";
 import {
   deduplicateStatements,
   extractCleanStatements,
   isCompleteSentence,
+  statementExistsInSourceText,
 } from "@/lib/agent/research/source-text";
 import type {
   ClaimSourceRef,
@@ -102,6 +102,7 @@ function addVerifiedClaim(
 export interface ClaimExtractionInput {
   topic: string;
   sources: ResearchSource[];
+  fetchedPages: Map<string, FetchedSourcePage>;
   cveResults: CveVerificationResult[];
   kevLookups: Array<{ cveId: string; result: KevLookupResult }>;
 }
@@ -111,10 +112,47 @@ export interface ClaimExtractionOutput {
   uncertainClaims: UncertainClaim[];
   sourceClaimMap: Map<string, string[]>;
   unpromotedDiscoveryCount: number;
+  pageBackedClaimCount: number;
+  successfulPageFetchCount: number;
+  failedPageFetchCount: number;
+}
+
+function extractPageBackedClaims(
+  sources: ResearchSource[],
+  fetchedPages: Map<string, FetchedSourcePage>,
+): Array<{ statement: string; source: ResearchSource; type: VerifiedClaimType }> {
+  const promotable: Array<{
+    statement: string;
+    source: ResearchSource;
+    type: VerifiedClaimType;
+  }> = [];
+
+  for (const source of sources) {
+    const fetched = fetchedPages.get(source.url);
+    if (!fetched || fetched.status !== "ok" || !fetched.text) {
+      continue;
+    }
+
+    const statements = extractCleanStatements(fetched.text);
+    for (const statement of statements.slice(0, 3)) {
+      if (!statementExistsInSourceText(statement, fetched.text)) {
+        continue;
+      }
+
+      promotable.push({
+        statement,
+        source,
+        type: classifyWebClaimType(statement),
+      });
+    }
+  }
+
+  return promotable;
 }
 
 export function extractClaims({
   sources,
+  fetchedPages,
   cveResults,
   kevLookups,
 }: ClaimExtractionInput): ClaimExtractionOutput {
@@ -122,6 +160,22 @@ export function extractClaims({
   const verifiedClaims: VerifiedClaim[] = [];
   const uncertainClaims: UncertainClaim[] = [];
   const sourceClaimMap = new Map<string, string[]>();
+
+  let successfulPageFetchCount = 0;
+  let failedPageFetchCount = 0;
+
+  for (const source of sources) {
+    const fetched = fetchedPages.get(source.url);
+    if (!fetched) {
+      continue;
+    }
+
+    if (fetched.status === "ok") {
+      successfulPageFetchCount += 1;
+    } else if (fetched.status !== "not_authoritative") {
+      failedPageFetchCount += 1;
+    }
+  }
 
   for (const cveResult of cveResults) {
     const { cveId, status, record } = cveResult;
@@ -284,44 +338,53 @@ export function extractClaims({
     }
   }
 
-  const promotable = extractPromotableStatementsFromSources(sources);
+  const promotable = extractPageBackedClaims(sources, fetchedPages);
   const uniqueStatements = deduplicateStatements(
     promotable.map((item) => item.statement),
   );
 
-  let promotedFromDiscovery = 0;
-  for (const statement of uniqueStatements.slice(0, 5)) {
+  let pageBackedClaimCount = 0;
+  for (const statement of uniqueStatements.slice(0, 7)) {
     const match = promotable.find((item) => item.statement === statement);
     if (!match) {
       continue;
     }
 
     addVerifiedClaim(verifiedClaims, sourceClaimMap, {
-      type: "guidance",
+      type: match.type,
       statement,
       sources: [sourceToRef(match.source)],
       confidence:
         match.source.sourceType === "official" ? "high" : "medium",
     });
-    promotedFromDiscovery += 1;
+    pageBackedClaimCount += 1;
   }
 
   const sourcesWithDiscovery = sources.filter((source) => source.discoveryContext);
   const unpromotedDiscoveryCount = Math.max(
     0,
-    sourcesWithDiscovery.length - promotedFromDiscovery,
+    sourcesWithDiscovery.length - pageBackedClaimCount,
   );
+
+  if (failedPageFetchCount > 0 && cveResults.length === 0) {
+    uncertainClaims.push({
+      id: nextClaimId("uncertain"),
+      label: "Source page evidence",
+      reason:
+        "One or more authoritative source pages could not be fetched for deterministic claim extraction.",
+    });
+  }
 
   if (
     sourcesWithDiscovery.length > 0 &&
-    promotedFromDiscovery === 0 &&
+    pageBackedClaimCount === 0 &&
     cveResults.length === 0
   ) {
     uncertainClaims.push({
       id: nextClaimId("uncertain"),
-      label: "Discovery context",
+      label: "Source page evidence",
       reason:
-        "Authoritative sources were found, but their excerpts could not be promoted to verified claims without inference.",
+        "Authoritative sources were discovered, but no clean verified claims could be extracted from fetched page content.",
     });
   }
 
@@ -330,6 +393,9 @@ export function extractClaims({
     uncertainClaims,
     sourceClaimMap,
     unpromotedDiscoveryCount,
+    pageBackedClaimCount,
+    successfulPageFetchCount,
+    failedPageFetchCount,
   };
 }
 

@@ -2,7 +2,6 @@ import "server-only";
 
 import type { DiscoveryContext, ResearchSource } from "@/lib/agent/types";
 import {
-  extractCleanStatements,
   normalizeSourceText,
   truncateDiscoveryExcerpt,
 } from "@/lib/agent/research/source-text";
@@ -35,21 +34,4 @@ export function buildDiscoveryContexts(
       publisher: source.publisher ?? null,
       excerpt: source.discoveryContext ?? null,
     }));
-}
-
-export function extractPromotableStatementsFromSources(
-  sources: ResearchSource[],
-): Array<{ statement: string; source: ResearchSource }> {
-  const promotable: Array<{ statement: string; source: ResearchSource }> = [];
-
-  for (const source of sources) {
-    const raw = source.discoveryContext ?? "";
-    const statements = extractCleanStatements(raw);
-
-    for (const statement of statements.slice(0, 2)) {
-      promotable.push({ statement, source });
-    }
-  }
-
-  return promotable;
 }

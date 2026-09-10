@@ -8,7 +8,10 @@ const {
   deduplicateStatements,
   extractCleanStatements,
   isCompleteSentence,
+  isEntityListFragment,
   isNoiseFragment,
+  isPartialQuotation,
+  statementExistsInSourceText,
 } = (await import(
   pathToFileURL(join(testDir, "source-text.ts")).href
 )) as typeof import("./source-text");
@@ -47,6 +50,60 @@ describe("source-text hardening", () => {
   });
 });
 
+describe("Phase 3.2 sentence validation", () => {
+  it('rejects "NSA), U.S." style entity list fragments', () => {
+    const fragment =
+      "The Federal Bureau of Investigation (FBI), Cybersecurity and Infrastructure Security Agency (CISA), Department of Defense Cyber Crime Center (DC3), National Security Agency (NSA), U.S.";
+
+    assert.equal(isEntityListFragment(fragment), true);
+    assert.equal(isCompleteSentence(fragment), false);
+    assert.equal(extractCleanStatements(fragment).length, 0);
+  });
+
+  it("rejects unmatched opening quotation fragments", () => {
+    const fragment =
+      "“This advisory demonstrates CISA’s commitment to empowering critical infrastructure organizations with the tools and insights they need to outpace sophisticated cyber threats.";
+
+    assert.equal(isPartialQuotation(fragment), true);
+    assert.equal(isCompleteSentence(fragment), false);
+  });
+
+  it("accepts complete CISA factual statements", () => {
+    const sentence =
+      "CISA's StopRansomware Guide includes preparation, prevention, mitigation and response guidance for organizations.";
+
+    assert.equal(isCompleteSentence(sentence), true);
+    assert.deepEqual(extractCleanStatements(sentence), [sentence]);
+  });
+});
+
+describe("page-backed statement verification", () => {
+  const pageText =
+    "StopRansomware Guide. CISA and the FBI maintain the #StopRansomware initiative for network defenders. The guide includes preparation, prevention, mitigation and response guidance for organizations.";
+
+  it("extracts clean factual statements from authoritative page text", () => {
+    const statements = extractCleanStatements(pageText);
+
+    assert.equal(statements.length, 2);
+    assert.match(statements[0], /#StopRansomware initiative/);
+    assert.match(statements[1], /preparation, prevention, mitigation and response guidance/);
+  });
+
+  it("requires statements to exist in fetched page text", () => {
+    const statement =
+      "CISA and the FBI maintain the #StopRansomware initiative for network defenders.";
+
+    assert.equal(statementExistsInSourceText(statement, pageText), true);
+    assert.equal(
+      statementExistsInSourceText(
+        "CISA recommends immediate patching for all internet-facing systems.",
+        pageText,
+      ),
+      false,
+    );
+  });
+});
+
 describe("CISA ransomware fixture expectations", () => {
   const noisySnippet =
     "Skip to main content. StopRansomware Guide. CISA and the FBI maintain the #StopRansomware initiative for network defenders. The guide includes preparation, prevention, mitigation and response guidance for organizations.";
@@ -55,8 +112,6 @@ describe("CISA ransomware fixture expectations", () => {
     const statements = extractCleanStatements(noisySnippet);
 
     assert.equal(statements.length, 2);
-    assert.match(statements[0], /#StopRansomware initiative/);
-    assert.match(statements[1], /preparation, prevention, mitigation and response guidance/);
     assert.equal(
       statements.some((statement) => statement.startsWith("Skip to")),
       false,

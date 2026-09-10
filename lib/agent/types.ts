@@ -63,6 +63,9 @@ export type VerifiedClaimType =
   | "threat_actor_attribution"
   | "techniques"
   | "indicators"
+  | "official_guidance"
+  | "preparedness"
+  | "response"
   | "guidance"
   | "general";
 

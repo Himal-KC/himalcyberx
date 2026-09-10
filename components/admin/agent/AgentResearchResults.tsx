@@ -53,8 +53,14 @@ function claimTypeLabel(type: VerifiedClaimType): string {
       return "Techniques";
     case "indicators":
       return "Indicators";
-    case "guidance":
+    case "official_guidance":
       return "Official guidance";
+    case "preparedness":
+      return "Preparedness";
+    case "response":
+      return "Response";
+    case "guidance":
+      return "Guidance";
     default:
       return "Verified fact";
   }

@@ -10,7 +10,10 @@ import type {
   VerifiedClaim,
   VerifiedClaimType,
 } from "@/lib/agent/types";
-import { deduplicateStatements } from "@/lib/agent/research/source-text";
+import {
+  deduplicateStatements,
+  isCompleteSentence,
+} from "@/lib/agent/research/source-text";
 
 export interface ResearchSynthesisInput {
   topic: string;
@@ -20,6 +23,7 @@ export interface ResearchSynthesisInput {
   uncertainClaims: UncertainClaim[];
   awareness: ContentAwarenessResult;
   unpromotedDiscoveryCount: number;
+  pageBackedClaimCount: number;
 }
 
 export interface ResearchSynthesisOutput {
@@ -49,7 +53,7 @@ function uniqueKeywords(values: string[]): string[] {
 
 function countClaimsByOrigin(verifiedClaims: VerifiedClaim[]): {
   structured: number;
-  guidance: number;
+  pageBacked: number;
 } {
   const structuredTypes = new Set<VerifiedClaimType>([
     "cve_id",
@@ -62,18 +66,26 @@ function countClaimsByOrigin(verifiedClaims: VerifiedClaim[]): {
     "patch_information",
   ]);
 
+  const pageBackedTypes = new Set<VerifiedClaimType>([
+    "official_guidance",
+    "preparedness",
+    "response",
+    "guidance",
+    "general",
+  ]);
+
   let structured = 0;
-  let guidance = 0;
+  let pageBacked = 0;
 
   for (const claim of verifiedClaims) {
     if (structuredTypes.has(claim.type)) {
       structured += 1;
-    } else if (claim.type === "guidance" || claim.type === "general") {
-      guidance += 1;
+    } else if (pageBackedTypes.has(claim.type)) {
+      pageBacked += 1;
     }
   }
 
-  return { structured, guidance };
+  return { structured, pageBacked };
 }
 
 function buildKeywords(topic: string, verifiedClaims: VerifiedClaim[]): {
@@ -107,6 +119,9 @@ function buildKeyFindings(verifiedClaims: VerifiedClaim[]): string[] {
     "cvss",
     "affected_product",
     "mitigation",
+    "official_guidance",
+    "preparedness",
+    "response",
     "guidance",
     "general",
     "disclosure_date",
@@ -119,7 +134,9 @@ function buildKeyFindings(verifiedClaims: VerifiedClaim[]): string[] {
   });
 
   const findings = deduplicateStatements(
-    ordered.map((claim) => claim.statement),
+    ordered
+      .map((claim) => claim.statement)
+      .filter((statement) => isCompleteSentence(statement)),
   ).slice(0, 7);
 
   return findings;
@@ -139,13 +156,14 @@ function buildSummary(
   sources: ResearchSource[],
   uncertainClaims: UncertainClaim[],
   unpromotedDiscoveryCount: number,
+  pageBackedClaimCount: number,
 ): string {
   const publishers = topPublishers(sources);
   const findings = buildKeyFindings(verifiedClaims);
-  const { structured, guidance } = countClaimsByOrigin(verifiedClaims);
+  const { structured, pageBacked } = countClaimsByOrigin(verifiedClaims);
 
   if (verifiedClaims.length === 0) {
-    return `Research on "${topic}" identified ${sources.length} authoritative source${sources.length === 1 ? "" : "s"}, but no clean verified claims could be extracted without inference.`;
+    return `Research on "${topic}" identified ${sources.length} authoritative source${sources.length === 1 ? "" : "s"}, but no clean verified claims could be extracted from fetched page evidence.`;
   }
 
   const publisherText =
@@ -156,17 +174,20 @@ function buildSummary(
   const evidenceText =
     structured > 0
       ? `${structured} structured verification item${structured === 1 ? "" : "s"} were confirmed from official vulnerability data.`
-      : `${guidance} clean guidance statement${guidance === 1 ? "" : "s"} were verified from authoritative sources.`;
+      : `${pageBacked} verified statement${pageBacked === 1 ? "" : "s"} were extracted from fetched authoritative page content.`;
 
-  const leadFinding = findings[0];
   const parts = [
     `Research on "${topic}" produced ${verifiedClaims.length} verified factual claim${verifiedClaims.length === 1 ? "" : "s"}.`,
     publisherText,
     evidenceText,
   ];
 
-  if (leadFinding) {
-    parts.push(leadFinding);
+  if (findings.length >= 2) {
+    parts.push(findings[0]);
+  } else if (pageBackedClaimCount < 2) {
+    parts.push(
+      "The research brief has limited page-backed evidence and should be reviewed before content generation.",
+    );
   }
 
   if (uncertainClaims.length > 0) {
@@ -175,7 +196,7 @@ function buildSummary(
     );
   } else if (unpromotedDiscoveryCount > 0) {
     parts.push(
-      "Some discovery excerpts were retained as source context but were not promoted to verified claims.",
+      "Tavily search excerpts were retained as discovery context but were not promoted to verified claims.",
     );
   }
 
@@ -196,7 +217,11 @@ function buildRecommendedAngle(
     (claim) => claim.type === "mitigation",
   );
   const guidanceClaims = verifiedClaims.filter(
-    (claim) => claim.type === "guidance",
+    (claim) =>
+      claim.type === "guidance" ||
+      claim.type === "official_guidance" ||
+      claim.type === "preparedness" ||
+      claim.type === "response",
   );
 
   if (contentType === "article") {
@@ -207,14 +232,14 @@ function buildRecommendedAngle(
       return `Write a defender-focused article on ${topic}, centering NVD-verified vulnerability details and clearly separating confirmed facts from unverified exploitation or patch assumptions.`;
     }
     if (guidanceClaims.length > 0) {
-      return `Write a practical article on ${topic} that translates verified official guidance into clear defensive priorities for network defenders and security teams.`;
+      return `Write a practical article on ${topic} that translates verified official guidance from fetched source pages into clear defensive priorities for network defenders and security teams.`;
     }
     return `Write an evidence-led article on ${topic} using only verified claims and clearly flagging any areas that still need manual review.`;
   }
 
   if (contentType === "tutorial") {
     if (guidanceClaims.length > 0) {
-      return `Build a step-by-step tutorial on ${topic} that operationalizes the verified guidance already identified, with each major step tied to an authoritative source.`;
+      return `Build a step-by-step tutorial on ${topic} that operationalizes the verified guidance already identified from authoritative source pages.`;
     }
     return awareness.contentGapSummary
       ? `${awareness.contentGapSummary} Build a tutorial that turns the verified evidence for "${topic}" into actionable defensive steps.`
@@ -222,7 +247,7 @@ function buildRecommendedAngle(
   }
 
   if (guidanceClaims.length > 0) {
-    return `Design a hands-on cyber lab for ${topic} that practices the verified defensive guidance already identified, without extending beyond the confirmed evidence.`;
+    return `Design a hands-on cyber lab for ${topic} that practices the verified defensive guidance already identified from authoritative source pages.`;
   }
 
   return awareness.contentGapSummary
@@ -235,11 +260,13 @@ export function deriveResearchConfidence({
   verifiedClaims,
   uncertainClaims,
   unpromotedDiscoveryCount,
+  pageBackedClaimCount,
 }: {
   sources: ResearchSource[];
   verifiedClaims: VerifiedClaim[];
   uncertainClaims: UncertainClaim[];
   unpromotedDiscoveryCount: number;
+  pageBackedClaimCount: number;
 }): ResearchConfidence {
   const officialCount = sources.filter(
     (source) => source.sourceType === "official",
@@ -247,24 +274,25 @@ export function deriveResearchConfidence({
   const highConfidenceClaims = verifiedClaims.filter(
     (claim) => claim.confidence === "high",
   ).length;
-  const { structured, guidance } = countClaimsByOrigin(verifiedClaims);
+  const { structured, pageBacked } = countClaimsByOrigin(verifiedClaims);
 
   if (
     uncertainClaims.length > 0 ||
     unpromotedDiscoveryCount >= 3 ||
-    verifiedClaims.length === 0
+    verifiedClaims.length === 0 ||
+    pageBackedClaimCount < 2
   ) {
     return "low";
   }
 
   if (
     structured >= 2 ||
-    (officialCount >= 2 && guidance >= 2 && highConfidenceClaims >= 3)
+    (officialCount >= 2 && pageBacked >= 2 && highConfidenceClaims >= 3)
   ) {
     return "high";
   }
 
-  if (verifiedClaims.length >= 2 && officialCount >= 1) {
+  if (verifiedClaims.length >= 2 && officialCount >= 1 && pageBackedClaimCount >= 2) {
     return "medium";
   }
 
@@ -282,6 +310,7 @@ export function synthesizeResearchBrief(
     uncertainClaims,
     awareness,
     unpromotedDiscoveryCount,
+    pageBackedClaimCount,
   } = input;
 
   const { primaryKeyword, secondaryKeywords } = buildKeywords(
@@ -294,6 +323,7 @@ export function synthesizeResearchBrief(
     verifiedClaims,
     uncertainClaims,
     unpromotedDiscoveryCount,
+    pageBackedClaimCount,
   });
 
   return {
@@ -303,6 +333,7 @@ export function synthesizeResearchBrief(
       sources,
       uncertainClaims,
       unpromotedDiscoveryCount,
+      pageBackedClaimCount,
     ),
     recommendedAngle: buildRecommendedAngle(
       topic,
