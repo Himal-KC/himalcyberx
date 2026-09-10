@@ -140,6 +140,15 @@ export async function runAgentGeneration(
 
   const generated = await generateFn(context);
   if (!generated.draft || generated.error) {
+    if (generated.error === "Generation is temporarily unavailable.") {
+      console.error("[agent-generation:engine]", {
+        agentRunId,
+        contentType: run.content_type,
+        stage: "writing",
+        outcome: generated.error,
+      });
+    }
+
     await failGeneration(
       supabase,
       agentRunId,

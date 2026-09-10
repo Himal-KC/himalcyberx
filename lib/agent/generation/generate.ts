@@ -8,6 +8,10 @@ import {
 } from "@/lib/agent/openai/config";
 import { getOpenAiClient } from "@/lib/agent/openai/client";
 import {
+  extractSafeOpenAiDiagnostics,
+  logOpenAiGenerationFailure,
+} from "@/lib/agent/openai/log-generation-error";
+import {
   buildDeveloperInstructions,
 } from "@/lib/agent/generation/grounding-policy";
 import {
@@ -82,15 +86,38 @@ export async function generateDraftWithOpenAi(
 
     return { draft, usage, error: null };
   } catch (error) {
-    const message =
-      error instanceof Error && error.message === "OPENAI_NOT_CONFIGURED"
-        ? "OpenAI is not configured."
-        : "Generation is temporarily unavailable.";
+    if (error instanceof Error && error.message === "OPENAI_NOT_CONFIGURED") {
+      logOpenAiGenerationFailure({
+        stage: "client_init",
+        model: HCX_DRAFT_MODEL,
+        errorName: "OPENAI_NOT_CONFIGURED",
+        statusCode: null,
+        openAiCode: null,
+        errorType: null,
+        requestId: null,
+        message: "OpenAI API key is not configured.",
+        contentType: context.contentType,
+      });
+
+      return {
+        draft: null,
+        usage: null,
+        error: "OpenAI is not configured.",
+      };
+    }
+
+    logOpenAiGenerationFailure(
+      extractSafeOpenAiDiagnostics(error, {
+        stage: "responses_parse",
+        model: HCX_DRAFT_MODEL,
+        contentType: context.contentType,
+      }),
+    );
 
     return {
       draft: null,
       usage: null,
-      error: message,
+      error: "Generation is temporarily unavailable.",
     };
   }
 }
