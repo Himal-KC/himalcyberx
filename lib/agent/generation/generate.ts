@@ -1,6 +1,5 @@
 import "server-only";
 
-import { zodTextFormat } from "openai/helpers/zod";
 import {
   HCX_DRAFT_MODEL,
   HCX_GENERATION_MAX_OUTPUT_TOKENS,
@@ -18,7 +17,10 @@ import {
   serializeContextForPrompt,
   type GroundedGenerationContext,
 } from "@/lib/agent/generation/build-context";
-import { generatedDraftSchema } from "@/lib/agent/generation/schemas";
+import {
+  createOpenAiDraftTextFormat,
+  parseContentTypeDraftOutput,
+} from "@/lib/agent/generation/schema-selection";
 import type {
   GeneratedDraft,
   OpenAiUsageMetadata,
@@ -39,6 +41,7 @@ export async function generateDraftWithOpenAi(
 ): Promise<GenerateDraftWithOpenAiResult> {
   try {
     const client = getOpenAiClient();
+    const textFormat = createOpenAiDraftTextFormat(context.contentType);
     const response = await client.responses.parse({
       model: HCX_DRAFT_MODEL,
       temperature: HCX_GENERATION_TEMPERATURE,
@@ -56,11 +59,14 @@ export async function generateDraftWithOpenAi(
         },
       ],
       text: {
-        format: zodTextFormat(generatedDraftSchema, "hcx_generated_draft"),
+        format: textFormat,
       },
     });
 
-    const draft = (response.output_parsed ?? null) as GeneratedDraft | null;
+    const draft = parseContentTypeDraftOutput(
+      context.contentType,
+      response.output_parsed ?? null,
+    );
     const usage: OpenAiUsageMetadata = {
       model: response.model ?? HCX_DRAFT_MODEL,
       inputTokens: response.usage?.input_tokens ?? null,

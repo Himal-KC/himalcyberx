@@ -42,7 +42,7 @@ const sharedFields = {
 
 const richHtmlField = z.string().min(80).max(50000);
 
-export const articleDraftSchema = z.object({
+export const articleGeneratedDraftSchema = z.object({
   contentType: z.literal("article"),
   ...sharedFields,
   excerpt: z.string().min(40).max(400),
@@ -51,7 +51,7 @@ export const articleDraftSchema = z.object({
   keyTakeaways: z.array(z.string().min(8).max(300)).min(1).max(8),
 });
 
-export const tutorialDraftSchema = z.object({
+export const tutorialGeneratedDraftSchema = z.object({
   contentType: z.literal("tutorial"),
   ...sharedFields,
   description: z.string().min(20).max(500),
@@ -65,7 +65,7 @@ export const tutorialDraftSchema = z.object({
   securityNotes: richHtmlField,
 });
 
-export const labDraftSchema = z.object({
+export const labGeneratedDraftSchema = z.object({
   contentType: z.literal("lab"),
   ...sharedFields,
   description: z.string().min(20).max(500),
@@ -81,9 +81,94 @@ export const labDraftSchema = z.object({
 });
 
 export const generatedDraftSchema = z.discriminatedUnion("contentType", [
-  articleDraftSchema,
-  tutorialDraftSchema,
-  labDraftSchema,
+  articleGeneratedDraftSchema,
+  tutorialGeneratedDraftSchema,
+  labGeneratedDraftSchema,
 ]);
 
 export type GeneratedDraftSchema = z.infer<typeof generatedDraftSchema>;
+
+type AgentContentTypeDraft = "article" | "tutorial" | "lab";
+
+type ContentTypeDraftSchemaMap = {
+  article: typeof articleGeneratedDraftSchema;
+  tutorial: typeof tutorialGeneratedDraftSchema;
+  lab: typeof labGeneratedDraftSchema;
+};
+
+const CONTENT_TYPE_DRAFT_SCHEMAS: ContentTypeDraftSchemaMap = {
+  article: articleGeneratedDraftSchema,
+  tutorial: tutorialGeneratedDraftSchema,
+  lab: labGeneratedDraftSchema,
+};
+
+export const OPENAI_DRAFT_FORMAT_NAMES: Record<AgentContentTypeDraft, string> = {
+  article: "hcx_article_draft",
+  tutorial: "hcx_tutorial_draft",
+  lab: "hcx_lab_draft",
+};
+
+type ZodSchemaWithDef = z.ZodType & {
+  _zod?: {
+    def?: {
+      type?: string;
+    };
+  };
+};
+
+export function getZodSchemaRootType(schema: z.ZodType): string | undefined {
+  return (schema as ZodSchemaWithDef)._zod?.def?.type;
+}
+
+export function isRootObjectZodSchema(schema: z.ZodType): boolean {
+  return getZodSchemaRootType(schema) === "object";
+}
+
+export function isDiscriminatedUnionZodSchema(schema: z.ZodType): boolean {
+  return getZodSchemaRootType(schema) === "union";
+}
+
+export function getContentTypeDraftSchema<T extends AgentContentTypeDraft>(
+  contentType: T,
+): ContentTypeDraftSchemaMap[T] {
+  return CONTENT_TYPE_DRAFT_SCHEMAS[contentType];
+}
+
+export function getOpenAiDraftFormatName(
+  contentType: AgentContentTypeDraft,
+): string {
+  return OPENAI_DRAFT_FORMAT_NAMES[contentType];
+}
+
+export function parseContentTypeDraftOutput(
+  contentType: AgentContentTypeDraft,
+  value: unknown,
+): GeneratedDraftSchema | null {
+  const parsed = getContentTypeDraftSchema(contentType).safeParse(value);
+  if (!parsed.success) {
+    return null;
+  }
+
+  return parsed.data;
+}
+
+export function parseArticleDraftOutput(
+  value: unknown,
+): z.infer<typeof articleGeneratedDraftSchema> | null {
+  const parsed = articleGeneratedDraftSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+export function parseTutorialDraftOutput(
+  value: unknown,
+): z.infer<typeof tutorialGeneratedDraftSchema> | null {
+  const parsed = tutorialGeneratedDraftSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+export function parseLabDraftOutput(
+  value: unknown,
+): z.infer<typeof labGeneratedDraftSchema> | null {
+  const parsed = labGeneratedDraftSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
