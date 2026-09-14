@@ -14,6 +14,16 @@ const { auditGrounding, buildVerifiedFactIndex, normalizeCvssVector, scoresEquiv
 const NVD_URL = "https://nvd.nist.gov/vuln/detail/CVE-2024-21412";
 const KEV_URL =
   "https://www.cisa.gov/known-exploited-vulnerabilities-catalog?search=CVE-2024-21412";
+const RELATED_ARTICLE_ID = "00000000-0000-4000-8000-000000000002";
+const APPROVED_RELATED_CONTENT = [
+  {
+    id: RELATED_ARTICLE_ID,
+    contentType: "article" as const,
+    title:
+      "CVE-2026-33824: Critical Windows IKE Remote Code Execution Vulnerability",
+    slug: "cve-2026-33824-critical-windows-ike-rce",
+  },
+];
 
 export const CVE_2024_21412_VERIFIED_CLAIMS: VerifiedClaim[] = [
   {
@@ -115,7 +125,20 @@ function buildArticleDraft(
   };
 }
 
-function audit(content: string, extra?: Partial<ArticleGeneratedDraft>) {
+function audit(
+  content: string,
+  extra?: Partial<ArticleGeneratedDraft>,
+  options?: {
+    approvedInternalContent?: typeof APPROVED_RELATED_CONTENT;
+    allowedContentIds?: Set<string>;
+  },
+) {
+  const approvedInternalContent =
+    options?.approvedInternalContent ?? APPROVED_RELATED_CONTENT;
+  const allowedContentIds =
+    options?.allowedContentIds ??
+    new Set(approvedInternalContent.map((item) => item.id));
+
   return auditGrounding({
     draft: buildArticleDraft({
       content: `<p>${content}</p>`,
@@ -123,9 +146,96 @@ function audit(content: string, extra?: Partial<ArticleGeneratedDraft>) {
     }),
     verifiedClaims: CVE_2024_21412_VERIFIED_CLAIMS,
     allowedSourceUrls: [NVD_URL, KEV_URL],
-    allowedContentIds: new Set(),
+    allowedContentIds,
+    approvedInternalContent,
   });
 }
+
+describe("grounding context separation", () => {
+  it("passes topic CVE-2024-21412 in factual prose", () => {
+    const result = audit(
+      "CVE-2024-21412 is listed in the CISA Known Exploited Vulnerabilities catalog.",
+      undefined,
+      { approvedInternalContent: [] },
+    );
+
+    assert.equal(result.passed, true, result.unsupportedClaims.join(", "));
+  });
+
+  it("passes related approved HCX link mention of CVE-2026-33824 in reference prose", () => {
+    const result = audit(
+      "See our analysis of CVE-2026-33824: Critical Windows IKE Remote Code Execution Vulnerability.",
+    );
+
+    assert.equal(result.passed, true, result.unsupportedClaims.join(", "));
+  });
+
+  it("fails body claim about CVE-2026-33824 without research evidence", () => {
+    const result = audit(
+      "CVE-2026-33824 is also actively exploited in enterprise environments.",
+    );
+
+    assert.equal(result.passed, false);
+    assert.ok(
+      result.unsupportedClaims.some((claim) =>
+        claim.includes("CVE-2026-33824"),
+      ),
+    );
+  });
+
+  it("fails invented CVE-2099-99999 in factual prose", () => {
+    const result = audit(
+      "CVE-2099-99999 is actively exploited in production environments.",
+      undefined,
+      { approvedInternalContent: [] },
+    );
+
+    assert.equal(result.passed, false);
+    assert.ok(
+      result.unsupportedClaims.some((claim) =>
+        claim.includes("CVE-2099-99999"),
+      ),
+    );
+  });
+
+  it("fails internal link with unknown content ID", () => {
+    const result = audit(
+      "CVE-2024-21412 is listed in the CISA Known Exploited Vulnerabilities catalog.",
+      {
+        internalLinks: [
+          {
+            contentId: "00000000-0000-4000-8000-000000009999",
+            contentType: "article",
+            anchorText: "See our analysis of CVE-2026-33824",
+            suggestedSection: "related",
+          },
+        ],
+      },
+    );
+
+    assert.equal(result.passed, false);
+    assert.ok(result.invalidInternalLinks.length > 0);
+  });
+
+  it("passes valid internal link with stored matching CVE/title", () => {
+    const result = audit(
+      "CVE-2024-21412 is listed in the CISA Known Exploited Vulnerabilities catalog.",
+      {
+        internalLinks: [
+          {
+            contentId: RELATED_ARTICLE_ID,
+            contentType: "article",
+            anchorText:
+              "See our analysis of CVE-2026-33824: Critical Windows IKE Remote Code Execution Vulnerability",
+            suggestedSection: "related",
+          },
+        ],
+      },
+    );
+
+    assert.equal(result.passed, true, result.unsupportedClaims.join(", "));
+  });
+});
 
 describe("CVE-2024-21412 grounding audit regression", () => {
   it("passes when generated content uses the same verified CVSS, vector, and KEV facts", () => {

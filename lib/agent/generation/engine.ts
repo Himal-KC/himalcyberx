@@ -270,6 +270,7 @@ export async function runAgentGeneration(
     verifiedClaims: payload.verifiedClaims,
     allowedSourceUrls: context.allowedSourceUrls,
     allowedContentIds,
+    approvedInternalContent: context.relatedHCXContent,
   });
 
   if (!groundingAudit.passed) {

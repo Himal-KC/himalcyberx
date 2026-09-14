@@ -1,5 +1,10 @@
 import type { VerifiedClaim } from "../types";
-import type { GeneratedDraft, GroundingAuditResult } from "./types";
+import type { AgentContentType } from "../../supabase/types";
+import type {
+  GeneratedDraft,
+  GroundingAuditResult,
+  InternalLinkSuggestion,
+} from "./types";
 
 const CVE_PATTERN = /\bCVE-\d{4}-\d{4,}\b/gi;
 const CVSS_VECTOR_PATTERN = /CVSS:3\.\d\/[^\s,.;)]+/i;
@@ -16,6 +21,25 @@ const KEV_NEGATION_PATTERN =
   /\b(not|no longer|isn't|aren't|wasn't|weren't)\b[^.]{0,80}\b(kev|known exploited vulnerabilities)\b/i;
 const AFFECTED_PRODUCT_PATTERN =
   /\b(?:affects?|impacts?|vulnerable in|affected product(?:s)?(?:\s+(?:include|is|are))?|affected versions?(?:\s+(?:include|are))?)\s+([^.;]+)/i;
+const FACTUAL_CLAIM_INDICATORS =
+  /\b(?:cvss|(?:cisa )?kev|known exploited vulnerabilities|actively exploited|exploited in(?: the)? wild|base score|severity(?:\s+is|\s+of|\s+rated)?|affects?|impacts?|vulnerable(?:\s+to|\s+in|\s+systems)?|(?:apply|install)\s+(?:patch|update)\s+kb|listed in (?:the )?cisa|added to (?:the )?(?:cisa )?(?:known exploited|kev)|not in (?:the )?(?:cisa )?kev|remediation|mitigation)\b/i;
+const INTERNAL_LINK_REFERENCE_INDICATORS =
+  /\b(?:see|read|review|refer to|check out|explore|related(?:\s+coverage|\s+content|\s+reading)?|our (?:analysis|article|guide|coverage|write-up|tutorial|lab)|for (?:more|related|additional) (?:context|information|details|background))\b/i;
+
+export interface ApprovedInternalContentInput {
+  id: string;
+  contentType: AgentContentType;
+  title: string;
+  slug: string;
+}
+
+export interface ApprovedInternalContentRecord {
+  contentId: string;
+  contentType: AgentContentType;
+  title: string;
+  slug: string;
+  cveIds: Set<string>;
+}
 
 export interface VerifiedFactIndex {
   cveIds: Set<string>;
@@ -128,6 +152,105 @@ export function isAffectedProductSupported(
 function extractCveIds(text: string): string[] {
   const matches = text.match(CVE_PATTERN) ?? [];
   return [...new Set(matches.map(normalizeCveId))];
+}
+
+export function buildApprovedInternalContentIndex(
+  items: ApprovedInternalContentInput[],
+): Map<string, ApprovedInternalContentRecord> {
+  const index = new Map<string, ApprovedInternalContentRecord>();
+
+  for (const item of items) {
+    const cveIds = new Set<string>([
+      ...extractCveIds(item.title),
+      ...extractCveIds(item.slug),
+    ]);
+
+    index.set(item.id, {
+      contentId: item.id,
+      contentType: item.contentType,
+      title: item.title,
+      slug: item.slug,
+      cveIds,
+    });
+  }
+
+  return index;
+}
+
+export function collectApprovedInternalCveIds(
+  index: Map<string, ApprovedInternalContentRecord>,
+): Set<string> {
+  const cveIds = new Set<string>();
+
+  for (const record of index.values()) {
+    for (const cveId of record.cveIds) {
+      cveIds.add(cveId);
+    }
+  }
+
+  return cveIds;
+}
+
+export function isFactualClaimSentence(sentence: string): boolean {
+  return FACTUAL_CLAIM_INDICATORS.test(sentence);
+}
+
+export function isInternalLinkReferenceSentence(
+  sentence: string,
+  sentenceCves: string[],
+  approvedInternalCves: Set<string>,
+  approvedInternalContent: Map<string, ApprovedInternalContentRecord>,
+): boolean {
+  if (sentenceCves.length === 0) {
+    return false;
+  }
+
+  if (!sentenceCves.every((cveId) => approvedInternalCves.has(cveId))) {
+    return false;
+  }
+
+  if (isFactualClaimSentence(sentence)) {
+    return false;
+  }
+
+  if (INTERNAL_LINK_REFERENCE_INDICATORS.test(sentence)) {
+    return true;
+  }
+
+  const normalizedSentence = sentence.toLowerCase();
+
+  for (const record of approvedInternalContent.values()) {
+    const titleMatches = sentenceCves.some(
+      (cveId) =>
+        record.cveIds.has(cveId) &&
+        normalizedSentence.includes(record.title.toLowerCase()),
+    );
+    if (titleMatches) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function isResearchCveMentionSupported(
+  cveId: string,
+  sentence: string,
+  researchCveIds: Set<string>,
+  approvedInternalCves: Set<string>,
+  approvedInternalContent: Map<string, ApprovedInternalContentRecord>,
+): boolean {
+  if (researchCveIds.has(cveId)) {
+    return true;
+  }
+
+  const sentenceCves = extractCveIds(sentence);
+  return isInternalLinkReferenceSentence(
+    sentence,
+    sentenceCves,
+    approvedInternalCves,
+    approvedInternalContent,
+  );
 }
 
 function stripHtml(text: string): string {
@@ -258,11 +381,25 @@ export function buildVerifiedFactIndex(
   return index;
 }
 
-export function extractDraftFacts(text: string): ExtractedDraftFact[] {
+export interface DraftFactExtractionContext {
+  researchCveIds: Set<string>;
+  approvedInternalCves: Set<string>;
+  approvedInternalContent: Map<string, ApprovedInternalContentRecord>;
+}
+
+export function extractDraftFacts(
+  text: string,
+  context?: DraftFactExtractionContext,
+): ExtractedDraftFact[] {
   const plain = stripHtml(text);
   const documentCves = extractCveIds(plain);
   const facts: ExtractedDraftFact[] = [];
   const seen = new Set<string>();
+  const researchCveIds = context?.researchCveIds ?? new Set<string>();
+  const approvedInternalCves = context?.approvedInternalCves ?? new Set<string>();
+  const approvedInternalContent =
+    context?.approvedInternalContent ??
+    new Map<string, ApprovedInternalContentRecord>();
 
   const pushFact = (fact: ExtractedDraftFact): void => {
     const key = [
@@ -278,17 +415,27 @@ export function extractDraftFacts(text: string): ExtractedDraftFact[] {
     facts.push(fact);
   };
 
-  for (const cveId of extractCveIds(plain)) {
-    pushFact({
-      type: "cve",
-      cveId,
-      value: cveId,
-      raw: cveId,
-    });
-  }
-
   for (const sentence of splitSentences(plain)) {
     const sentenceCves = extractCveIds(sentence);
+    for (const cveId of sentenceCves) {
+      if (
+        !isResearchCveMentionSupported(
+          cveId,
+          sentence,
+          researchCveIds,
+          approvedInternalCves,
+          approvedInternalContent,
+        )
+      ) {
+        pushFact({
+          type: "cve",
+          cveId,
+          value: cveId,
+          raw: cveId,
+        });
+      }
+    }
+
     const associatedCves =
       sentenceCves.length > 0 ? sentenceCves : documentCves;
     const primaryCve = associatedCves[0];
@@ -422,10 +569,47 @@ export function isDraftFactSupported(
 export function findUnsupportedDraftFacts(
   text: string,
   index: VerifiedFactIndex,
+  context?: DraftFactExtractionContext,
 ): ExtractedDraftFact[] {
-  return extractDraftFacts(text).filter(
+  return extractDraftFacts(text, context).filter(
     (fact) => !isDraftFactSupported(fact, index),
   );
+}
+
+function validateInternalLinkReferences(
+  links: InternalLinkSuggestion[],
+  allowedContentIds: Set<string>,
+  approvedInternalContent: Map<string, ApprovedInternalContentRecord>,
+): {
+  invalidInternalLinks: string[];
+  unsupportedClaims: string[];
+} {
+  const invalidInternalLinks: string[] = [];
+  const unsupportedClaims: string[] = [];
+
+  for (const link of links) {
+    if (!allowedContentIds.has(link.contentId)) {
+      invalidInternalLinks.push(link.contentId);
+      continue;
+    }
+
+    const record = approvedInternalContent.get(link.contentId);
+    if (!record) {
+      invalidInternalLinks.push(link.contentId);
+      continue;
+    }
+
+    const anchorCves = extractCveIds(link.anchorText);
+    for (const cveId of anchorCves) {
+      if (!record.cveIds.has(cveId)) {
+        unsupportedClaims.push(
+          `internal_link:${link.contentId}:${cveId}`,
+        );
+      }
+    }
+  }
+
+  return { invalidInternalLinks, unsupportedClaims };
 }
 
 function collectDraftBodyParts(draft: GeneratedDraft): string[] {
@@ -468,23 +652,40 @@ export function auditGrounding({
   verifiedClaims,
   allowedSourceUrls,
   allowedContentIds,
+  approvedInternalContent = [],
 }: {
   draft: GeneratedDraft;
   verifiedClaims: VerifiedClaim[];
   allowedSourceUrls: string[];
   allowedContentIds: Set<string>;
+  approvedInternalContent?: ApprovedInternalContentInput[];
 }): GroundingAuditResult {
   const allowedUrls = new Set(
     allowedSourceUrls.map((url) => url.trim().toLowerCase()),
   );
   const verifiedFactIndex = buildVerifiedFactIndex(verifiedClaims);
+  const approvedInternalContentIndex = buildApprovedInternalContentIndex(
+    approvedInternalContent,
+  );
+  const approvedInternalCves = collectApprovedInternalCveIds(
+    approvedInternalContentIndex,
+  );
+  const factExtractionContext: DraftFactExtractionContext = {
+    researchCveIds: verifiedFactIndex.cveIds,
+    approvedInternalCves,
+    approvedInternalContent: approvedInternalContentIndex,
+  };
   const unsupportedClaims: string[] = [];
   const invalidSourceUrls: string[] = [];
   const invalidInternalLinks: string[] = [];
   const warnings: string[] = [];
 
   const combinedBody = collectDraftBodyParts(draft).join("\n");
-  for (const fact of findUnsupportedDraftFacts(combinedBody, verifiedFactIndex)) {
+  for (const fact of findUnsupportedDraftFacts(
+    combinedBody,
+    verifiedFactIndex,
+    factExtractionContext,
+  )) {
     unsupportedClaims.push(formatUnsupportedClaim(fact));
   }
 
@@ -496,11 +697,13 @@ export function auditGrounding({
     }
   }
 
-  for (const link of draft.internalLinks) {
-    if (!allowedContentIds.has(link.contentId)) {
-      invalidInternalLinks.push(link.contentId);
-    }
-  }
+  const internalLinkAudit = validateInternalLinkReferences(
+    draft.internalLinks,
+    allowedContentIds,
+    approvedInternalContentIndex,
+  );
+  invalidInternalLinks.push(...internalLinkAudit.invalidInternalLinks);
+  unsupportedClaims.push(...internalLinkAudit.unsupportedClaims);
 
   if (draft.warnings.length > 0) {
     warnings.push(...draft.warnings);
