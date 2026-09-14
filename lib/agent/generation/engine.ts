@@ -21,9 +21,17 @@ import type {
 import {
   filterSourceMappings,
   sanitizeGeneratedRichFields,
-  validateDraftReferences,
+  validateDraftReferencesDetailed,
   validateGeneratedDraftStructure,
 } from "@/lib/agent/generation/validate-output";
+import {
+  buildGroundingValidationLog,
+  buildValidationFailureLog,
+  issueCodesForReferenceError,
+  issueCodesForStructureError,
+  logGenerationTrace,
+  logGenerationValidationFailure,
+} from "@/lib/agent/generation/validation-log";
 import { hasOpenAiApiKey } from "@/lib/agent/openai/env";
 import { deriveCanGenerateDraft } from "@/lib/agent/research/derive-can-generate";
 import {
@@ -148,6 +156,28 @@ export async function runAgentGeneration(
         stage: "writing",
         outcome: generated.error,
       });
+    } else if (generated.error === "Generated output failed validation.") {
+      logGenerationValidationFailure(
+        buildValidationFailureLog({
+          agentRunId,
+          contentType: run.content_type,
+          validationStage: "openai_parse",
+          issueCodes: ["SCHEMA_VALIDATION_FAILED"],
+          reason: generated.error,
+        }),
+      );
+    } else if (
+      generated.error === "Generated output did not match the requested content type."
+    ) {
+      logGenerationValidationFailure(
+        buildValidationFailureLog({
+          agentRunId,
+          contentType: run.content_type,
+          validationStage: "openai_content_type",
+          issueCodes: ["CONTENT_TYPE_MISMATCH"],
+          reason: generated.error,
+        }),
+      );
     }
 
     await failGeneration(
@@ -161,20 +191,45 @@ export async function runAgentGeneration(
     };
   }
 
+  logGenerationTrace("openai_success", {
+    agentRunId,
+    contentType: run.content_type,
+  });
+
   onStage?.("validating");
+  logGenerationTrace("validation_start", {
+    agentRunId,
+    contentType: run.content_type,
+  });
 
   const allowedContentIds = new Set(
     context.relatedHCXContent.map((item) => item.id),
   );
 
-  const referenceError = validateDraftReferences(
+  const referenceFailure = validateDraftReferencesDetailed(
     generated.draft,
     context.allowedSourceUrls,
     allowedContentIds,
   );
-  if (referenceError) {
-    await failGeneration(supabase, agentRunId, referenceError);
-    return { ok: false, error: referenceError };
+  if (referenceFailure) {
+    logGenerationValidationFailure(
+      buildValidationFailureLog({
+        agentRunId,
+        contentType: run.content_type,
+        validationStage: "reference_validation",
+        issueCodes: issueCodesForReferenceError(referenceFailure.reason),
+        reason: referenceFailure.reason,
+        invalidSourceCount:
+          referenceFailure.malformedSourceCount +
+          referenceFailure.disallowedSourceCount,
+        invalidInternalLinkCount:
+          referenceFailure.malformedInternalLinkCount +
+          referenceFailure.unknownInternalLinkCount,
+      }),
+    );
+
+    await failGeneration(supabase, agentRunId, referenceFailure.reason);
+    return { ok: false, error: referenceFailure.reason };
   }
 
   const draft = sanitizeGeneratedRichFields(
@@ -186,9 +241,29 @@ export async function runAgentGeneration(
     run.content_type,
   );
   if (structureError) {
+    logGenerationValidationFailure(
+      buildValidationFailureLog({
+        agentRunId,
+        contentType: run.content_type,
+        validationStage: "structure_validation",
+        issueCodes: issueCodesForStructureError(structureError),
+        reason: structureError,
+      }),
+    );
+
     await failGeneration(supabase, agentRunId, structureError);
     return { ok: false, error: structureError };
   }
+
+  logGenerationTrace("validation_success", {
+    agentRunId,
+    contentType: run.content_type,
+  });
+
+  logGenerationTrace("grounding_start", {
+    agentRunId,
+    contentType: run.content_type,
+  });
 
   const groundingAudit = auditGrounding({
     draft,
@@ -198,6 +273,14 @@ export async function runAgentGeneration(
   });
 
   if (!groundingAudit.passed) {
+    logGenerationValidationFailure(
+      buildGroundingValidationLog({
+        agentRunId,
+        contentType: run.content_type,
+        audit: groundingAudit,
+      }),
+    );
+
     await failGeneration(
       supabase,
       agentRunId,
@@ -209,6 +292,11 @@ export async function runAgentGeneration(
     };
   }
 
+  logGenerationTrace("grounding_success", {
+    agentRunId,
+    contentType: run.content_type,
+  });
+
   const quality = assessDraftQuality({
     draft,
     groundingAudit,
@@ -216,6 +304,10 @@ export async function runAgentGeneration(
   });
 
   onStage?.("saving");
+  logGenerationTrace("save_start", {
+    agentRunId,
+    contentType: run.content_type,
+  });
 
   const saved = await saveGeneratedDraft({
     supabase,
@@ -237,6 +329,11 @@ export async function runAgentGeneration(
       error: saved.error ?? "Unable to save draft.",
     };
   }
+
+  logGenerationTrace("save_success", {
+    agentRunId,
+    contentType: run.content_type,
+  });
 
   const metadata: GenerationMetadata = {
     usage: generated.usage,

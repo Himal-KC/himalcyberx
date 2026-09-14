@@ -138,4 +138,5 @@ export function validateGeneratedDraftStructure(
   return null;
 }
 
-export { filterSourceMappings, validateDraftReferences } from "@/lib/agent/generation/validate-output-core";
+export { filterSourceMappings, validateDraftReferences, validateDraftReferencesDetailed } from "@/lib/agent/generation/validate-output-core";
+export type { DraftReferenceValidationFailure } from "@/lib/agent/generation/validate-output-core";

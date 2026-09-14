@@ -24,6 +24,10 @@ import {
   createOpenAiDraftTextFormat,
   parseContentTypeDraftOutput,
 } from "@/lib/agent/generation/schema-selection";
+import {
+  buildValidationFailureLog,
+  logGenerationValidationFailure,
+} from "@/lib/agent/generation/validation-log";
 import type {
   GeneratedDraft,
   OpenAiUsageMetadata,
@@ -69,6 +73,15 @@ export async function generateDraftWithOpenAi(
     };
 
     if (!draft) {
+      logGenerationValidationFailure(
+        buildValidationFailureLog({
+          contentType: context.contentType,
+          validationStage: "openai_parse",
+          issueCodes: ["SCHEMA_VALIDATION_FAILED"],
+          reason: "Generated output failed validation.",
+        }),
+      );
+
       return {
         draft: null,
         usage,
@@ -77,6 +90,15 @@ export async function generateDraftWithOpenAi(
     }
 
     if (draft.contentType !== context.contentType) {
+      logGenerationValidationFailure(
+        buildValidationFailureLog({
+          contentType: context.contentType,
+          validationStage: "openai_content_type",
+          issueCodes: ["CONTENT_TYPE_MISMATCH"],
+          reason: "Generated output did not match the requested content type.",
+        }),
+      );
+
       return {
         draft: null,
         usage,

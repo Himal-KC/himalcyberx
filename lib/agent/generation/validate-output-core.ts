@@ -17,38 +17,105 @@ export function isValidUuid(value: string): boolean {
   return UUID_PATTERN.test(value.trim());
 }
 
-export function validateDraftReferences(
+export interface DraftReferenceValidationFailure {
+  reason: string;
+  malformedSourceCount: number;
+  disallowedSourceCount: number;
+  malformedInternalLinkCount: number;
+  unknownInternalLinkCount: number;
+}
+
+export function validateDraftReferencesDetailed(
   draft: GeneratedDraftSchema | GeneratedDraft,
   allowedSourceUrls: string[],
   allowedContentIds: Set<string>,
-): string | null {
+): DraftReferenceValidationFailure | null {
   const allowedUrls = new Set(
     allowedSourceUrls.map((url) => url.trim().toLowerCase()),
   );
+  let malformedSourceCount = 0;
+  let disallowedSourceCount = 0;
+  let malformedInternalLinkCount = 0;
+  let unknownInternalLinkCount = 0;
 
   for (const mapping of draft.sourceMappings) {
     for (const url of mapping.sourceUrls) {
       if (!isValidHttpUrl(url)) {
-        return "Generated output contained a malformed source URL.";
+        malformedSourceCount += 1;
+        continue;
       }
 
       if (!allowedUrls.has(url.trim().toLowerCase())) {
-        return "Generated output referenced a source URL outside the research allowlist.";
+        disallowedSourceCount += 1;
       }
     }
   }
 
   for (const link of draft.internalLinks) {
     if (!isValidUuid(link.contentId)) {
-      return "Generated output contained a malformed internal link ID.";
+      malformedInternalLinkCount += 1;
+      continue;
     }
 
     if (!allowedContentIds.has(link.contentId)) {
-      return "Generated output referenced an unknown internal link.";
+      unknownInternalLinkCount += 1;
     }
   }
 
+  if (malformedSourceCount > 0) {
+    return {
+      reason: "Generated output contained a malformed source URL.",
+      malformedSourceCount,
+      disallowedSourceCount,
+      malformedInternalLinkCount,
+      unknownInternalLinkCount,
+    };
+  }
+
+  if (disallowedSourceCount > 0) {
+    return {
+      reason:
+        "Generated output referenced a source URL outside the research allowlist.",
+      malformedSourceCount,
+      disallowedSourceCount,
+      malformedInternalLinkCount,
+      unknownInternalLinkCount,
+    };
+  }
+
+  if (malformedInternalLinkCount > 0) {
+    return {
+      reason: "Generated output contained a malformed internal link ID.",
+      malformedSourceCount,
+      disallowedSourceCount,
+      malformedInternalLinkCount,
+      unknownInternalLinkCount,
+    };
+  }
+
+  if (unknownInternalLinkCount > 0) {
+    return {
+      reason: "Generated output referenced an unknown internal link.",
+      malformedSourceCount,
+      disallowedSourceCount,
+      malformedInternalLinkCount,
+      unknownInternalLinkCount,
+    };
+  }
+
   return null;
+}
+
+export function validateDraftReferences(
+  draft: GeneratedDraftSchema | GeneratedDraft,
+  allowedSourceUrls: string[],
+  allowedContentIds: Set<string>,
+): string | null {
+  return validateDraftReferencesDetailed(
+    draft,
+    allowedSourceUrls,
+    allowedContentIds,
+  )?.reason ?? null;
 }
 
 export function filterSourceMappings(
