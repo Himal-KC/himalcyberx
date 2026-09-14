@@ -216,6 +216,7 @@ describe("Phase 4 OpenAI schema selection", () => {
     for (const contentType of ["article", "tutorial", "lab"] as const) {
       const schema = schemas.getContentTypeDraftSchema(contentType);
       assert.equal(schemas.hasOpenAiIncompatibleStringFormats(schema), false);
+      assert.equal(schemas.hasOpenAiIncompatibleSchemaConstructs(schema), false);
     }
 
     const draftWithMalformedUrl = buildArticleDraft({

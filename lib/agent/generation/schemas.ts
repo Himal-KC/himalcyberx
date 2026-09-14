@@ -205,13 +205,27 @@ type ZodSchemaNode = z.ZodType & {
   };
 };
 
-function collectOpenAiIncompatibleStringFormatsFromNode(
+const UNSUPPORTED_OPENAI_ZOD_NODE_TYPES = new Set([
+  "pipe",
+  "record",
+  "map",
+  "set",
+  "lazy",
+  "transform",
+  "custom",
+]);
+
+function collectOpenAiIncompatibleSchemaIssuesFromNode(
   schema: z.ZodType,
-  formats: Set<string>,
+  issues: Set<string>,
 ): void {
   const def = (schema as ZodSchemaNode)._zod?.def;
   if (!def) {
     return;
+  }
+
+  if (def.type && UNSUPPORTED_OPENAI_ZOD_NODE_TYPES.has(def.type)) {
+    issues.add(def.type);
   }
 
   if (def.type === "string") {
@@ -221,26 +235,54 @@ function collectOpenAiIncompatibleStringFormatsFromNode(
         check.def.format &&
         UNSUPPORTED_OPENAI_STRING_FORMATS.has(check.def.format)
       ) {
-        formats.add(check.def.format);
+        issues.add(`string_format:${check.def.format}`);
       }
     }
   }
 
   if (def.type === "object" && def.shape) {
     for (const child of Object.values(def.shape)) {
-      collectOpenAiIncompatibleStringFormatsFromNode(child, formats);
+      collectOpenAiIncompatibleSchemaIssuesFromNode(child, issues);
     }
   }
 
   if (def.type === "array" && def.element) {
-    collectOpenAiIncompatibleStringFormatsFromNode(def.element, formats);
+    collectOpenAiIncompatibleSchemaIssuesFromNode(def.element, issues);
   }
 
   if (def.type === "union" && def.options) {
     for (const option of def.options) {
-      collectOpenAiIncompatibleStringFormatsFromNode(option, formats);
+      collectOpenAiIncompatibleSchemaIssuesFromNode(option, issues);
     }
   }
+}
+
+function collectOpenAiIncompatibleStringFormatsFromNode(
+  schema: z.ZodType,
+  formats: Set<string>,
+): void {
+  const issues = new Set<string>();
+  collectOpenAiIncompatibleSchemaIssuesFromNode(schema, issues);
+
+  for (const issue of issues) {
+    if (issue.startsWith("string_format:")) {
+      formats.add(issue.slice("string_format:".length));
+    }
+  }
+}
+
+export function collectOpenAiIncompatibleSchemaIssues(
+  schema: z.ZodType,
+): string[] {
+  const issues = new Set<string>();
+  collectOpenAiIncompatibleSchemaIssuesFromNode(schema, issues);
+  return [...issues];
+}
+
+export function hasOpenAiIncompatibleSchemaConstructs(
+  schema: z.ZodType,
+): boolean {
+  return collectOpenAiIncompatibleSchemaIssues(schema).length > 0;
 }
 
 export function collectOpenAiIncompatibleStringFormats(

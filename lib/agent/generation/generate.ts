@@ -3,7 +3,6 @@ import "server-only";
 import {
   HCX_DRAFT_MODEL,
   HCX_GENERATION_MAX_OUTPUT_TOKENS,
-  HCX_GENERATION_TEMPERATURE,
 } from "@/lib/agent/openai/config";
 import { getOpenAiClient } from "@/lib/agent/openai/client";
 import {
@@ -17,6 +16,10 @@ import {
   serializeContextForPrompt,
   type GroundedGenerationContext,
 } from "@/lib/agent/generation/build-context";
+import {
+  buildTerraDraftResponseRequest,
+  buildTerraDraftUserPrompt,
+} from "@/lib/agent/generation/openai-request-core";
 import {
   createOpenAiDraftTextFormat,
   parseContentTypeDraftOutput,
@@ -42,26 +45,17 @@ export async function generateDraftWithOpenAi(
   try {
     const client = getOpenAiClient();
     const textFormat = createOpenAiDraftTextFormat(context.contentType);
-    const response = await client.responses.parse({
+    const request = buildTerraDraftResponseRequest({
       model: HCX_DRAFT_MODEL,
-      temperature: HCX_GENERATION_TEMPERATURE,
-      max_output_tokens: HCX_GENERATION_MAX_OUTPUT_TOKENS,
       instructions: buildDeveloperInstructions(context.contentType),
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: `Generate a grounded ${context.contentType} draft using this compact research context:\n\n${serializeContextForPrompt(context)}`,
-            },
-          ],
-        },
-      ],
-      text: {
-        format: textFormat,
-      },
+      userPromptText: buildTerraDraftUserPrompt(
+        context.contentType,
+        serializeContextForPrompt(context),
+      ),
+      textFormat,
+      maxOutputTokens: HCX_GENERATION_MAX_OUTPUT_TOKENS,
     });
+    const response = await client.responses.parse(request);
 
     const draft = parseContentTypeDraftOutput(
       context.contentType,
