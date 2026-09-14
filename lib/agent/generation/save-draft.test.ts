@@ -8,15 +8,23 @@ import type { GenerationMetadata } from "./types";
 const testDir = dirname(fileURLToPath(import.meta.url));
 
 const {
+  appendArticleKeyTakeawaysToContent,
+  ARTICLE_DRAFT_INSERT_FIELDS,
+  ARTICLE_FORBIDDEN_INSERT_FIELDS,
   buildAgentRunSaveUpdate,
   buildArticleDraftInsertPayload,
   buildGenerateDraftResult,
+  buildLabDraftInsertPayload,
+  buildTutorialDraftInsertPayload,
   isDraftContentRow,
+  LAB_DRAFT_INSERT_FIELDS,
+  listUnexpectedInsertFields,
   normalizeQualityScore,
   resolveSafeCategoryId,
   serializeGenerationMetadata,
   stripUndefinedValues,
   targetTableForContentType,
+  TUTORIAL_DRAFT_INSERT_FIELDS,
 } = (await import(pathToFileURL(join(testDir, "save-draft-core.ts")).href)) as typeof import("./save-draft-core");
 
 const {
@@ -103,6 +111,145 @@ describe("save draft payload shape", () => {
 
     assert.equal(payload.status, "draft");
     assert.equal(payload.published_at, undefined);
+    assert.equal("notify_subscribers" in payload, false);
+  });
+
+  it("does not include key_takeaways or other non-article columns", () => {
+    const payload = buildArticleDraftInsertPayload({
+      draft: ARTICLE_DRAFT,
+      slug: "cve-2024-21412",
+      agentRunId: "00000000-0000-4000-8000-000000000001",
+      factCheckStatus: "pending",
+      qualityScore: 80,
+      preparedContent: ARTICLE_DRAFT.content,
+      readTime: "1 min read",
+    });
+
+    assert.equal("key_takeaways" in payload, false);
+    for (const field of ARTICLE_FORBIDDEN_INSERT_FIELDS) {
+      assert.equal(field in payload, false, `forbidden field present: ${field}`);
+    }
+
+    assert.deepEqual(
+      listUnexpectedInsertFields(payload as Record<string, unknown>, ARTICLE_DRAFT_INSERT_FIELDS),
+      [],
+    );
+  });
+
+  it("embeds generated key takeaways into article content instead of a DB column", () => {
+    const merged = appendArticleKeyTakeawaysToContent(
+      ARTICLE_DRAFT.content,
+      ARTICLE_DRAFT.keyTakeaways,
+    );
+
+    assert.match(merged, /Key Takeaways/i);
+    assert.match(merged, /CISA KEV/);
+
+    const payload = buildArticleDraftInsertPayload({
+      draft: ARTICLE_DRAFT,
+      slug: "cve-2024-21412",
+      agentRunId: "00000000-0000-4000-8000-000000000001",
+      factCheckStatus: "pending",
+      qualityScore: 80,
+      preparedContent: merged,
+      readTime: "1 min read",
+    });
+
+    assert.equal("key_takeaways" in payload, false);
+    assert.match(payload.content ?? "", /Key Takeaways/i);
+  });
+});
+
+describe("content-type draft payload isolation", () => {
+  it("builds tutorial payload with tutorial-only fields", () => {
+    const payload = buildTutorialDraftInsertPayload({
+      draft: {
+        contentType: "tutorial",
+        title: "Tutorial title",
+        slug: "tutorial-title",
+        description: "Tutorial description for testing.",
+        category: "Security",
+        difficulty: "Beginner",
+        estimatedTime: "30 minutes",
+        requirements: "<p>Requirements</p>",
+        introduction: "<p>Intro</p>",
+        instructions: "<p>Steps</p>",
+        keyTakeaways: "<p>Takeaways</p>",
+        securityNotes: "<p>Notes</p>",
+        primaryKeyword: "tutorial",
+        secondaryKeywords: [],
+        seo: ARTICLE_DRAFT.seo,
+        generationPlan: ARTICLE_DRAFT.generationPlan,
+        sourceMappings: [],
+        internalLinks: [],
+        warnings: [],
+      },
+      slug: "tutorial-title",
+      agentRunId: "00000000-0000-4000-8000-000000000001",
+      factCheckStatus: "pending",
+      qualityScore: 80,
+      preparedFields: {
+        requirements: "<p>Requirements</p>",
+        introduction: "<p>Intro</p>",
+        instructions: "<p>Steps</p>",
+        keyTakeaways: "<p>Takeaways</p>",
+        securityNotes: "<p>Notes</p>",
+      },
+    });
+
+    assert.equal("key_takeaways" in payload, true);
+    assert.equal("content" in payload, false);
+    assert.deepEqual(
+      listUnexpectedInsertFields(payload as Record<string, unknown>, TUTORIAL_DRAFT_INSERT_FIELDS),
+      [],
+    );
+  });
+
+  it("builds lab payload with lab-only fields", () => {
+    const payload = buildLabDraftInsertPayload({
+      draft: {
+        contentType: "lab",
+        title: "Lab title",
+        slug: "lab-title",
+        description: "Lab description for testing.",
+        category: "Security",
+        difficulty: "Intermediate",
+        estimatedTime: "45 minutes",
+        learningObjectives: "<p>Objectives</p>",
+        requirementsTools: "<p>Tools</p>",
+        introduction: "<p>Intro</p>",
+        instructions: "<p>Steps</p>",
+        expectedResult: "<p>Result</p>",
+        securityNotes: "<p>Notes</p>",
+        primaryKeyword: "lab",
+        secondaryKeywords: [],
+        seo: ARTICLE_DRAFT.seo,
+        generationPlan: ARTICLE_DRAFT.generationPlan,
+        sourceMappings: [],
+        internalLinks: [],
+        warnings: [],
+      },
+      slug: "lab-title",
+      agentRunId: "00000000-0000-4000-8000-000000000001",
+      factCheckStatus: "pending",
+      qualityScore: 80,
+      preparedFields: {
+        learningObjectives: "<p>Objectives</p>",
+        requirementsTools: "<p>Tools</p>",
+        introduction: "<p>Intro</p>",
+        instructions: "<p>Steps</p>",
+        expectedResult: "<p>Result</p>",
+        securityNotes: "<p>Notes</p>",
+      },
+    });
+
+    assert.equal("expected_result" in payload, true);
+    assert.equal("content" in payload, false);
+    assert.equal("key_takeaways" in payload, false);
+    assert.deepEqual(
+      listUnexpectedInsertFields(payload as Record<string, unknown>, LAB_DRAFT_INSERT_FIELDS),
+      [],
+    );
   });
 });
 

@@ -3,6 +3,7 @@ import "server-only";
 import { calculateReadTime } from "@/lib/articles/read-time";
 import { prepareRichContentForSave } from "@/lib/content/sanitize-on-save";
 import {
+  appendArticleKeyTakeawaysToContent,
   buildAdminUrls,
   buildArticleDraftInsertPayload,
   buildGenerateDraftResult,
@@ -147,6 +148,10 @@ export async function saveGeneratedDraft({
   const slug = await resolveUniqueSlug(run.content_type, draft.slug);
 
   if (run.content_type === "article" && draft.contentType === "article") {
+    const articleContent = appendArticleKeyTakeawaysToContent(
+      draft.content,
+      draft.keyTakeaways,
+    );
     const payload = buildArticleDraftInsertPayload({
       draft,
       slug,
@@ -154,8 +159,8 @@ export async function saveGeneratedDraft({
       factCheckStatus,
       qualityScore,
       categoryId,
-      preparedContent: prepareRichContentForSave(draft.content),
-      readTime: calculateReadTime(draft.content),
+      preparedContent: prepareRichContentForSave(articleContent),
+      readTime: calculateReadTime(articleContent),
     });
 
     const inserted = await insertDraftRow(supabase, "articles", payload);

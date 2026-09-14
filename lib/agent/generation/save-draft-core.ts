@@ -17,6 +17,109 @@ const UUID_PATTERN =
 
 const DEFAULT_AUTHOR = "HimalCyberX Research";
 
+function escapePlainTextForHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Columns allowed on agent article draft INSERT — matches CMS CRUD + agent migrations. */
+export const ARTICLE_DRAFT_INSERT_FIELDS = [
+  "title",
+  "slug",
+  "excerpt",
+  "content",
+  "author",
+  "status",
+  "featured",
+  "content_type",
+  "read_time",
+  "seo_title",
+  "seo_description",
+  "seo_keywords",
+  "og_title",
+  "og_description",
+  "ai_generated",
+  "agent_run_id",
+  "fact_check_status",
+  "quality_score",
+  "category_id",
+] as const;
+
+/** Tutorial/Lab-only or legacy fields that must never appear on article INSERT. */
+export const ARTICLE_FORBIDDEN_INSERT_FIELDS = [
+  "key_takeaways",
+  "body",
+  "hcx_analysis",
+  "technical_details",
+  "requirements",
+  "introduction",
+  "instructions",
+  "expected_result",
+  "security_notes",
+  "learning_objectives",
+  "requirements_tools",
+  "estimated_time",
+  "description",
+  "category",
+  "difficulty",
+  "notify_subscribers",
+  "published_at",
+] as const;
+
+export const TUTORIAL_DRAFT_INSERT_FIELDS = [
+  "title",
+  "slug",
+  "description",
+  "category",
+  "difficulty",
+  "estimated_time",
+  "requirements",
+  "introduction",
+  "instructions",
+  "key_takeaways",
+  "security_notes",
+  "featured",
+  "seo_title",
+  "seo_description",
+  "seo_keywords",
+  "og_title",
+  "og_description",
+  "status",
+  "ai_generated",
+  "agent_run_id",
+  "fact_check_status",
+  "quality_score",
+] as const;
+
+export const LAB_DRAFT_INSERT_FIELDS = [
+  "title",
+  "slug",
+  "description",
+  "category",
+  "difficulty",
+  "estimated_time",
+  "learning_objectives",
+  "requirements_tools",
+  "introduction",
+  "instructions",
+  "expected_result",
+  "security_notes",
+  "featured",
+  "seo_title",
+  "seo_description",
+  "seo_keywords",
+  "og_title",
+  "og_description",
+  "status",
+  "ai_generated",
+  "agent_run_id",
+  "fact_check_status",
+  "quality_score",
+] as const;
+
 export type DraftContentTable = "articles" | "tutorials" | "labs";
 
 export interface DraftContentRow {
@@ -125,6 +228,32 @@ export function buildGenerateDraftResult(input: {
   };
 }
 
+export function appendArticleKeyTakeawaysToContent(
+  content: string,
+  keyTakeaways: string[],
+): string {
+  const items = keyTakeaways.map((item) => item.trim()).filter(Boolean);
+  if (items.length === 0) {
+    return content;
+  }
+
+  const listItems = items
+    .map((item) => `<li>${escapePlainTextForHtml(item)}</li>`)
+    .join("");
+  const section = `<h2>Key Takeaways</h2><ul>${listItems}</ul>`;
+  const trimmedContent = content.trim();
+
+  return trimmedContent ? `${trimmedContent}\n${section}` : section;
+}
+
+export function listUnexpectedInsertFields(
+  payload: Record<string, unknown>,
+  allowedFields: readonly string[],
+): string[] {
+  const allowed = new Set<string>(allowedFields);
+  return Object.keys(payload).filter((key) => !allowed.has(key));
+}
+
 export function buildArticleDraftInsertPayload(input: {
   draft: Extract<GeneratedDraft, { contentType: "article" }>;
   slug: string;
@@ -150,7 +279,6 @@ export function buildArticleDraftInsertPayload(input: {
     seo_keywords: input.draft.seo.seoKeywords,
     og_title: input.draft.seo.ogTitle,
     og_description: input.draft.seo.ogDescription,
-    key_takeaways: input.draft.keyTakeaways,
     ai_generated: true,
     agent_run_id: input.agentRunId,
     fact_check_status: input.factCheckStatus,
