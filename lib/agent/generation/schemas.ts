@@ -7,14 +7,16 @@ const generationPlanSchema = z.object({
   sectionPlan: z.array(z.string().min(3).max(200)).min(2).max(12),
 });
 
+const openAiStringSchema = z.string();
+
 const sourceMappingSchema = z.object({
   sectionKey: z.string().min(2).max(120),
   claim: z.string().min(8).max(1000),
-  sourceUrls: z.array(z.string().url()).min(1).max(5),
+  sourceUrls: z.array(openAiStringSchema.min(1).max(2048)).min(1).max(5),
 });
 
 const internalLinkSchema = z.object({
-  contentId: z.string().uuid(),
+  contentId: openAiStringSchema.min(1).max(36),
   contentType: z.enum(["article", "tutorial", "lab"]),
   anchorText: z.string().min(3).max(120),
   suggestedSection: z.string().min(2).max(120),
@@ -171,4 +173,84 @@ export function parseLabDraftOutput(
 ): z.infer<typeof labGeneratedDraftSchema> | null {
   const parsed = labGeneratedDraftSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
+}
+
+const UNSUPPORTED_OPENAI_STRING_FORMATS = new Set([
+  "uri",
+  "url",
+  "hostname",
+  "email",
+  "uuid",
+  "date-time",
+  "date",
+  "time",
+  "ipv4",
+  "ipv6",
+]);
+
+type ZodSchemaNode = z.ZodType & {
+  _zod?: {
+    def?: {
+      type?: string;
+      checks?: Array<{
+        def?: {
+          check?: string;
+          format?: string;
+        };
+      }>;
+      options?: ZodSchemaNode[];
+      shape?: Record<string, ZodSchemaNode>;
+      element?: ZodSchemaNode;
+    };
+  };
+};
+
+function collectOpenAiIncompatibleStringFormatsFromNode(
+  schema: z.ZodType,
+  formats: Set<string>,
+): void {
+  const def = (schema as ZodSchemaNode)._zod?.def;
+  if (!def) {
+    return;
+  }
+
+  if (def.type === "string") {
+    for (const check of def.checks ?? []) {
+      if (
+        check.def?.check === "string_format" &&
+        check.def.format &&
+        UNSUPPORTED_OPENAI_STRING_FORMATS.has(check.def.format)
+      ) {
+        formats.add(check.def.format);
+      }
+    }
+  }
+
+  if (def.type === "object" && def.shape) {
+    for (const child of Object.values(def.shape)) {
+      collectOpenAiIncompatibleStringFormatsFromNode(child, formats);
+    }
+  }
+
+  if (def.type === "array" && def.element) {
+    collectOpenAiIncompatibleStringFormatsFromNode(def.element, formats);
+  }
+
+  if (def.type === "union" && def.options) {
+    for (const option of def.options) {
+      collectOpenAiIncompatibleStringFormatsFromNode(option, formats);
+    }
+  }
+}
+
+export function collectOpenAiIncompatibleStringFormats(
+  schema: z.ZodType,
+): string[] {
+  const formats = new Set<string>();
+  collectOpenAiIncompatibleStringFormatsFromNode(schema, formats);
+  return [...formats];
+}
+
+export function hasOpenAiIncompatibleStringFormats(schema: z.ZodType): boolean {
+  return collectOpenAiIncompatibleStringFormats(schema).length > 0;
 }

@@ -11,11 +11,21 @@ const richHtmlFixture =
 const schemas = (await import(
   pathToFileURL(join(testDir, "schemas.ts")).href
 )) as typeof import("./schemas");
+const validateOutputCore = (await import(
+  pathToFileURL(join(testDir, "validate-output-core.ts")).href
+)) as typeof import("./validate-output-core");
 const { auditGrounding } = (await import(
   pathToFileURL(join(testDir, "grounding-audit.ts")).href
 )) as typeof import("./grounding-audit");
 
-function buildArticleDraft() {
+function buildArticleDraft(overrides: Partial<ReturnType<typeof buildArticleDraftBase>> = {}) {
+  return {
+    ...buildArticleDraftBase(),
+    ...overrides,
+  };
+}
+
+function buildArticleDraftBase() {
   return {
     contentType: "article" as const,
     title: "CISA Ransomware Preparedness Guidance for Defenders",
@@ -200,5 +210,79 @@ describe("Phase 4 OpenAI schema selection", () => {
     });
 
     assert.equal(audit.passed, true);
+  });
+
+  it("uses Structured Outputs-compatible plain strings for sourceUrls", () => {
+    for (const contentType of ["article", "tutorial", "lab"] as const) {
+      const schema = schemas.getContentTypeDraftSchema(contentType);
+      assert.equal(schemas.hasOpenAiIncompatibleStringFormats(schema), false);
+    }
+
+    const draftWithMalformedUrl = buildArticleDraft({
+      sourceMappings: [
+        {
+          sectionKey: "backups",
+          claim: "Maintain offline backups of data.",
+          sourceUrls: ["not-a-url"],
+        },
+      ],
+    });
+    assert.equal(
+      schemas.articleGeneratedDraftSchema.safeParse(draftWithMalformedUrl).success,
+      true,
+    );
+  });
+
+  it("rejects malformed source URLs server-side", () => {
+    const draft = buildArticleDraft({
+      sourceMappings: [
+        {
+          sectionKey: "backups",
+          claim: "Maintain offline backups of data.",
+          sourceUrls: ["not-a-url"],
+        },
+      ],
+    });
+
+    const error = validateOutputCore.validateDraftReferences(
+      draft,
+      ["https://www.cisa.gov/stopransomware"],
+      new Set(),
+    );
+
+    assert.equal(error, "Generated output contained a malformed source URL.");
+  });
+
+  it("rejects source URLs outside the research allowlist server-side", () => {
+    const draft = buildArticleDraft({
+      sourceMappings: [
+        {
+          sectionKey: "backups",
+          claim: "Maintain offline backups of data.",
+          sourceUrls: ["https://evil.example/not-allowed"],
+        },
+      ],
+    });
+
+    const error = validateOutputCore.validateDraftReferences(
+      draft,
+      ["https://www.cisa.gov/stopransomware"],
+      new Set(),
+    );
+
+    assert.equal(
+      error,
+      "Generated output referenced a source URL outside the research allowlist.",
+    );
+  });
+
+  it("accepts valid supplied source URLs server-side", () => {
+    const error = validateOutputCore.validateDraftReferences(
+      buildArticleDraft(),
+      ["https://www.cisa.gov/stopransomware"],
+      new Set(),
+    );
+
+    assert.equal(error, null);
   });
 });

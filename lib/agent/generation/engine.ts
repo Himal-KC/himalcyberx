@@ -21,6 +21,7 @@ import type {
 import {
   filterSourceMappings,
   sanitizeGeneratedRichFields,
+  validateDraftReferences,
   validateGeneratedDraftStructure,
 } from "@/lib/agent/generation/validate-output";
 import { hasOpenAiApiKey } from "@/lib/agent/openai/env";
@@ -162,6 +163,20 @@ export async function runAgentGeneration(
 
   onStage?.("validating");
 
+  const allowedContentIds = new Set(
+    context.relatedHCXContent.map((item) => item.id),
+  );
+
+  const referenceError = validateDraftReferences(
+    generated.draft,
+    context.allowedSourceUrls,
+    allowedContentIds,
+  );
+  if (referenceError) {
+    await failGeneration(supabase, agentRunId, referenceError);
+    return { ok: false, error: referenceError };
+  }
+
   const draft = sanitizeGeneratedRichFields(
     filterSourceMappings(generated.draft, context.allowedSourceUrls),
   );
@@ -174,10 +189,6 @@ export async function runAgentGeneration(
     await failGeneration(supabase, agentRunId, structureError);
     return { ok: false, error: structureError };
   }
-
-  const allowedContentIds = new Set(
-    context.relatedHCXContent.map((item) => item.id),
-  );
 
   const groundingAudit = auditGrounding({
     draft,
