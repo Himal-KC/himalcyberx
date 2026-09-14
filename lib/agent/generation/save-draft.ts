@@ -2,52 +2,91 @@ import "server-only";
 
 import { calculateReadTime } from "@/lib/articles/read-time";
 import { prepareRichContentForSave } from "@/lib/content/sanitize-on-save";
+import {
+  buildAdminUrls,
+  buildArticleDraftInsertPayload,
+  buildGenerateDraftResult,
+  buildLabDraftInsertPayload,
+  buildTutorialDraftInsertPayload,
+  isDraftContentRow,
+  resolveFactCheckStatus,
+  targetTableForContentType,
+  type DraftContentRow,
+} from "@/lib/agent/generation/save-draft-core";
 import type {
   GeneratedDraft,
   GenerateDraftResult,
 } from "@/lib/agent/generation/types";
+import {
+  extractSupabaseErrorDetails,
+  isTransientSupabaseError,
+  logGenerationSave,
+} from "@/lib/agent/generation/save-log";
+import { resolveUniqueSlug } from "@/lib/agent/generation/slug";
 import type {
   AgentContentType,
-  AgentFactCheckStatus,
   AgentRun,
-  ArticleInsert,
-  LabInsert,
-  TutorialInsert,
 } from "@/lib/supabase/types";
-import { resolveUniqueSlug } from "@/lib/agent/generation/slug";
 import { createClient } from "@/lib/supabase/server";
 
 type AdminSupabase = Awaited<ReturnType<typeof createClient>>;
 
-const DEFAULT_AUTHOR = "HimalCyberX Research";
-
-function buildAdminUrls(
-  contentType: AgentContentType,
-  contentId: string,
-): { editUrl: string; previewUrl: string | null } {
-  switch (contentType) {
-    case "article":
-      return {
-        editUrl: `/admin/articles/${contentId}/edit`,
-        previewUrl: `/admin/articles/${contentId}/preview`,
-      };
-    case "tutorial":
-      return {
-        editUrl: `/admin/tutorials/${contentId}/edit`,
-        previewUrl: null,
-      };
-    case "lab":
-      return {
-        editUrl: `/admin/labs/${contentId}/edit`,
-        previewUrl: null,
-      };
-  }
+export interface SaveGeneratedDraftResult {
+  result: GenerateDraftResult | null;
+  error: string | null;
+  stage?: "insert" | "update" | "recovery" | null;
+  transient?: boolean;
 }
 
-function resolveFactCheckStatus(
-  researchQuality: string,
-): AgentFactCheckStatus {
-  return researchQuality === "needs_review" ? "needs_review" : "pending";
+async function findDraftByAgentRunId(
+  supabase: AdminSupabase,
+  contentType: AgentContentType,
+  agentRunId: string,
+): Promise<DraftContentRow | null> {
+  const table = targetTableForContentType(contentType);
+  const { data, error } = await supabase
+    .from(table)
+    .select("id, title, slug, status")
+    .eq("agent_run_id", agentRunId)
+    .eq("status", "draft")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data as DraftContentRow;
+}
+
+async function insertDraftRow(
+  supabase: AdminSupabase,
+  table: ReturnType<typeof targetTableForContentType>,
+  payload: Record<string, unknown>,
+): Promise<{ row: Pick<DraftContentRow, "id" | "title" | "slug"> | null; error: unknown }> {
+  const { data, error } = await supabase
+    .from(table)
+    .insert(payload)
+    .select("id, title, slug")
+    .single();
+
+  return {
+    row: data as Pick<DraftContentRow, "id" | "title" | "slug"> | null,
+    error,
+  };
+}
+
+function buildSaveFailure(
+  stage: SaveGeneratedDraftResult["stage"],
+  transient = false,
+): SaveGeneratedDraftResult {
+  return {
+    result: null,
+    error: "Unable to save draft.",
+    stage,
+    transient,
+  };
 }
 
 export async function saveGeneratedDraft({
@@ -64,178 +103,308 @@ export async function saveGeneratedDraft({
   researchQuality: string;
   qualityScore: number;
   categoryId?: string | null;
-}): Promise<{ result: GenerateDraftResult | null; error: string | null }> {
+}): Promise<SaveGeneratedDraftResult> {
   const factCheckStatus = resolveFactCheckStatus(researchQuality);
+  const targetTable = targetTableForContentType(run.content_type);
+  const logContext = {
+    agentRunId: run.id,
+    contentType: run.content_type,
+    targetTable,
+  };
+
+  const existingByRun = await findDraftByAgentRunId(
+    supabase,
+    run.content_type,
+    run.id,
+  );
+  if (existingByRun && isDraftContentRow(existingByRun)) {
+    logGenerationSave({
+      checkpoint: "draft_insert_success",
+      ...logContext,
+      draftId: existingByRun.id,
+      stage: "recovery_existing_draft",
+    });
+
+    return {
+      result: buildGenerateDraftResult({
+        contentType: run.content_type,
+        row: existingByRun,
+        factCheckStatus,
+        qualityScore,
+        warnings: draft.warnings,
+        existingDraft: true,
+      }),
+      error: null,
+      stage: "recovery",
+    };
+  }
+
+  logGenerationSave({
+    checkpoint: "draft_insert_start",
+    ...logContext,
+  });
+
   const slug = await resolveUniqueSlug(run.content_type, draft.slug);
 
   if (run.content_type === "article" && draft.contentType === "article") {
-    const payload: ArticleInsert = {
-      title: draft.title.trim(),
+    const payload = buildArticleDraftInsertPayload({
+      draft,
       slug,
-      excerpt: draft.excerpt.trim(),
-      content: prepareRichContentForSave(draft.content),
-      author: DEFAULT_AUTHOR,
-      status: "draft",
-      featured: false,
-      content_type: "real",
-      read_time: calculateReadTime(draft.content),
-      seo_title: draft.seo.seoTitle,
-      seo_description: draft.seo.seoDescription,
-      seo_keywords: draft.seo.seoKeywords,
-      og_title: draft.seo.ogTitle,
-      og_description: draft.seo.ogDescription,
-      key_takeaways: draft.keyTakeaways,
-      ai_generated: true,
-      agent_run_id: run.id,
-      fact_check_status: factCheckStatus,
-      quality_score: qualityScore,
-    };
+      agentRunId: run.id,
+      factCheckStatus,
+      qualityScore,
+      categoryId,
+      preparedContent: prepareRichContentForSave(draft.content),
+      readTime: calculateReadTime(draft.content),
+    });
 
-    if (categoryId) {
-      payload.category_id = categoryId;
+    const inserted = await insertDraftRow(supabase, "articles", payload);
+
+    if (inserted.row) {
+      logGenerationSave({
+        checkpoint: "draft_insert_success",
+        ...logContext,
+        draftId: inserted.row.id,
+      });
+
+      return {
+        result: buildGenerateDraftResult({
+          contentType: "article",
+          row: inserted.row,
+          factCheckStatus,
+          qualityScore,
+          warnings: draft.warnings,
+        }),
+        error: null,
+        stage: "insert",
+      };
     }
 
-    const { data, error } = await supabase
-      .from("articles")
-      .insert(payload)
-      .select("id, title, slug")
-      .single();
+    const errorDetails = extractSupabaseErrorDetails(
+      inserted.error as { code?: string; message?: string; details?: string; hint?: string },
+    );
+    logGenerationSave({
+      checkpoint: "draft_insert_failed",
+      ...logContext,
+      stage: "insert",
+      ...errorDetails,
+    });
 
-    if (error || !data) {
-      return { result: null, error: "Unable to save draft." };
+    const recovered = await findDraftByAgentRunId(supabase, run.content_type, run.id);
+    if (recovered && isDraftContentRow(recovered)) {
+      logGenerationSave({
+        checkpoint: "rollback_success",
+        ...logContext,
+        draftId: recovered.id,
+        stage: "recovery_after_insert_error",
+      });
+
+      return {
+        result: buildGenerateDraftResult({
+          contentType: "article",
+          row: recovered,
+          factCheckStatus,
+          qualityScore,
+          warnings: draft.warnings,
+          existingDraft: true,
+        }),
+        error: null,
+        stage: "recovery",
+      };
     }
 
-    const urls = buildAdminUrls("article", data.id);
-    return {
-      result: {
-        contentId: data.id,
-        contentType: "article",
-        editUrl: urls.editUrl,
-        previewUrl: urls.previewUrl,
-        title: data.title,
-        slug: data.slug,
-        factCheckStatus,
-        qualityScore,
-        warnings: draft.warnings,
-        existingDraft: false,
-      },
-      error: null,
-    };
+    return buildSaveFailure(
+      "insert",
+      isTransientSupabaseError(inserted.error as { code?: string; message?: string }),
+    );
   }
 
   if (run.content_type === "tutorial" && draft.contentType === "tutorial") {
-    const payload: TutorialInsert = {
-      title: draft.title.trim(),
+    const payload = buildTutorialDraftInsertPayload({
+      draft,
       slug,
-      description: draft.description.trim(),
-      category: draft.category.trim(),
-      difficulty: draft.difficulty,
-      estimated_time: draft.estimatedTime.trim(),
-      requirements: prepareRichContentForSave(draft.requirements),
-      introduction: prepareRichContentForSave(draft.introduction),
-      instructions: prepareRichContentForSave(draft.instructions),
-      key_takeaways: prepareRichContentForSave(draft.keyTakeaways),
-      security_notes: prepareRichContentForSave(draft.securityNotes),
-      featured: false,
-      seo_title: draft.seo.seoTitle,
-      seo_description: draft.seo.seoDescription,
-      seo_keywords: draft.seo.seoKeywords,
-      og_title: draft.seo.ogTitle,
-      og_description: draft.seo.ogDescription,
-      status: "draft",
-      ai_generated: true,
-      agent_run_id: run.id,
-      fact_check_status: factCheckStatus,
-      quality_score: qualityScore,
-    };
+      agentRunId: run.id,
+      factCheckStatus,
+      qualityScore,
+      preparedFields: {
+        requirements: prepareRichContentForSave(draft.requirements),
+        introduction: prepareRichContentForSave(draft.introduction),
+        instructions: prepareRichContentForSave(draft.instructions),
+        keyTakeaways: prepareRichContentForSave(draft.keyTakeaways),
+        securityNotes: prepareRichContentForSave(draft.securityNotes),
+      },
+    });
 
-    const { data, error } = await supabase
-      .from("tutorials")
-      .insert(payload)
-      .select("id, title, slug")
-      .single();
+    const inserted = await insertDraftRow(supabase, "tutorials", payload);
 
-    if (error || !data) {
-      return { result: null, error: "Unable to save draft." };
+    if (inserted.row) {
+      logGenerationSave({
+        checkpoint: "draft_insert_success",
+        ...logContext,
+        draftId: inserted.row.id,
+      });
+
+      return {
+        result: buildGenerateDraftResult({
+          contentType: "tutorial",
+          row: inserted.row,
+          factCheckStatus,
+          qualityScore,
+          warnings: draft.warnings,
+        }),
+        error: null,
+        stage: "insert",
+      };
     }
 
-    const urls = buildAdminUrls("tutorial", data.id);
-    return {
-      result: {
-        contentId: data.id,
-        contentType: "tutorial",
-        editUrl: urls.editUrl,
-        previewUrl: urls.previewUrl,
-        title: data.title,
-        slug: data.slug,
-        factCheckStatus,
-        qualityScore,
-        warnings: draft.warnings,
-        existingDraft: false,
-      },
-      error: null,
-    };
+    const errorDetails = extractSupabaseErrorDetails(
+      inserted.error as { code?: string; message?: string; details?: string; hint?: string },
+    );
+    logGenerationSave({
+      checkpoint: "draft_insert_failed",
+      ...logContext,
+      stage: "insert",
+      ...errorDetails,
+    });
+
+    const recovered = await findDraftByAgentRunId(supabase, run.content_type, run.id);
+    if (recovered && isDraftContentRow(recovered)) {
+      logGenerationSave({
+        checkpoint: "rollback_success",
+        ...logContext,
+        draftId: recovered.id,
+        stage: "recovery_after_insert_error",
+      });
+
+      return {
+        result: buildGenerateDraftResult({
+          contentType: "tutorial",
+          row: recovered,
+          factCheckStatus,
+          qualityScore,
+          warnings: draft.warnings,
+          existingDraft: true,
+        }),
+        error: null,
+        stage: "recovery",
+      };
+    }
+
+    return buildSaveFailure(
+      "insert",
+      isTransientSupabaseError(inserted.error as { code?: string; message?: string }),
+    );
   }
 
   if (run.content_type === "lab" && draft.contentType === "lab") {
-    const payload: LabInsert = {
-      title: draft.title.trim(),
+    const payload = buildLabDraftInsertPayload({
+      draft,
       slug,
-      description: draft.description.trim(),
-      category: draft.category.trim(),
-      difficulty: draft.difficulty,
-      estimated_time: draft.estimatedTime.trim(),
-      learning_objectives: prepareRichContentForSave(draft.learningObjectives),
-      requirements_tools: prepareRichContentForSave(draft.requirementsTools),
-      introduction: prepareRichContentForSave(draft.introduction),
-      instructions: prepareRichContentForSave(draft.instructions),
-      expected_result: prepareRichContentForSave(draft.expectedResult),
-      security_notes: prepareRichContentForSave(draft.securityNotes),
-      featured: false,
-      status: "draft",
-      seo_title: draft.seo.seoTitle,
-      seo_description: draft.seo.seoDescription,
-      seo_keywords: draft.seo.seoKeywords,
-      og_title: draft.seo.ogTitle,
-      og_description: draft.seo.ogDescription,
-      ai_generated: true,
-      agent_run_id: run.id,
-      fact_check_status: factCheckStatus,
-      quality_score: qualityScore,
-    };
+      agentRunId: run.id,
+      factCheckStatus,
+      qualityScore,
+      preparedFields: {
+        learningObjectives: prepareRichContentForSave(draft.learningObjectives),
+        requirementsTools: prepareRichContentForSave(draft.requirementsTools),
+        introduction: prepareRichContentForSave(draft.introduction),
+        instructions: prepareRichContentForSave(draft.instructions),
+        expectedResult: prepareRichContentForSave(draft.expectedResult),
+        securityNotes: prepareRichContentForSave(draft.securityNotes),
+      },
+    });
 
-    const { data, error } = await supabase
-      .from("labs")
-      .insert(payload)
-      .select("id, title, slug")
-      .single();
+    const inserted = await insertDraftRow(supabase, "labs", payload);
 
-    if (error || !data) {
-      return { result: null, error: "Unable to save draft." };
+    if (inserted.row) {
+      logGenerationSave({
+        checkpoint: "draft_insert_success",
+        ...logContext,
+        draftId: inserted.row.id,
+      });
+
+      return {
+        result: buildGenerateDraftResult({
+          contentType: "lab",
+          row: inserted.row,
+          factCheckStatus,
+          qualityScore,
+          warnings: draft.warnings,
+        }),
+        error: null,
+        stage: "insert",
+      };
     }
 
-    const urls = buildAdminUrls("lab", data.id);
-    return {
-      result: {
-        contentId: data.id,
-        contentType: "lab",
-        editUrl: urls.editUrl,
-        previewUrl: urls.previewUrl,
-        title: data.title,
-        slug: data.slug,
-        factCheckStatus,
-        qualityScore,
-        warnings: draft.warnings,
-        existingDraft: false,
-      },
-      error: null,
-    };
+    const errorDetails = extractSupabaseErrorDetails(
+      inserted.error as { code?: string; message?: string; details?: string; hint?: string },
+    );
+    logGenerationSave({
+      checkpoint: "draft_insert_failed",
+      ...logContext,
+      stage: "insert",
+      ...errorDetails,
+    });
+
+    const recovered = await findDraftByAgentRunId(supabase, run.content_type, run.id);
+    if (recovered && isDraftContentRow(recovered)) {
+      logGenerationSave({
+        checkpoint: "rollback_success",
+        ...logContext,
+        draftId: recovered.id,
+        stage: "recovery_after_insert_error",
+      });
+
+      return {
+        result: buildGenerateDraftResult({
+          contentType: "lab",
+          row: recovered,
+          factCheckStatus,
+          qualityScore,
+          warnings: draft.warnings,
+          existingDraft: true,
+        }),
+        error: null,
+        stage: "recovery",
+      };
+    }
+
+    return buildSaveFailure(
+      "insert",
+      isTransientSupabaseError(inserted.error as { code?: string; message?: string }),
+    );
   }
+
+  logGenerationSave({
+    checkpoint: "draft_insert_failed",
+    ...logContext,
+    stage: "content_type_mismatch",
+    errorMessage: "Generated output did not match the requested content type.",
+  });
 
   return {
     result: null,
     error: "Generated output did not match the requested content type.",
+    stage: "insert",
   };
+}
+
+export async function recoverDraftByAgentRunId(
+  supabase: AdminSupabase,
+  run: AgentRun,
+): Promise<GenerateDraftResult | null> {
+  const row = await findDraftByAgentRunId(supabase, run.content_type, run.id);
+  if (!row || !isDraftContentRow(row)) {
+    return null;
+  }
+
+  return buildGenerateDraftResult({
+    contentType: run.content_type,
+    row,
+    factCheckStatus: run.fact_check_status ?? "pending",
+    qualityScore: run.quality_score ?? 0,
+    warnings: [],
+    existingDraft: true,
+  });
 }
 
 export function getExistingDraftFromRun(

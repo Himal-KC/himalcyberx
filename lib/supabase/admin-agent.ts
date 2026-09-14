@@ -1,4 +1,6 @@
 import { logQueryError } from "@/lib/supabase/errors";
+import { isTransientSupabaseError } from "@/lib/agent/generation/save-log-core";
+import { stripUndefinedValues } from "@/lib/agent/generation/save-draft-core";
 import { createClient } from "@/lib/supabase/server";
 import type {
   AgentRun,
@@ -32,20 +34,33 @@ export async function updateAgentRun(
   supabase: AdminSupabase,
   runId: string,
   payload: AgentRunUpdate,
-): Promise<{ data: AgentRun | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from("agent_runs")
-    .update({
-      ...payload,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", runId)
-    .select("*")
-    .single();
+): Promise<{ data: AgentRun | null; error: string | null; transient?: boolean }> {
+  const sanitizedPayload = stripUndefinedValues({
+    ...payload,
+    updated_at: new Date().toISOString(),
+  } as Record<string, unknown>) as AgentRunUpdate;
+
+  const attemptUpdate = async () =>
+    supabase
+      .from("agent_runs")
+      .update(sanitizedPayload)
+      .eq("id", runId)
+      .select("*")
+      .single();
+
+  let { data, error } = await attemptUpdate();
+
+  if (error && isTransientSupabaseError(error)) {
+    ({ data, error } = await attemptUpdate());
+  }
 
   if (error) {
     logQueryError("updateAgentRun", error);
-    return { data: null, error: "Unable to update agent research run." };
+    return {
+      data: null,
+      error: "Unable to update agent research run.",
+      transient: isTransientSupabaseError(error),
+    };
   }
 
   return { data: data as AgentRun, error: null };

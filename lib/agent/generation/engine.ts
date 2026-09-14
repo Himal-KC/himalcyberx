@@ -12,8 +12,17 @@ import { assessDraftQuality } from "@/lib/agent/generation/quality-score";
 import { getResearchPayloadFromRun } from "@/lib/agent/generation/research-payload";
 import {
   getExistingDraftFromRun,
+  recoverDraftByAgentRunId,
   saveGeneratedDraft,
 } from "@/lib/agent/generation/save-draft";
+import {
+  buildAgentRunSaveUpdate,
+  resolveFactCheckStatus,
+} from "@/lib/agent/generation/save-draft-core";
+import {
+  extractSupabaseErrorDetails,
+  logGenerationSave,
+} from "@/lib/agent/generation/save-log";
 import type {
   GenerateDraftResult,
   GenerationMetadata,
@@ -96,7 +105,10 @@ export async function runAgentGeneration(
   }
 
   const run = loadedRun.data;
-  const existingDraft = getExistingDraftFromRun(run);
+  let existingDraft = getExistingDraftFromRun(run);
+  if (!existingDraft) {
+    existingDraft = await recoverDraftByAgentRunId(supabase, run);
+  }
   if (existingDraft) {
     return { ok: true, result: existingDraft };
   }
@@ -319,23 +331,25 @@ export async function runAgentGeneration(
     categoryId: context.categoryId,
   });
 
-  if (!saved.result || saved.error) {
-    await failGeneration(
-      supabase,
-      agentRunId,
-      saved.error ?? "Unable to save draft.",
-    );
-    return {
-      ok: false,
-      error: saved.error ?? "Unable to save draft.",
-    };
+  let draftResult = saved.result;
+  if (!draftResult || saved.error) {
+    const recovered = await recoverDraftByAgentRunId(supabase, run);
+    if (!recovered) {
+      await failGeneration(
+        supabase,
+        agentRunId,
+        saved.error ?? "Unable to save draft.",
+      );
+      return {
+        ok: false,
+        error: saved.error ?? "Unable to save draft.",
+      };
+    }
+
+    draftResult = recovered;
   }
 
-  logGenerationTrace("save_success", {
-    agentRunId,
-    contentType: run.content_type,
-  });
-
+  const factCheckStatus = resolveFactCheckStatus(payload.researchQuality);
   const metadata: GenerationMetadata = {
     usage: generated.usage,
     quality,
@@ -343,32 +357,67 @@ export async function runAgentGeneration(
     generatedAt: new Date().toISOString(),
   };
 
-  const updated = await updateAgentRun(supabase, agentRunId, {
-    status: "ready",
-    stage: "ready",
-    quality_score: quality.score,
-    fact_check_status:
-      payload.researchQuality === "needs_review" ? "needs_review" : "pending",
-    error_message: null,
-    generation_metadata: metadata as unknown as Record<string, unknown>,
-    article_id:
-      run.content_type === "article" ? saved.result.contentId : undefined,
-    tutorial_id:
-      run.content_type === "tutorial" ? saved.result.contentId : undefined,
-    lab_id: run.content_type === "lab" ? saved.result.contentId : undefined,
+  logGenerationSave({
+    checkpoint: "agent_run_update_start",
+    agentRunId,
+    contentType: run.content_type,
+    draftId: draftResult.contentId,
+    stage: saved.stage ?? "insert",
   });
+
+  const updated = await updateAgentRun(
+    supabase,
+    agentRunId,
+    buildAgentRunSaveUpdate({
+      contentType: run.content_type,
+      contentId: draftResult.contentId,
+      qualityScore: quality.score,
+      factCheckStatus,
+      metadata,
+    }),
+  );
+
   if (!updated.data || updated.error) {
+    logGenerationSave({
+      checkpoint: "agent_run_update_failed",
+      agentRunId,
+      contentType: run.content_type,
+      draftId: draftResult.contentId,
+      stage: "update",
+      ...extractSupabaseErrorDetails({
+        message: updated.error ?? "Unable to update agent research run.",
+      }),
+    });
+
+    logGenerationTrace("save_success", {
+      agentRunId,
+      contentType: run.content_type,
+    });
+
     return {
       ok: true,
       result: {
-        ...saved.result,
+        ...draftResult,
         warnings: [
-          ...saved.result.warnings,
+          ...draftResult.warnings,
           "Draft saved, but the agent run link could not be updated automatically.",
         ],
       },
     };
   }
 
-  return { ok: true, result: saved.result };
+  logGenerationSave({
+    checkpoint: "agent_run_update_success",
+    agentRunId,
+    contentType: run.content_type,
+    draftId: draftResult.contentId,
+    stage: "update",
+  });
+
+  logGenerationTrace("save_success", {
+    agentRunId,
+    contentType: run.content_type,
+  });
+
+  return { ok: true, result: draftResult };
 }
