@@ -7,8 +7,8 @@ import type { ArticleGeneratedDraft } from "./types";
 const testDir = dirname(fileURLToPath(import.meta.url));
 
 const { auditGrounding } = (await import(
-  pathToFileURL(join(testDir, "grounding-audit.ts")).href
-)) as typeof import("./grounding-audit");
+  pathToFileURL(join(testDir, "grounding-audit-core.ts")).href
+)) as typeof import("./grounding-audit-core");
 const { generatedDraftSchema } = (await import(
   pathToFileURL(join(testDir, "schemas.ts")).href
 )) as typeof import("./schemas");

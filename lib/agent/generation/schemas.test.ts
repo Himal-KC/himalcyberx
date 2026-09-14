@@ -15,8 +15,8 @@ const validateOutputCore = (await import(
   pathToFileURL(join(testDir, "validate-output-core.ts")).href
 )) as typeof import("./validate-output-core");
 const { auditGrounding } = (await import(
-  pathToFileURL(join(testDir, "grounding-audit.ts")).href
-)) as typeof import("./grounding-audit");
+  pathToFileURL(join(testDir, "grounding-audit-core.ts")).href
+)) as typeof import("./grounding-audit-core");
 
 function buildArticleDraft(overrides: Partial<ReturnType<typeof buildArticleDraftBase>> = {}) {
   return {
