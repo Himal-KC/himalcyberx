@@ -72,6 +72,65 @@ function hasMaterialUnsupportedFinding(review: SolReviewOutput): boolean {
   );
 }
 
+function hasMaterialConflictingFinding(review: SolReviewOutput): boolean {
+  return review.findings.some(
+    (finding) =>
+      finding.status === "conflicting" &&
+      (CRITICAL_SEVERITIES.has(finding.severity) ||
+        CRITICAL_CLAIM_TYPES.has(finding.claimType)),
+  );
+}
+
+export function evaluateDeterministicSourceIntegrity(input: {
+  invalidSourceUrls: string[];
+}): ReviewIntegritySection {
+  return {
+    passed: input.invalidSourceUrls.length === 0,
+    issues: [...input.invalidSourceUrls],
+  };
+}
+
+export function evaluateDeterministicInternalLinkIntegrity(input: {
+  invalidInternalLinks: string[];
+  internalLinkUnsupportedClaims: string[];
+}): ReviewIntegritySection {
+  const issues = [
+    ...input.invalidInternalLinks,
+    ...input.internalLinkUnsupportedClaims,
+  ];
+
+  return {
+    passed: issues.length === 0,
+    issues,
+  };
+}
+
+/**
+ * Deterministic integrity is authoritative for hard gates and the passed flag.
+ * Model observations are retained as advisory notes only.
+ */
+export function mergeIntegritySectionsForDisplay(
+  deterministic: ReviewIntegritySection,
+  model: ReviewIntegritySection,
+): ReviewIntegritySection {
+  const advisoryIssues = model.issues
+    .filter((issue) => !deterministic.issues.includes(issue))
+    .map((issue) => `[advisory] ${issue}`);
+
+  return {
+    passed: deterministic.passed,
+    issues: [...deterministic.issues, ...advisoryIssues],
+  };
+}
+
+/** @deprecated Use mergeIntegritySectionsForDisplay. */
+export function mergeIntegritySections(
+  deterministic: ReviewIntegritySection,
+  model: ReviewIntegritySection,
+): ReviewIntegritySection {
+  return mergeIntegritySectionsForDisplay(deterministic, model);
+}
+
 function hasNonCriticalPartialFindings(review: SolReviewOutput): boolean {
   return review.findings.some(
     (finding) =>
@@ -94,23 +153,17 @@ export function evaluateReviewQualityGate(input: {
   if (!input.deterministicGroundingPassed) {
     hardGateFailures.push("deterministic_grounding_failed");
   }
-  if (!input.sourceIntegrityPassed || !input.review.sourceIntegrity.passed) {
+  if (!input.sourceIntegrityPassed) {
     hardGateFailures.push("source_integrity_failed");
   }
-  if (
-    !input.internalLinkIntegrityPassed ||
-    !input.review.internalLinkIntegrity.passed
-  ) {
+  if (!input.internalLinkIntegrityPassed) {
     hardGateFailures.push("internal_link_integrity_failed");
   }
   if (hasMaterialUnsupportedFinding(input.review)) {
     hardGateFailures.push("material_unsupported_or_conflicting_claim");
   }
-  if (input.review.unsupportedClaims.length > 0) {
-    hardGateFailures.push("unsupported_claims_present");
-  }
-  if (input.review.conflictingClaims.length > 0) {
-    hardGateFailures.push("conflicting_claims_present");
+  if (hasMaterialConflictingFinding(input.review)) {
+    hardGateFailures.push("material_conflicting_claim");
   }
 
   let overallStatus: ReviewGateResult["overallStatus"] = "pass";
@@ -137,16 +190,5 @@ export function evaluateReviewQualityGate(input: {
     overallQualityScore,
     qualityBreakdown,
     hardGateFailures,
-  };
-}
-
-export function mergeIntegritySections(
-  deterministic: ReviewIntegritySection,
-  model: ReviewIntegritySection,
-): ReviewIntegritySection {
-  const issues = [...new Set([...deterministic.issues, ...model.issues])];
-  return {
-    passed: deterministic.passed && model.passed && issues.length === 0,
-    issues,
   };
 }

@@ -14,8 +14,10 @@ import {
   mapAgentReviewRowToRecord,
 } from "@/lib/agent/review/map-review-core";
 import {
+  evaluateDeterministicInternalLinkIntegrity,
+  evaluateDeterministicSourceIntegrity,
   evaluateReviewQualityGate,
-  mergeIntegritySections,
+  mergeIntegritySectionsForDisplay,
 } from "@/lib/agent/review/quality-gate-core";
 import {
   buildAgentRunReviewUpdate,
@@ -252,29 +254,22 @@ export async function runAgentReview(
     model: reviewed.model,
   });
 
-  const deterministicSourceIntegrity = {
-    passed: groundingAudit.invalidSourceUrls.length === 0,
-    issues: groundingAudit.invalidSourceUrls,
-  };
-  const deterministicInternalLinkIntegrity = {
-    passed:
-      groundingAudit.invalidInternalLinks.length === 0 &&
-      groundingAudit.unsupportedClaims.every(
-        (claim) => !claim.startsWith("internal_link:"),
+  const deterministicSourceIntegrity = evaluateDeterministicSourceIntegrity({
+    invalidSourceUrls: groundingAudit.invalidSourceUrls,
+  });
+  const deterministicInternalLinkIntegrity =
+    evaluateDeterministicInternalLinkIntegrity({
+      invalidInternalLinks: groundingAudit.invalidInternalLinks,
+      internalLinkUnsupportedClaims: groundingAudit.unsupportedClaims.filter(
+        (claim) => claim.startsWith("internal_link:"),
       ),
-    issues: [
-      ...groundingAudit.invalidInternalLinks,
-      ...groundingAudit.unsupportedClaims.filter((claim) =>
-        claim.startsWith("internal_link:"),
-      ),
-    ],
-  };
+    });
 
-  reviewed.review.sourceIntegrity = mergeIntegritySections(
+  reviewed.review.sourceIntegrity = mergeIntegritySectionsForDisplay(
     deterministicSourceIntegrity,
     reviewed.review.sourceIntegrity,
   );
-  reviewed.review.internalLinkIntegrity = mergeIntegritySections(
+  reviewed.review.internalLinkIntegrity = mergeIntegritySectionsForDisplay(
     deterministicInternalLinkIntegrity,
     reviewed.review.internalLinkIntegrity,
   );
@@ -282,8 +277,8 @@ export async function runAgentReview(
   const gate = evaluateReviewQualityGate({
     review: reviewed.review,
     deterministicGroundingPassed: groundingAudit.passed,
-    sourceIntegrityPassed: reviewed.review.sourceIntegrity.passed,
-    internalLinkIntegrityPassed: reviewed.review.internalLinkIntegrity.passed,
+    sourceIntegrityPassed: deterministicSourceIntegrity.passed,
+    internalLinkIntegrityPassed: deterministicInternalLinkIntegrity.passed,
   });
 
   reviewed.review.reviewVersion = REVIEW_VERSION;

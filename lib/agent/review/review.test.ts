@@ -18,7 +18,10 @@ const { buildDraftFingerprint } = (await import(
 
 const {
   calculateDeterministicQualityScore,
+  evaluateDeterministicInternalLinkIntegrity,
+  evaluateDeterministicSourceIntegrity,
   evaluateReviewQualityGate,
+  mergeIntegritySectionsForDisplay,
   QUALITY_WEIGHTS,
 } = (await import(pathToFileURL(join(testDir, "quality-gate-core.ts")).href)) as typeof import("./quality-gate-core");
 
@@ -552,11 +555,33 @@ describe("Phase 5 review persistence helpers", () => {
       draftFingerprint: "abc",
       reviewModel: "gpt-5.6-sol",
       review: buildReview({
-        unsupportedClaims: ["Invented patch KB5033375"],
+        findings: [
+          {
+            findingId: "finding-fail",
+            severity: "critical",
+            claimType: "patch_id",
+            claimText: "Invented patch KB5033375",
+            status: "unsupported",
+            evidenceSourceIds: [],
+            explanation: "No verified patch evidence.",
+            suggestedCorrection: null,
+          },
+        ],
       }),
       gate: evaluateReviewQualityGate({
         review: buildReview({
-          unsupportedClaims: ["Invented patch KB5033375"],
+          findings: [
+            {
+              findingId: "finding-fail",
+              severity: "critical",
+              claimType: "patch_id",
+              claimText: "Invented patch KB5033375",
+              status: "unsupported",
+              evidenceSourceIds: [],
+              explanation: "No verified patch evidence.",
+              suggestedCorrection: null,
+            },
+          ],
         }),
         deterministicGroundingPassed: true,
         sourceIntegrityPassed: true,
@@ -884,5 +909,268 @@ describe("Phase 5 evidence classification regression", () => {
         error.startsWith("internal_hcx_as_factual_evidence:F-012:"),
       ),
     );
+  });
+});
+
+describe("Phase 5 integrity gate semantics", () => {
+  it("treats zero internal links as integrity pass, not hard failure", () => {
+    const deterministic = evaluateDeterministicInternalLinkIntegrity({
+      invalidInternalLinks: [],
+      internalLinkUnsupportedClaims: [],
+    });
+    const merged = mergeIntegritySectionsForDisplay(deterministic, {
+      passed: false,
+      issues: ["No internal links are present."],
+    });
+
+    assert.equal(deterministic.passed, true);
+    assert.equal(merged.passed, true);
+
+    const gate = evaluateReviewQualityGate({
+      review: buildReview({
+        internalLinkIntegrity: merged,
+        qualityBreakdown: {
+          factualGrounding: 81,
+          sourceIntegrity: 81,
+          technicalAccuracy: 81,
+          seoStructure: 81,
+          readability: 81,
+          originality: 81,
+          internalLinkIntegrity: 81,
+        },
+      }),
+      deterministicGroundingPassed: true,
+      sourceIntegrityPassed: true,
+      internalLinkIntegrityPassed: deterministic.passed,
+    });
+
+    assert.equal(gate.overallStatus, "needs_review");
+    assert.equal(gate.factCheckStatus, "needs_review");
+    assert.ok(!gate.hardGateFailures.includes("internal_link_integrity_failed"));
+  });
+
+  it("passes valid approved internal links deterministically", () => {
+    const deterministic = evaluateDeterministicInternalLinkIntegrity({
+      invalidInternalLinks: [],
+      internalLinkUnsupportedClaims: [],
+    });
+
+    assert.equal(deterministic.passed, true);
+  });
+
+  it("fails invalid internal links deterministically", () => {
+    const deterministic = evaluateDeterministicInternalLinkIntegrity({
+      invalidInternalLinks: ["00000000-0000-4000-8000-000000000099"],
+      internalLinkUnsupportedClaims: [],
+    });
+    const gate = evaluateReviewQualityGate({
+      review: buildReview(),
+      deterministicGroundingPassed: true,
+      sourceIntegrityPassed: true,
+      internalLinkIntegrityPassed: deterministic.passed,
+    });
+
+    assert.equal(deterministic.passed, false);
+    assert.equal(gate.overallStatus, "fail");
+    assert.ok(gate.hardGateFailures.includes("internal_link_integrity_failed"));
+  });
+
+  it("passes source integrity with one verified primary source only", () => {
+    const deterministic = evaluateDeterministicSourceIntegrity({
+      invalidSourceUrls: [],
+    });
+
+    assert.equal(deterministic.passed, true);
+  });
+
+  it("allows medium-confidence limited evidence without source-integrity hard failure", () => {
+    const merged = mergeIntegritySectionsForDisplay(
+      evaluateDeterministicSourceIntegrity({ invalidSourceUrls: [] }),
+      {
+        passed: false,
+        issues: [
+          "Evidence is limited to two medium-confidence claims from one primary source.",
+        ],
+      },
+    );
+
+    const gate = evaluateReviewQualityGate({
+      review: buildReview({
+        sourceIntegrity: merged,
+        qualityBreakdown: {
+          factualGrounding: 81,
+          sourceIntegrity: 70,
+          technicalAccuracy: 81,
+          seoStructure: 81,
+          readability: 81,
+          originality: 81,
+          internalLinkIntegrity: 81,
+        },
+      }),
+      deterministicGroundingPassed: true,
+      sourceIntegrityPassed: true,
+      internalLinkIntegrityPassed: true,
+    });
+
+    assert.equal(merged.passed, true);
+    assert.equal(gate.overallStatus, "needs_review");
+    assert.ok(!gate.hardGateFailures.includes("source_integrity_failed"));
+  });
+
+  it("does not let model source-integrity false override deterministic pass", () => {
+    const gate = evaluateReviewQualityGate({
+      review: buildReview({
+        sourceIntegrity: {
+          passed: false,
+          issues: ["Some source pages could not be fetched."],
+        },
+        qualityBreakdown: {
+          factualGrounding: 81,
+          sourceIntegrity: 81,
+          technicalAccuracy: 81,
+          seoStructure: 81,
+          readability: 81,
+          originality: 81,
+          internalLinkIntegrity: 81,
+        },
+      }),
+      deterministicGroundingPassed: true,
+      sourceIntegrityPassed: true,
+      internalLinkIntegrityPassed: true,
+    });
+
+    assert.equal(gate.overallStatus, "needs_review");
+    assert.ok(!gate.hardGateFailures.includes("source_integrity_failed"));
+  });
+
+  it("fails invented, discovery-only, and unknown sources deterministically", () => {
+    const invented = evaluateDeterministicSourceIntegrity({
+      invalidSourceUrls: ["https://example.com/invented-source"],
+    });
+    assert.equal(invented.passed, false);
+
+    const validation = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "discovery-fail",
+            severity: "major",
+            claimType: "general",
+            claimText: "Discovery-only evidence promoted.",
+            status: "supported",
+            evidenceSourceIds: [
+              "url:https://example.com/unverified-discovery",
+            ],
+            explanation: "Bad",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: new Set([
+        "https://nvd.nist.gov/vuln/detail/cve-2024-21412",
+      ]),
+    });
+    assert.equal(validation.valid, false);
+  });
+
+  it("returns NEEDS_REVIEW for score 81 with only non-critical editorial issues", () => {
+    const gate = evaluateReviewQualityGate({
+      review: buildReview({
+        unsupportedClaims: ["Title overpromises technical passkey explanation."],
+        warnings: ["Some operational guidance is editorial and not verified."],
+        findings: [
+          {
+            findingId: "editorial-1",
+            severity: "minor",
+            claimType: "recommendation",
+            claimText: "Wording drift from help prevent to prevent.",
+            status: "partially_supported",
+            evidenceSourceIds: [],
+            explanation: "Editorial nuance only.",
+            suggestedCorrection: null,
+          },
+        ],
+        qualityBreakdown: {
+          factualGrounding: 81,
+          sourceIntegrity: 81,
+          technicalAccuracy: 81,
+          seoStructure: 81,
+          readability: 81,
+          originality: 81,
+          internalLinkIntegrity: 81,
+        },
+        sourceIntegrity: mergeIntegritySectionsForDisplay(
+          evaluateDeterministicSourceIntegrity({ invalidSourceUrls: [] }),
+          {
+            passed: false,
+            issues: ["Limited evidence depth from one primary source."],
+          },
+        ),
+        internalLinkIntegrity: mergeIntegritySectionsForDisplay(
+          evaluateDeterministicInternalLinkIntegrity({
+            invalidInternalLinks: [],
+            internalLinkUnsupportedClaims: [],
+          }),
+          {
+            passed: false,
+            issues: ["No internal links are present."],
+          },
+        ),
+      }),
+      deterministicGroundingPassed: true,
+      sourceIntegrityPassed: true,
+      internalLinkIntegrityPassed: true,
+    });
+
+    assert.equal(gate.overallQualityScore, 81);
+    assert.equal(gate.overallStatus, "needs_review");
+    assert.equal(gate.factCheckStatus, "needs_review");
+  });
+
+  it("still fails material unsupported security claims and critical conflicts", () => {
+    const unsupportedGate = evaluateReviewQualityGate({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "material-unsupported",
+            severity: "major",
+            claimType: "security_impact",
+            claimText: "Unsupported exploitation claim.",
+            status: "unsupported",
+            evidenceSourceIds: [],
+            explanation: "No verified support.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      deterministicGroundingPassed: true,
+      sourceIntegrityPassed: true,
+      internalLinkIntegrityPassed: true,
+    });
+
+    const conflictGate = evaluateReviewQualityGate({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "material-conflict",
+            severity: "critical",
+            claimType: "cvss",
+            claimText: "CVSS 9.9 conflicts with verified evidence.",
+            status: "conflicting",
+            evidenceSourceIds: [],
+            explanation: "Conflicts with verified score.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      deterministicGroundingPassed: true,
+      sourceIntegrityPassed: true,
+      internalLinkIntegrityPassed: true,
+    });
+
+    assert.equal(unsupportedGate.overallStatus, "fail");
+    assert.equal(conflictGate.overallStatus, "fail");
   });
 });
