@@ -7,7 +7,7 @@ import {
   runDeterministicPreCheck,
 } from "@/lib/agent/review/build-context-core";
 import { buildDraftFingerprint } from "@/lib/agent/review/fingerprint-core";
-import { reviewDraftWithOpenAi } from "@/lib/agent/review/generate";
+import { reviewDraftWithOpenAi, repairSolReviewWithOpenAi } from "@/lib/agent/review/generate";
 import { loadReviewDraftSnapshot } from "@/lib/agent/review/load-draft";
 import {
   buildRunReviewResult,
@@ -28,9 +28,11 @@ import {
 import { logReviewError, logReviewTrace } from "@/lib/agent/review/review-log-core";
 import type { RunReviewResult } from "@/lib/agent/review/types";
 import { REVIEW_VERSION } from "@/lib/agent/review/types";
+import { shouldAttemptReviewRepair } from "@/lib/agent/review/repair-core";
 import {
   buildReviewEvidenceIndex,
-  collectRejectedEvidenceDiagnostics,
+  collectValidationDiagnostics,
+  listAllowedEvidenceCatalogIds,
   validateSolReviewOutput,
 } from "@/lib/agent/review/validate-review-core";
 import {
@@ -220,27 +222,119 @@ export async function runAgentReview(
     allowedSourceUrls.map((url) => url.trim().toLowerCase()),
   );
 
-  const validation = validateSolReviewOutput({
-    review: reviewed.review,
-    contentType: run.content_type,
-    evidenceIndex,
-    allowedSourceUrls: allowedSourceUrlSet,
-  });
+  const runOutputValidation = (review: NonNullable<typeof reviewed.review>) =>
+    validateSolReviewOutput({
+      review,
+      contentType: run.content_type,
+      evidenceIndex,
+      allowedSourceUrls: allowedSourceUrlSet,
+    });
+
+  let validation = runOutputValidation(reviewed.review);
+  let finalReview = reviewed.review;
+  let repairAttempted = false;
 
   if (!validation.valid) {
+    logReviewTrace("validation_failed", {
+      agentRunId,
+      contentType: run.content_type,
+      model: reviewed.model,
+    });
+
+    const diagnostics = collectValidationDiagnostics({
+      errors: validation.errors,
+      index: evidenceIndex,
+      review: reviewed.review,
+    });
+
     logReviewError({
-      checkpoint: "validation_start",
+      checkpoint: "validation_failed",
       agentRunId,
       contentType: run.content_type,
       model: reviewed.model,
       errorMessage: validation.errors.join(", "),
-      evidenceClassificationDiagnostics: collectRejectedEvidenceDiagnostics({
-        errors: validation.errors,
-        index: evidenceIndex,
-      }),
+      findingContractIssues: diagnostics.findingContractIssues,
+      evidenceClassificationDiagnostics:
+        diagnostics.evidenceClassificationDiagnostics,
     });
-    return { ok: false, error: "Review output failed validation." };
+
+    if (
+      shouldAttemptReviewRepair({
+        validationErrors: validation.errors,
+        repairAttempted,
+      })
+    ) {
+      repairAttempted = true;
+      logReviewTrace("repair_start", {
+        agentRunId,
+        contentType: run.content_type,
+        model: reviewed.model,
+      });
+
+      const repaired = await repairSolReviewWithOpenAi({
+        context: reviewContext,
+        originalReview: reviewed.review,
+        validationErrors: validation.errors,
+        allowedEvidenceIds: listAllowedEvidenceCatalogIds(evidenceIndex),
+      });
+
+      if (!repaired.review || repaired.error) {
+        return {
+          ok: false,
+          error: repaired.error ?? "Review output failed validation.",
+        };
+      }
+
+      logReviewTrace("repair_success", {
+        agentRunId,
+        contentType: run.content_type,
+        model: repaired.model,
+      });
+
+      logReviewTrace("repair_validation_start", {
+        agentRunId,
+        contentType: run.content_type,
+        model: repaired.model,
+      });
+
+      validation = runOutputValidation(repaired.review);
+      finalReview = validation.sanitizedReview ?? repaired.review;
+
+      if (!validation.valid) {
+        const repairDiagnostics = collectValidationDiagnostics({
+          errors: validation.errors,
+          index: evidenceIndex,
+          review: repaired.review,
+        });
+
+        logReviewError({
+          checkpoint: "repair_validation_start",
+          agentRunId,
+          contentType: run.content_type,
+          model: repaired.model,
+          errorMessage: validation.errors.join(", "),
+          findingContractIssues: repairDiagnostics.findingContractIssues,
+          evidenceClassificationDiagnostics:
+            repairDiagnostics.evidenceClassificationDiagnostics,
+        });
+
+        return { ok: false, error: "Review output failed validation." };
+      }
+
+      logReviewTrace("repair_validation_success", {
+        agentRunId,
+        contentType: run.content_type,
+        model: repaired.model,
+      });
+      reviewed.model = repaired.model;
+    } else {
+      return { ok: false, error: "Review output failed validation." };
+    }
+  } else {
+    finalReview = validation.sanitizedReview ?? reviewed.review;
   }
+
+  reviewed.review = finalReview;
 
   logReviewTrace("validation_success", {
     agentRunId,

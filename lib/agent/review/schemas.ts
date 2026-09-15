@@ -85,6 +85,20 @@ export const solReviewOutputSchema = z.object({
   qualityBreakdown: reviewQualityBreakdownSchema,
   publicationRecommendation: z.string().min(8).max(1000),
   warnings: z.array(z.string().max(500)).max(20),
+}).superRefine((data, ctx) => {
+  for (const finding of data.findings) {
+    if (
+      (finding.status === "supported" ||
+        finding.status === "partially_supported") &&
+      finding.evidenceSourceIds.length === 0
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${finding.status}_finding_missing_evidence:${finding.findingId}`,
+        path: ["findings"],
+      });
+    }
+  }
 });
 
 export type SolReviewOutputSchema = z.infer<typeof solReviewOutputSchema>;

@@ -6,7 +6,12 @@ export type ReviewTraceCheckpoint =
   | "openai_start"
   | "openai_success"
   | "validation_start"
+  | "validation_failed"
   | "validation_success"
+  | "repair_start"
+  | "repair_success"
+  | "repair_validation_start"
+  | "repair_validation_success"
   | "quality_gate_start"
   | "quality_gate_success"
   | "save_start"
@@ -37,6 +42,12 @@ export interface ReviewErrorLog extends ReviewTraceContext {
     isVerifiedSource: boolean;
     isDiscoveryOnly: boolean;
     isInternalHcx: boolean;
+  }> | null;
+  findingContractIssues?: Array<{
+    findingId: string;
+    findingStatus: string;
+    reason: string;
+    evidenceIds: string[];
   }> | null;
 }
 
@@ -73,5 +84,6 @@ export function logReviewError(log: ReviewErrorLog): void {
     finalStatus: log.finalStatus ?? null,
     evidenceClassificationDiagnostics:
       log.evidenceClassificationDiagnostics ?? null,
+    findingContractIssues: log.findingContractIssues ?? null,
   });
 }

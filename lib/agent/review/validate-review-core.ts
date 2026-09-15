@@ -21,6 +21,7 @@ export interface EvidenceClassificationIndex {
   discoveryOnlyIds: Set<string>;
   internalHcxIds: Set<string>;
   catalog: EvidenceCatalogEntry[];
+  findingIds: Set<string>;
 }
 
 export interface EvidenceClassificationDiagnostics {
@@ -32,17 +33,37 @@ export interface EvidenceClassificationDiagnostics {
   isInternalHcx: boolean;
 }
 
+export interface ReviewFindingContractDiagnostic {
+  findingId: string;
+  findingStatus: string;
+  reason: string;
+  evidenceIds: string[];
+}
+
+export interface ReviewValidationDiagnostics {
+  findingContractIssues: ReviewFindingContractDiagnostic[];
+  evidenceClassificationDiagnostics: EvidenceClassificationDiagnostics[];
+}
+
 export interface ReviewValidationResult {
   valid: boolean;
   errors: string[];
   sanitizedReview: SolReviewOutput | null;
 }
 
+const STATUSES_REQUIRING_VERIFIED_EVIDENCE = new Set([
+  "supported",
+  "partially_supported",
+]);
+
+const FINDING_ID_PATTERN = /^F-\d+$/i;
+
 export function buildEvidenceClassificationIndex(input: {
   verifiedClaims: VerifiedClaim[];
   authoritativeSources: AuthoritativeSourceRecord[];
   approvedInternalContent: Array<{ id: string }>;
   discoveryContexts: Array<{ url: string }>;
+  findingIds?: string[];
 }): EvidenceClassificationIndex {
   const byId = new Map<string, EvidenceClassification>();
   const verifiedClaimIds = new Set<string>();
@@ -50,6 +71,7 @@ export function buildEvidenceClassificationIndex(input: {
   const discoveryOnlyIds = new Set<string>();
   const internalHcxIds = new Set<string>();
   const catalog: EvidenceCatalogEntry[] = [];
+  const findingIds = new Set<string>(input.findingIds ?? []);
 
   for (const claim of input.verifiedClaims) {
     byId.set(claim.id, "verified_claim");
@@ -62,11 +84,8 @@ export function buildEvidenceClassificationIndex(input: {
   }
 
   for (const source of input.authoritativeSources) {
-    const aliases = [
-      source.id,
-      `source:${source.id}`,
-      `url:${source.url.trim().toLowerCase()}`,
-    ];
+    const normalizedUrl = source.url.trim().toLowerCase();
+    const aliases = [source.id, `source:${source.id}`, `url:${normalizedUrl}`];
 
     for (const alias of aliases) {
       byId.set(alias, "verified_source");
@@ -121,6 +140,7 @@ export function buildEvidenceClassificationIndex(input: {
     discoveryOnlyIds,
     internalHcxIds,
     catalog,
+    findingIds,
   };
 }
 
@@ -129,6 +149,7 @@ export function buildReviewEvidenceIndex(input: {
   authoritativeSources: AuthoritativeSourceRecord[];
   approvedInternalContent: Array<{ id: string }>;
   discoveryContexts: Array<{ url: string }>;
+  findingIds?: string[];
 }): EvidenceClassificationIndex {
   return buildEvidenceClassificationIndex(input);
 }
@@ -157,6 +178,12 @@ export function buildAllowedEvidenceIds(
   ]);
 }
 
+export function listAllowedEvidenceCatalogIds(
+  index: EvidenceClassificationIndex,
+): string[] {
+  return [...buildAllowedEvidenceIds(index)].sort();
+}
+
 export function describeEvidenceClassification(
   evidenceId: string,
   index: EvidenceClassificationIndex,
@@ -173,6 +200,91 @@ export function describeEvidenceClassification(
   };
 }
 
+export function normalizeEvidenceSourceId(
+  rawId: string,
+  index: EvidenceClassificationIndex,
+): string | null {
+  const trimmed = rawId.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (index.byId.has(trimmed)) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("url:")) {
+    const normalized = `url:${trimmed.slice(4).trim().toLowerCase()}`;
+    return index.byId.has(normalized) ? normalized : null;
+  }
+
+  if (trimmed.startsWith("source:")) {
+    const normalized = `source:${trimmed.slice(7).trim()}`;
+    return index.byId.has(normalized) ? normalized : null;
+  }
+
+  if (index.byId.has(`source:${trimmed}`)) {
+    return `source:${trimmed}`;
+  }
+
+  return null;
+}
+
+export function normalizeEvidenceSourceIds(
+  evidenceSourceIds: string[],
+  index: EvidenceClassificationIndex,
+): string[] {
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+
+  for (const rawId of evidenceSourceIds) {
+    const resolved = normalizeEvidenceSourceId(rawId, index) ?? rawId.trim();
+    if (!resolved || seen.has(resolved)) {
+      continue;
+    }
+    seen.add(resolved);
+    normalized.push(resolved);
+  }
+
+  return normalized;
+}
+
+export function sanitizeSolReviewEvidenceReferences(
+  review: SolReviewOutput,
+  index: EvidenceClassificationIndex,
+): SolReviewOutput {
+  return {
+    ...review,
+    findings: review.findings.map((finding) => ({
+      ...finding,
+      evidenceSourceIds: normalizeEvidenceSourceIds(
+        finding.evidenceSourceIds,
+        index,
+      ),
+    })),
+  };
+}
+
+function isFindingIdentifierUsedAsEvidence(
+  evidenceId: string,
+  findingId: string,
+  index: EvidenceClassificationIndex,
+): boolean {
+  if (isVerifiedEvidenceId(evidenceId, index)) {
+    return false;
+  }
+
+  if (evidenceId === findingId) {
+    return true;
+  }
+
+  if (index.findingIds.has(evidenceId)) {
+    return true;
+  }
+
+  return FINDING_ID_PATTERN.test(evidenceId) && !isVerifiedEvidenceId(evidenceId, index);
+}
+
 export function validateFindingEvidenceClassifications(input: {
   findings: Array<{
     findingId: string;
@@ -184,59 +296,150 @@ export function validateFindingEvidenceClassifications(input: {
   const errors: string[] = [];
 
   for (const finding of input.findings) {
-    if (finding.status !== "supported") {
-      continue;
+    const normalizedIds = normalizeEvidenceSourceIds(
+      finding.evidenceSourceIds,
+      input.index,
+    );
+
+    for (const evidenceId of normalizedIds) {
+      if (isFindingIdentifierUsedAsEvidence(evidenceId, finding.findingId, input.index)) {
+        errors.push(
+          `finding_id_used_as_evidence:${finding.findingId}:${evidenceId}`,
+        );
+      }
     }
 
-    if (finding.evidenceSourceIds.length === 0) {
-      errors.push(`supported_finding_missing_evidence:${finding.findingId}`);
+    const verifiedIds = normalizedIds.filter((id) =>
+      isVerifiedEvidenceId(id, input.index),
+    );
+
+    const requiresVerifiedEvidence = STATUSES_REQUIRING_VERIFIED_EVIDENCE.has(
+      finding.status,
+    );
+    const shouldAuditEvidenceRefs =
+      requiresVerifiedEvidence ||
+      (finding.status === "conflicting" && normalizedIds.length > 0);
+
+    if (shouldAuditEvidenceRefs) {
+      for (const evidenceId of normalizedIds) {
+        const classification = classifyEvidenceId(evidenceId, input.index);
+
+        if (
+          classification === "verified_claim" ||
+          classification === "verified_source"
+        ) {
+          continue;
+        }
+
+        if (classification === "discovery_only") {
+          errors.push(
+            `discovery_promoted_to_verified:${finding.findingId}:${evidenceId}`,
+          );
+          continue;
+        }
+
+        if (classification === "internal_hcx") {
+          errors.push(
+            `internal_hcx_as_factual_evidence:${finding.findingId}:${evidenceId}`,
+          );
+          continue;
+        }
+
+        if (
+          !isFindingIdentifierUsedAsEvidence(
+            evidenceId,
+            finding.findingId,
+            input.index,
+          )
+        ) {
+          errors.push(`unknown_evidence_source_id:${evidenceId}`);
+        }
+      }
     }
 
-    for (const evidenceId of finding.evidenceSourceIds) {
-      const classification = classifyEvidenceId(evidenceId, input.index);
-
-      if (classification === "verified_claim" || classification === "verified_source") {
-        continue;
-      }
-
-      if (classification === "discovery_only") {
-        errors.push(
-          `discovery_promoted_to_verified:${finding.findingId}:${evidenceId}`,
-        );
-        continue;
-      }
-
-      if (classification === "internal_hcx") {
-        errors.push(
-          `internal_hcx_as_factual_evidence:${finding.findingId}:${evidenceId}`,
-        );
-        continue;
-      }
-
-      errors.push(`unknown_evidence_source_id:${evidenceId}`);
+    if (requiresVerifiedEvidence && verifiedIds.length === 0) {
+      errors.push(
+        finding.status === "partially_supported"
+          ? `partially_supported_finding_missing_evidence:${finding.findingId}`
+          : `supported_finding_missing_evidence:${finding.findingId}`,
+      );
     }
   }
 
   return errors;
 }
 
+export function collectValidationDiagnostics(input: {
+  errors: string[];
+  index: EvidenceClassificationIndex;
+  review: SolReviewOutput | null;
+}): ReviewValidationDiagnostics {
+  const findingContractIssues: ReviewFindingContractDiagnostic[] = [];
+  const evidenceIds = new Set<string>();
+
+  for (const error of input.errors) {
+    const [code, findingId, evidenceId] = error.split(":");
+
+    if (
+      code === "supported_finding_missing_evidence" ||
+      code === "partially_supported_finding_missing_evidence"
+    ) {
+      const finding = input.review?.findings.find(
+        (item) => item.findingId === findingId,
+      );
+      findingContractIssues.push({
+        findingId: findingId ?? "unknown",
+        findingStatus: finding?.status ?? "unknown",
+        reason: code,
+        evidenceIds: finding?.evidenceSourceIds ?? [],
+      });
+      continue;
+    }
+
+    if (code === "finding_id_used_as_evidence" && evidenceId) {
+      findingContractIssues.push({
+        findingId: findingId ?? "unknown",
+        findingStatus:
+          input.review?.findings.find((item) => item.findingId === findingId)
+            ?.status ?? "unknown",
+        reason: code,
+        evidenceIds: [evidenceId],
+      });
+      continue;
+    }
+
+    if (
+      code === "unknown_evidence_source_id" ||
+      code === "discovery_promoted_to_verified" ||
+      code === "internal_hcx_as_factual_evidence"
+    ) {
+      const id = evidenceId ?? findingId;
+      if (id && !FINDING_ID_PATTERN.test(id) && !input.index.findingIds.has(id)) {
+        evidenceIds.add(id);
+      } else if (evidenceId) {
+        evidenceIds.add(evidenceId);
+      }
+    }
+  }
+
+  return {
+    findingContractIssues,
+    evidenceClassificationDiagnostics: [...evidenceIds].map((evidenceId) =>
+      describeEvidenceClassification(evidenceId, input.index),
+    ),
+  };
+}
+
+/** @deprecated Use collectValidationDiagnostics. */
 export function collectRejectedEvidenceDiagnostics(input: {
   errors: string[];
   index: EvidenceClassificationIndex;
 }): EvidenceClassificationDiagnostics[] {
-  const evidenceIds = new Set<string>();
-
-  for (const error of input.errors) {
-    const parts = error.split(":");
-    const candidate = parts.at(-1)?.trim();
-    if (candidate) {
-      evidenceIds.add(candidate);
-    }
-  }
-
-  return [...evidenceIds].map((evidenceId) =>
-    describeEvidenceClassification(evidenceId, input.index),
-  );
+  return collectValidationDiagnostics({
+    errors: input.errors,
+    index: input.index,
+    review: null,
+  }).evidenceClassificationDiagnostics;
 }
 
 export function validateSolReviewOutput(input: {
@@ -255,18 +458,31 @@ export function validateSolReviewOutput(input: {
     };
   }
 
+  const index: EvidenceClassificationIndex = {
+    ...input.evidenceIndex,
+    findingIds: new Set([
+      ...input.evidenceIndex.findingIds,
+      ...input.review.findings.map((finding) => finding.findingId),
+    ]),
+  };
+
   if (input.review.contentType !== input.contentType) {
     errors.push("review_content_type_mismatch");
   }
 
+  const sanitizedReview = sanitizeSolReviewEvidenceReferences(
+    input.review,
+    index,
+  );
+
   errors.push(
     ...validateFindingEvidenceClassifications({
-      findings: input.review.findings,
-      index: input.evidenceIndex,
+      findings: sanitizedReview.findings,
+      index,
     }),
   );
 
-  for (const url of extractUrlsFromReview(input.review)) {
+  for (const url of extractUrlsFromReview(sanitizedReview)) {
     if (!input.allowedSourceUrls.has(url.trim().toLowerCase())) {
       errors.push(`unknown_review_url:${url}`);
     }
@@ -283,7 +499,7 @@ export function validateSolReviewOutput(input: {
   return {
     valid: true,
     errors: [],
-    sanitizedReview: input.review,
+    sanitizedReview,
   };
 }
 
@@ -303,6 +519,7 @@ export function validateDiscoveryNotPromotedToVerified(input: {
     authoritativeSources: [],
     approvedInternalContent: [],
     discoveryContexts: [],
+    findingIds: input.review.findings.map((finding) => finding.findingId),
   });
 
   return validateFindingEvidenceClassifications({

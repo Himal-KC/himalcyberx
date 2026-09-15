@@ -27,8 +27,17 @@ const {
 
 const {
   buildReviewEvidenceIndex,
+  collectValidationDiagnostics,
+  normalizeEvidenceSourceIds,
+  sanitizeSolReviewEvidenceReferences,
   validateSolReviewOutput,
 } = (await import(pathToFileURL(join(testDir, "validate-review-core.ts")).href)) as typeof import("./validate-review-core");
+
+const {
+  isCorrectableReviewValidationError,
+  isCorrectableValidationFailure,
+  shouldAttemptReviewRepair,
+} = (await import(pathToFileURL(join(testDir, "repair-core.ts")).href)) as typeof import("./repair-core");
 
 const { parseSolReviewOutput } = (await import(
   pathToFileURL(join(testDir, "schemas.ts")).href
@@ -646,6 +655,25 @@ describe("Phase 5 schema and request compatibility", () => {
   it("parses valid Sol review output and rejects malformed output", () => {
     assert.ok(parseSolReviewOutput(buildReview()));
     assert.equal(parseSolReviewOutput({ summary: "missing fields" }), null);
+    assert.equal(
+      parseSolReviewOutput(
+        buildReview({
+          findings: [
+            {
+              findingId: "F-empty",
+              severity: "minor",
+              claimType: "general",
+              claimText: "Missing evidence.",
+              status: "supported",
+              evidenceSourceIds: [],
+              explanation: "No evidence provided.",
+              suggestedCorrection: null,
+            },
+          ],
+        }),
+      ),
+      null,
+    );
   });
 
   it("builds Sol request without unsupported params", () => {
@@ -1172,5 +1200,460 @@ describe("Phase 5 integrity gate semantics", () => {
 
     assert.equal(unsupportedGate.overallStatus, "fail");
     assert.equal(conflictGate.overallStatus, "fail");
+  });
+});
+
+describe("Phase 5 finding-evidence contract regression", () => {
+  const allowedUrls = new Set([
+    "https://nvd.nist.gov/vuln/detail/cve-2024-21412",
+  ]);
+
+  it("passes supported finding with valid source UUID", () => {
+    const validation = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-001",
+            severity: "informational",
+            claimType: "cve_id",
+            claimText: "Supported by source UUID.",
+            status: "supported",
+            evidenceSourceIds: [AUTHORITATIVE_SOURCES[0].id],
+            explanation: "Verified source.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: allowedUrls,
+    });
+
+    assert.equal(validation.valid, true);
+  });
+
+  it("passes supported finding with verified claim ID and URL alias", () => {
+    const validation = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-claim",
+            severity: "informational",
+            claimType: "cve_id",
+            claimText: "Claim supported.",
+            status: "supported",
+            evidenceSourceIds: ["claim-cve"],
+            explanation: "Verified claim.",
+            suggestedCorrection: null,
+          },
+          {
+            findingId: "F-url",
+            severity: "informational",
+            claimType: "general",
+            claimText: "URL alias supported.",
+            status: "supported",
+            evidenceSourceIds: [
+              "url:https://nvd.nist.gov/vuln/detail/cve-2024-21412",
+            ],
+            explanation: "Verified URL alias.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: allowedUrls,
+    });
+
+    assert.equal(validation.valid, true);
+  });
+
+  it("fails supported and partially_supported findings with zero verified evidence", () => {
+    const supported = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-002",
+            severity: "major",
+            claimType: "general",
+            claimText: "Supported without evidence.",
+            status: "supported",
+            evidenceSourceIds: [],
+            explanation: "Missing evidence.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: allowedUrls,
+    });
+
+    const partial = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-003",
+            severity: "minor",
+            claimType: "general",
+            claimText: "Partial without evidence.",
+            status: "partially_supported",
+            evidenceSourceIds: [],
+            explanation: "Missing evidence.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: allowedUrls,
+    });
+
+    assert.equal(supported.valid, false);
+    assert.equal(partial.valid, false);
+    assert.ok(
+      supported.errors.includes("supported_finding_missing_evidence:F-002"),
+    );
+    assert.ok(
+      partial.errors.includes(
+        "partially_supported_finding_missing_evidence:F-003",
+      ),
+    );
+  });
+
+  it("allows unsupported and not_verifiable findings with zero evidence", () => {
+    const unsupported = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-004",
+            severity: "major",
+            claimType: "general",
+            claimText: "Unsupported claim.",
+            status: "unsupported",
+            evidenceSourceIds: [],
+            explanation: "No verified support.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: allowedUrls,
+    });
+
+    const notVerifiable = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-005",
+            severity: "minor",
+            claimType: "general",
+            claimText: "Not verifiable claim.",
+            status: "not_verifiable",
+            evidenceSourceIds: [],
+            explanation: "Insufficient evidence.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: allowedUrls,
+    });
+
+    assert.equal(unsupported.valid, true);
+    assert.equal(notVerifiable.valid, true);
+  });
+
+  it("allows conflicting findings with verified evidence and without evidence", () => {
+    const withEvidence = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-006",
+            severity: "critical",
+            claimType: "cvss",
+            claimText: "Conflicting CVSS.",
+            status: "conflicting",
+            evidenceSourceIds: [AUTHORITATIVE_SOURCES[0].id],
+            explanation: "Conflicts with verified score.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: allowedUrls,
+    });
+
+    const withoutEvidence = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-007",
+            severity: "critical",
+            claimType: "cvss",
+            claimText: "Conflicting CVSS without catalog refs.",
+            status: "conflicting",
+            evidenceSourceIds: [],
+            explanation: "Conflict described without catalog evidence.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: allowedUrls,
+    });
+
+    assert.equal(withEvidence.valid, true);
+    assert.equal(withoutEvidence.valid, true);
+  });
+
+  it("does not classify finding IDs as evidence IDs in diagnostics", () => {
+    const review = buildReview({
+      findings: [
+        {
+          findingId: "F-002",
+          severity: "major",
+          claimType: "general",
+          claimText: "Supported without evidence.",
+          status: "supported",
+          evidenceSourceIds: [],
+          explanation: "Missing evidence.",
+          suggestedCorrection: null,
+        },
+        {
+          findingId: "F-003",
+          severity: "major",
+          claimType: "general",
+          claimText: "Another supported finding without evidence.",
+          status: "supported",
+          evidenceSourceIds: [],
+          explanation: "Missing evidence.",
+          suggestedCorrection: null,
+        },
+      ],
+    });
+    const validation = validateSolReviewOutput({
+      review,
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: allowedUrls,
+    });
+    const diagnostics = collectValidationDiagnostics({
+      errors: validation.errors,
+      index: buildTestEvidenceIndex(),
+      review,
+    });
+
+    assert.equal(diagnostics.findingContractIssues.length, 2);
+    assert.deepEqual(
+      diagnostics.findingContractIssues.map((issue) => issue.findingId).sort(),
+      ["F-002", "F-003"],
+    );
+    assert.ok(
+      diagnostics.evidenceClassificationDiagnostics.every(
+        (entry) => entry.evidenceId !== "F-002" && entry.evidenceId !== "F-003",
+      ),
+    );
+  });
+
+  it("rejects finding IDs used as evidenceSourceIds", () => {
+    const validation = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-002",
+            severity: "major",
+            claimType: "general",
+            claimText: "Finding ID used as evidence.",
+            status: "supported",
+            evidenceSourceIds: ["F-002"],
+            explanation: "Invalid evidence reference.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: allowedUrls,
+    });
+
+    assert.equal(validation.valid, false);
+    assert.ok(
+      validation.errors.includes("finding_id_used_as_evidence:F-002:F-002"),
+    );
+  });
+
+  it("normalizes source UUID aliases and deduplicates evidence IDs", () => {
+    const index = buildTestEvidenceIndex();
+    const sourceId = AUTHORITATIVE_SOURCES[0].id;
+    const normalized = normalizeEvidenceSourceIds(
+      [
+        sourceId,
+        `source:${sourceId}`,
+        "url:https://NVD.NIST.GOV/vuln/detail/CVE-2024-21412",
+        "claim-cve",
+        "claim-cve",
+      ],
+      index,
+    );
+
+    assert.deepEqual(normalized, [
+      sourceId,
+      `source:${sourceId}`,
+      "url:https://nvd.nist.gov/vuln/detail/cve-2024-21412",
+      "claim-cve",
+    ]);
+
+    const sanitized = sanitizeSolReviewEvidenceReferences(
+      buildReview({
+        findings: [
+          {
+            findingId: "F-alias",
+            severity: "informational",
+            claimType: "general",
+            claimText: "Alias normalized.",
+            status: "supported",
+            evidenceSourceIds: [
+              ` source:${sourceId} `,
+              `source:${sourceId}`,
+              "url:https://NVD.NIST.GOV/vuln/detail/CVE-2024-21412",
+            ],
+            explanation: "Normalized aliases.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      index,
+    );
+
+    const validation = validateSolReviewOutput({
+      review: sanitized,
+      contentType: "article",
+      evidenceIndex: index,
+      allowedSourceUrls: allowedUrls,
+    });
+
+    assert.equal(validation.valid, true);
+    assert.equal(sanitized.findings[0]?.evidenceSourceIds.length, 2);
+  });
+});
+
+describe("Phase 5 bounded review repair eligibility", () => {
+  it("allows one repair attempt for correctable contract errors only", () => {
+    assert.equal(
+      isCorrectableReviewValidationError(
+        "supported_finding_missing_evidence:F-002",
+      ),
+      true,
+    );
+    assert.equal(
+      isCorrectableReviewValidationError(
+        "partially_supported_finding_missing_evidence:F-003",
+      ),
+      true,
+    );
+    assert.equal(
+      isCorrectableReviewValidationError("finding_id_used_as_evidence:F-002:F-002"),
+      true,
+    );
+    assert.equal(
+      isCorrectableValidationFailure([
+        "supported_finding_missing_evidence:F-002",
+        "partially_supported_finding_missing_evidence:F-003",
+      ]),
+      true,
+    );
+    assert.equal(
+      shouldAttemptReviewRepair({
+        validationErrors: ["supported_finding_missing_evidence:F-002"],
+        repairAttempted: false,
+      }),
+      true,
+    );
+    assert.equal(
+      shouldAttemptReviewRepair({
+        validationErrors: ["supported_finding_missing_evidence:F-002"],
+        repairAttempted: true,
+      }),
+      false,
+    );
+  });
+
+  it("does not repair non-correctable validation failures", () => {
+    assert.equal(
+      isCorrectableValidationFailure([
+        "supported_finding_missing_evidence:F-002",
+        "unknown_evidence_source_id:invented",
+      ]),
+      false,
+    );
+    assert.equal(
+      shouldAttemptReviewRepair({
+        validationErrors: ["unknown_evidence_source_id:invented"],
+        repairAttempted: false,
+      }),
+      false,
+    );
+  });
+
+  it("repairs locally normalized evidence without introducing unknown IDs", () => {
+    const index = buildTestEvidenceIndex();
+    const broken = buildReview({
+      findings: [
+        {
+          findingId: "F-002",
+          severity: "informational",
+          claimType: "cve_id",
+          claimText: "Missing evidence before repair.",
+          status: "supported",
+          evidenceSourceIds: [],
+          explanation: "Needs repair.",
+          suggestedCorrection: null,
+        },
+      ],
+    });
+    const initial = validateSolReviewOutput({
+      review: broken,
+      contentType: "article",
+      evidenceIndex: index,
+      allowedSourceUrls: new Set([
+        "https://nvd.nist.gov/vuln/detail/cve-2024-21412",
+      ]),
+    });
+    assert.equal(initial.valid, false);
+
+    const repaired = sanitizeSolReviewEvidenceReferences(
+      {
+        ...broken,
+        findings: [
+          {
+            ...broken.findings[0]!,
+            evidenceSourceIds: ["claim-cve"],
+          },
+        ],
+      },
+      index,
+    );
+    const second = validateSolReviewOutput({
+      review: repaired,
+      contentType: "article",
+      evidenceIndex: index,
+      allowedSourceUrls: new Set([
+        "https://nvd.nist.gov/vuln/detail/cve-2024-21412",
+      ]),
+    });
+
+    assert.equal(second.valid, true);
+    assert.equal(
+      shouldAttemptReviewRepair({
+        validationErrors: ["unknown_evidence_source_id:invented"],
+        repairAttempted: false,
+      }),
+      false,
+    );
   });
 });
