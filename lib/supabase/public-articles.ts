@@ -186,7 +186,7 @@ export function mapPublicArticleCard(
     publishedAtIso,
     publishedAtFormatted: formatArticleDate(publishedAtIso),
     updatedAtIso: row.updated_at ?? publishedAtIso,
-    readTime: calculateReadTime(row.content, row.read_time),
+    readTime: calculateReadTime(row.content),
     featured: row.featured,
     featured_image: row.featured_image,
     featured_image_alt: row.featured_image_alt,

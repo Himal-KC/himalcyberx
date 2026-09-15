@@ -9,16 +9,19 @@ const testDir = dirname(fileURLToPath(import.meta.url));
 
 const {
   appendArticleKeyTakeawaysToContent,
-  ARTICLE_DRAFT_INSERT_FIELDS,
-  ARTICLE_FORBIDDEN_INSERT_FIELDS,
-  buildAgentRunSaveUpdate,
+  ARTICLE_FORBIDDEN_AGENT_INSERT_FIELDS,
   buildArticleDraftInsertPayload,
+  listUnexpectedArticleInsertFields,
+} = (await import(pathToFileURL(join(testDir, "../../articles/db-schema.ts")).href)) as typeof import("../../articles/db-schema");
+
+const {
+  buildAgentRunSaveUpdate,
   buildGenerateDraftResult,
   buildLabDraftInsertPayload,
   buildTutorialDraftInsertPayload,
   isDraftContentRow,
   LAB_DRAFT_INSERT_FIELDS,
-  listUnexpectedInsertFields,
+  listPayloadFieldsOutsideAllowlist,
   normalizeQualityScore,
   resolveSafeCategoryId,
   serializeGenerationMetadata,
@@ -70,7 +73,6 @@ describe("save draft payload shape", () => {
       qualityScore: 88.6,
       categoryId: "00000000-0000-4000-8000-000000000099",
       preparedContent: ARTICLE_DRAFT.content,
-      readTime: "1 min read",
     });
 
     assert.equal(payload.status, "draft");
@@ -79,7 +81,7 @@ describe("save draft payload shape", () => {
     assert.equal(payload.fact_check_status, "pending");
     assert.equal(payload.quality_score, 89);
     assert.equal(payload.category_id, "00000000-0000-4000-8000-000000000099");
-    assert.equal(payload.published_at, undefined);
+    assert.equal("published_at" in payload, false);
   });
 
   it("drops invalid category_id values safely", () => {
@@ -91,7 +93,6 @@ describe("save draft payload shape", () => {
       qualityScore: 80,
       categoryId: "not-a-uuid",
       preparedContent: ARTICLE_DRAFT.content,
-      readTime: "1 min read",
     });
 
     assert.equal(payload.category_id, undefined);
@@ -106,15 +107,14 @@ describe("save draft payload shape", () => {
       factCheckStatus: "pending",
       qualityScore: 80,
       preparedContent: ARTICLE_DRAFT.content,
-      readTime: "1 min read",
     });
 
     assert.equal(payload.status, "draft");
-    assert.equal(payload.published_at, undefined);
+    assert.equal("published_at" in payload, false);
     assert.equal("notify_subscribers" in payload, false);
   });
 
-  it("does not include key_takeaways or other non-article columns", () => {
+  it("does not include key_takeaways, read_time, or other non-article columns", () => {
     const payload = buildArticleDraftInsertPayload({
       draft: ARTICLE_DRAFT,
       slug: "cve-2024-21412",
@@ -122,18 +122,15 @@ describe("save draft payload shape", () => {
       factCheckStatus: "pending",
       qualityScore: 80,
       preparedContent: ARTICLE_DRAFT.content,
-      readTime: "1 min read",
     });
 
     assert.equal("key_takeaways" in payload, false);
-    for (const field of ARTICLE_FORBIDDEN_INSERT_FIELDS) {
+    assert.equal("read_time" in payload, false);
+    for (const field of ARTICLE_FORBIDDEN_AGENT_INSERT_FIELDS) {
       assert.equal(field in payload, false, `forbidden field present: ${field}`);
     }
 
-    assert.deepEqual(
-      listUnexpectedInsertFields(payload as Record<string, unknown>, ARTICLE_DRAFT_INSERT_FIELDS),
-      [],
-    );
+    assert.deepEqual(listUnexpectedArticleInsertFields(payload), []);
   });
 
   it("embeds generated key takeaways into article content instead of a DB column", () => {
@@ -152,10 +149,10 @@ describe("save draft payload shape", () => {
       factCheckStatus: "pending",
       qualityScore: 80,
       preparedContent: merged,
-      readTime: "1 min read",
     });
 
     assert.equal("key_takeaways" in payload, false);
+    assert.equal("read_time" in payload, false);
     assert.match(payload.content ?? "", /Key Takeaways/i);
   });
 });
@@ -200,7 +197,7 @@ describe("content-type draft payload isolation", () => {
     assert.equal("key_takeaways" in payload, true);
     assert.equal("content" in payload, false);
     assert.deepEqual(
-      listUnexpectedInsertFields(payload as Record<string, unknown>, TUTORIAL_DRAFT_INSERT_FIELDS),
+      listPayloadFieldsOutsideAllowlist(payload as Record<string, unknown>, TUTORIAL_DRAFT_INSERT_FIELDS),
       [],
     );
   });
@@ -247,7 +244,7 @@ describe("content-type draft payload isolation", () => {
     assert.equal("content" in payload, false);
     assert.equal("key_takeaways" in payload, false);
     assert.deepEqual(
-      listUnexpectedInsertFields(payload as Record<string, unknown>, LAB_DRAFT_INSERT_FIELDS),
+      listPayloadFieldsOutsideAllowlist(payload as Record<string, unknown>, LAB_DRAFT_INSERT_FIELDS),
       [],
     );
   });

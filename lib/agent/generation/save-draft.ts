@@ -1,11 +1,12 @@
 import "server-only";
 
-import { calculateReadTime } from "@/lib/articles/read-time";
 import { prepareRichContentForSave } from "@/lib/content/sanitize-on-save";
 import {
   appendArticleKeyTakeawaysToContent,
-  buildAdminUrls,
   buildArticleDraftInsertPayload,
+} from "@/lib/articles/db-schema";
+import {
+  buildAdminUrls,
   buildGenerateDraftResult,
   buildLabDraftInsertPayload,
   buildTutorialDraftInsertPayload,
@@ -160,7 +161,6 @@ export async function saveGeneratedDraft({
       qualityScore,
       categoryId,
       preparedContent: prepareRichContentForSave(articleContent),
-      readTime: calculateReadTime(articleContent),
     });
 
     const inserted = await insertDraftRow(supabase, "articles", payload);

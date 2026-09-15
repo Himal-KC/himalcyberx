@@ -44,7 +44,8 @@ export interface Article {
   category_id: string | null;
   author: string;
   published_at: string | null;
-  read_time: string | null;
+  /** @deprecated Not a production articles column; derive read time from content. */
+  read_time?: string | null;
   content_type: ArticleContentType;
   label: string | null;
   featured: boolean;
@@ -62,10 +63,8 @@ export interface Article {
   quality_score: number | null;
   fact_check_status: AgentFactCheckStatus | null;
   last_verified_at: string | null;
-  body: Record<string, unknown> | null;
-  key_takeaways: string[] | null;
-  hcx_analysis: Record<string, unknown> | null;
-  technical_details: Record<string, unknown> | null;
+  /** @deprecated Not a production articles column; tutorials only. */
+  key_takeaways?: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -78,7 +77,6 @@ export type ArticleInsert = {
   category_id?: string | null;
   author: string;
   published_at?: string | null;
-  read_time?: string | null;
   content_type?: ArticleContentType;
   label?: string | null;
   featured?: boolean;
@@ -96,10 +94,6 @@ export type ArticleInsert = {
   quality_score?: number | null;
   fact_check_status?: AgentFactCheckStatus | null;
   last_verified_at?: string | null;
-  body?: Record<string, unknown> | null;
-  key_takeaways?: string[] | null;
-  hcx_analysis?: Record<string, unknown> | null;
-  technical_details?: Record<string, unknown> | null;
   id?: string;
   created_at?: string;
   updated_at?: string;
@@ -213,6 +207,68 @@ export type AgentSourceInsert = {
 };
 
 export type AgentSourceUpdate = Partial<AgentSourceInsert>;
+
+export type AgentReviewStatus = "pass" | "needs_review" | "fail";
+
+export interface AgentReviewRow {
+  id: string;
+  agent_run_id: string;
+  content_type: AgentContentType;
+  content_id: string;
+  status: AgentReviewStatus;
+  fact_check_status: AgentFactCheckStatus;
+  review_model: string;
+  review_version: string;
+  draft_fingerprint: string;
+  quality_score: number;
+  summary: string;
+  findings: Record<string, unknown>[] | null;
+  quality_breakdown: Record<string, unknown> | null;
+  unsupported_claims: string[] | null;
+  conflicting_claims: string[] | null;
+  source_integrity: Record<string, unknown> | null;
+  internal_link_integrity: Record<string, unknown> | null;
+  seo_review: Record<string, unknown> | null;
+  readability_review: Record<string, unknown> | null;
+  originality_review: Record<string, unknown> | null;
+  safety_review: Record<string, unknown> | null;
+  publication_recommendation: string | null;
+  warnings: string[] | null;
+  review_metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AgentReviewInsert = {
+  agent_run_id: string;
+  content_type: AgentContentType;
+  content_id: string;
+  status: AgentReviewStatus;
+  fact_check_status: AgentFactCheckStatus;
+  review_model: string;
+  review_version: string;
+  draft_fingerprint: string;
+  quality_score: number;
+  summary: string;
+  findings?: Record<string, unknown>[] | null;
+  quality_breakdown?: Record<string, unknown> | null;
+  unsupported_claims?: string[] | null;
+  conflicting_claims?: string[] | null;
+  source_integrity?: Record<string, unknown> | null;
+  internal_link_integrity?: Record<string, unknown> | null;
+  seo_review?: Record<string, unknown> | null;
+  readability_review?: Record<string, unknown> | null;
+  originality_review?: Record<string, unknown> | null;
+  safety_review?: Record<string, unknown> | null;
+  publication_recommendation?: string | null;
+  warnings?: string[] | null;
+  review_metadata?: Record<string, unknown> | null;
+  id?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type AgentReviewUpdate = Partial<AgentReviewInsert>;
 
 export type LabStatus = "draft" | "published";
 
@@ -589,6 +645,12 @@ export interface Database {
         Row: AgentSource;
         Insert: AgentSourceInsert;
         Update: AgentSourceUpdate;
+        Relationships: TableRelationship[];
+      };
+      agent_reviews: {
+        Row: AgentReviewRow;
+        Insert: AgentReviewInsert;
+        Update: AgentReviewUpdate;
         Relationships: TableRelationship[];
       };
       labs: {
