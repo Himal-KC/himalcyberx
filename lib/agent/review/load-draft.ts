@@ -7,6 +7,7 @@ import {
   buildLabReviewFingerprintFields,
   buildTutorialReviewFingerprintFields,
 } from "@/lib/agent/review/fingerprint-core";
+import { canonicalizeRichContentForStorage } from "@/lib/content/canonical-html-core";
 import {
   buildArticleDraftFromRow,
   buildLabDraftFromRow,
@@ -18,9 +19,44 @@ import {
 import type { ReviewDraftSnapshot } from "@/lib/agent/review/types";
 import { getAgentRun } from "@/lib/supabase/admin-agent";
 import type { AgentRun } from "@/lib/supabase/types";
+import type { Article, Lab, Tutorial } from "@/lib/supabase/types";
 import { createClient } from "@/lib/supabase/server";
 
 type AdminSupabase = Awaited<ReturnType<typeof createClient>>;
+
+function canonicalizeArticleRow(row: Article): Article {
+  return {
+    ...row,
+    content: canonicalizeRichContentForStorage(row.content ?? ""),
+  };
+}
+
+function canonicalizeTutorialRow(row: Tutorial): Tutorial {
+  return {
+    ...row,
+    requirements: canonicalizeRichContentForStorage(row.requirements ?? ""),
+    introduction: canonicalizeRichContentForStorage(row.introduction ?? ""),
+    instructions: canonicalizeRichContentForStorage(row.instructions ?? ""),
+    key_takeaways: canonicalizeRichContentForStorage(row.key_takeaways ?? ""),
+    security_notes: canonicalizeRichContentForStorage(row.security_notes ?? ""),
+  };
+}
+
+function canonicalizeLabRow(row: Lab): Lab {
+  return {
+    ...row,
+    learning_objectives: canonicalizeRichContentForStorage(
+      row.learning_objectives ?? "",
+    ),
+    requirements_tools: canonicalizeRichContentForStorage(
+      row.requirements_tools ?? "",
+    ),
+    introduction: canonicalizeRichContentForStorage(row.introduction ?? ""),
+    instructions: canonicalizeRichContentForStorage(row.instructions ?? ""),
+    expected_result: canonicalizeRichContentForStorage(row.expected_result ?? ""),
+    security_notes: canonicalizeRichContentForStorage(row.security_notes ?? ""),
+  };
+}
 
 export async function loadReviewDraftSnapshot(
   supabase: AdminSupabase,
@@ -63,7 +99,8 @@ export async function loadReviewDraftSnapshot(
       };
     }
 
-    const draft = buildArticleDraftFromRow(data, metadata, run.topic);
+    const canonicalRow = canonicalizeArticleRow(data);
+    const draft = buildArticleDraftFromRow(canonicalRow, metadata, run.topic);
     return {
       snapshot: buildReviewDraftSnapshot({
         agentRunId: run.id,
@@ -74,7 +111,7 @@ export async function loadReviewDraftSnapshot(
         draft,
         metadata,
         reviewFingerprintFields: buildArticleReviewFingerprintFields({
-          row: data,
+          row: canonicalRow,
           metadata,
         }),
       }),
@@ -105,7 +142,8 @@ export async function loadReviewDraftSnapshot(
       };
     }
 
-    const draft = buildTutorialDraftFromRow(data, metadata, run.topic);
+    const canonicalRow = canonicalizeTutorialRow(data);
+    const draft = buildTutorialDraftFromRow(canonicalRow, metadata, run.topic);
     return {
       snapshot: buildReviewDraftSnapshot({
         agentRunId: run.id,
@@ -116,7 +154,7 @@ export async function loadReviewDraftSnapshot(
         draft,
         metadata,
         reviewFingerprintFields: buildTutorialReviewFingerprintFields({
-          row: data,
+          row: canonicalRow,
           metadata,
         }),
       }),
@@ -146,7 +184,8 @@ export async function loadReviewDraftSnapshot(
     };
   }
 
-  const draft = buildLabDraftFromRow(data, metadata, run.topic);
+  const canonicalRow = canonicalizeLabRow(data);
+  const draft = buildLabDraftFromRow(canonicalRow, metadata, run.topic);
   return {
     snapshot: buildReviewDraftSnapshot({
       agentRunId: run.id,
@@ -157,7 +196,7 @@ export async function loadReviewDraftSnapshot(
       draft,
       metadata,
       reviewFingerprintFields: buildLabReviewFingerprintFields({
-        row: data,
+        row: canonicalRow,
         metadata,
       }),
     }),

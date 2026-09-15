@@ -246,11 +246,13 @@ export async function runAgentGeneration(
 
   const draft = sanitizeGeneratedRichFields(
     filterSourceMappings(generated.draft, context.allowedSourceUrls),
+    context.allowedSourceUrls,
   );
 
   const structureError = validateGeneratedDraftStructure(
     draft,
     run.content_type,
+    context.allowedSourceUrls,
   );
   if (structureError) {
     logGenerationValidationFailure(

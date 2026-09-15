@@ -1,15 +1,12 @@
-import { isRichHtmlContent } from "@/lib/content/html";
-import { sanitizeRichContentHtml } from "@/lib/content/sanitize-html";
+import { canonicalizeRichContentForStorage } from "@/lib/content/canonical-html-core";
 
 export function prepareRichContentForSave(content: string): string {
-  const trimmed = content.trim();
-  if (!trimmed) {
-    return "";
-  }
+  return canonicalizeRichContentForStorage(content);
+}
 
-  if (isRichHtmlContent(trimmed)) {
-    return sanitizeRichContentHtml(trimmed);
-  }
-
-  return trimmed;
+export function prepareAgentRichContentForSave(
+  content: string,
+  allowedSourceUrls: readonly string[],
+): string {
+  return canonicalizeRichContentForStorage(content, { allowedSourceUrls });
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { buildArticleInsertPayload, buildArticleUpdateFields } from "@/lib/articles/insert-payload";
+import { prepareRichContentForSave } from "@/lib/content/sanitize-on-save";
 import { resolveStoredArticleAuthor } from "@/lib/articles/author";
 import {
   parseArticleFormData,
@@ -192,7 +193,7 @@ export async function updateArticle(
     title: input.title,
     slug: input.slug,
     excerpt: input.excerpt,
-    content: input.content,
+    content: prepareRichContentForSave(input.content),
     author,
     category_id: input.categoryId || null,
     status: input.status,

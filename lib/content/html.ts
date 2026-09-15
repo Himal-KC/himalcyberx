@@ -1,10 +1,19 @@
+import {
+  canonicalizeRichContentForStorage,
+  looksLikeRichHtml,
+} from "@/lib/content/canonical-html-core";
+
 const HTML_CONTENT_PATTERN =
-  /^<(p|h[1-6]|ul|ol|blockquote|pre|div|table|hr|span|strong|em|code)\b/i;
+  /^(?:<|\\<|&lt;)(p|h[1-6]|ul|ol|blockquote|pre|div|table|hr|span|strong|em|code|a|li|article|section|figure)\b/i;
 
 export function isRichHtmlContent(content: string): boolean {
   const trimmed = content.trim();
   if (!trimmed) {
     return false;
+  }
+
+  if (looksLikeRichHtml(trimmed)) {
+    return true;
   }
 
   return HTML_CONTENT_PATTERN.test(trimmed);
@@ -45,11 +54,13 @@ export function getInitialEditorContent(content: string): string {
     return "";
   }
 
-  if (isRichHtmlContent(content)) {
-    return content;
+  const canonical = canonicalizeRichContentForStorage(content);
+
+  if (isRichHtmlContent(canonical)) {
+    return canonical;
   }
 
-  return plainTextToEditorHtml(content);
+  return plainTextToEditorHtml(canonical);
 }
 
 export function stripRichHtml(content: string): string {

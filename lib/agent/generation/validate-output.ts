@@ -1,6 +1,11 @@
+import {
+  canonicalizeRichContentForStorage,
+  containsBackslashEscapedHtmlTags,
+  containsEntityEscapedHtmlTags,
+  containsMarkdownHrefValues,
+  containsNestedAnchorTags,
+} from "@/lib/content/canonical-html-core";
 import { isValidSlug as isValidArticleSlug } from "@/lib/articles/validation";
-import { isRichHtmlContent } from "@/lib/content/html";
-import { sanitizeRichContentHtml } from "@/lib/content/sanitize-html";
 import { isValidLabSlug } from "@/lib/labs/validation";
 import { isValidTutorialSlug } from "@/lib/tutorials/validation";
 import type { AgentContentType } from "@/lib/supabase/types";
@@ -49,19 +54,10 @@ export function containsProhibitedHtml(content: string): boolean {
 
 export function sanitizeGeneratedRichFields(
   draft: GeneratedDraft,
+  allowedSourceUrls?: readonly string[],
 ): GeneratedDraft {
-  const sanitizeField = (value: string): string => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return "";
-    }
-
-    if (isRichHtmlContent(trimmed)) {
-      return sanitizeRichContentHtml(trimmed);
-    }
-
-    return trimmed;
-  };
+  const sanitizeField = (value: string): string =>
+    canonicalizeRichContentForStorage(value, { allowedSourceUrls });
 
   if (draft.contentType === "article") {
     return {
@@ -93,9 +89,41 @@ export function sanitizeGeneratedRichFields(
   };
 }
 
+function collectCanonicalRichFields(
+  draft: GeneratedDraft,
+  allowedSourceUrls?: readonly string[],
+): string[] {
+  const sanitizeField = (value: string): string =>
+    canonicalizeRichContentForStorage(value, { allowedSourceUrls });
+
+  if (draft.contentType === "article") {
+    return [sanitizeField(draft.content)];
+  }
+
+  if (draft.contentType === "tutorial") {
+    return [
+      sanitizeField(draft.requirements),
+      sanitizeField(draft.introduction),
+      sanitizeField(draft.instructions),
+      sanitizeField(draft.keyTakeaways),
+      sanitizeField(draft.securityNotes),
+    ];
+  }
+
+  return [
+    sanitizeField(draft.learningObjectives),
+    sanitizeField(draft.requirementsTools),
+    sanitizeField(draft.introduction),
+    sanitizeField(draft.instructions),
+    sanitizeField(draft.expectedResult),
+    sanitizeField(draft.securityNotes),
+  ];
+}
+
 export function validateGeneratedDraftStructure(
   draft: GeneratedDraft,
   expectedContentType: AgentContentType,
+  allowedSourceUrls?: readonly string[],
 ): string | null {
   if (draft.contentType !== expectedContentType) {
     return "Generated output did not match the requested content type.";
@@ -105,29 +133,20 @@ export function validateGeneratedDraftStructure(
     return "Generated slug failed validation.";
   }
 
-  const richFields =
-    draft.contentType === "article"
-      ? [draft.content]
-      : draft.contentType === "tutorial"
-        ? [
-            draft.requirements,
-            draft.introduction,
-            draft.instructions,
-            draft.keyTakeaways,
-            draft.securityNotes,
-          ]
-        : [
-            draft.learningObjectives,
-            draft.requirementsTools,
-            draft.introduction,
-            draft.instructions,
-            draft.expectedResult,
-            draft.securityNotes,
-          ];
+  const richFields = collectCanonicalRichFields(draft, allowedSourceUrls);
 
   for (const field of richFields) {
     if (containsProhibitedHtml(field)) {
       return "Generated output contained prohibited HTML.";
+    }
+
+    if (
+      containsMarkdownHrefValues(field) ||
+      containsNestedAnchorTags(field) ||
+      containsBackslashEscapedHtmlTags(field) ||
+      containsEntityEscapedHtmlTags(field)
+    ) {
+      return "Generated output contained malformed HTML markup.";
     }
   }
 

@@ -75,9 +75,44 @@ export function buildReviewContextPayload(input: {
   };
 }
 
+export function resolveReviewBodyHtmlFromSnapshot(
+  snapshot: ReviewDraftSnapshot,
+): string {
+  const draft = snapshot.draft;
+
+  if (draft.contentType === "article") {
+    return draft.content;
+  }
+
+  if (draft.contentType === "tutorial") {
+    return [
+      draft.introduction,
+      draft.instructions,
+      draft.requirements,
+      draft.keyTakeaways,
+      draft.securityNotes,
+    ]
+      .filter((part) => part.trim())
+      .join("\n\n");
+  }
+
+  return [
+    draft.introduction,
+    draft.instructions,
+    draft.learningObjectives,
+    draft.requirementsTools,
+    draft.expectedResult,
+    draft.securityNotes,
+  ]
+    .filter((part) => part.trim())
+    .join("\n\n");
+}
+
 export function serializeReviewContextForPrompt(
   context: ReviewContextPayload,
 ): string {
+  const draft = context.draftSnapshot.draft;
+
   return JSON.stringify(
     {
       agentRunId: context.agentRunId,
@@ -88,7 +123,10 @@ export function serializeReviewContextForPrompt(
         slug: context.draftSnapshot.slug,
         status: context.draftSnapshot.status,
         contentType: context.draftSnapshot.contentType,
-        body: context.draftSnapshot.draft,
+        bodyHtml: resolveReviewBodyHtmlFromSnapshot(context.draftSnapshot),
+        summaryText:
+          draft.contentType === "article" ? draft.excerpt : draft.description,
+        seo: draft.seo,
         sourceMappings: context.draftSnapshot.sourceMappings,
         internalLinks: context.draftSnapshot.internalLinks,
         warnings: context.draftSnapshot.generationWarnings,
