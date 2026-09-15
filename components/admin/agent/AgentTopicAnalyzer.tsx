@@ -16,6 +16,7 @@ import type {
   AgentRunPageHydration,
   ResumableAgentRunSummary,
 } from "@/lib/agent/resume/resume-core";
+import { buildAgentRunNewTopicHref } from "@/lib/agent/resume/resume-core";
 import type { AgentContentType } from "@/lib/supabase/types";
 import { focusRing } from "@/lib/page-data";
 
@@ -203,7 +204,7 @@ export function AgentTopicAnalyzer({
       <div className="flex flex-wrap items-center justify-between gap-3">
         {initialHydration || resumableRuns.length > 0 ? (
           <Link
-            href="/admin/agent?new=1"
+            href={buildAgentRunNewTopicHref()}
             className={`inline-flex items-center rounded-lg border border-hcx-border px-4 py-2 text-sm font-semibold text-hcx-text hover:bg-hcx-bg/60 ${focusRing}`}
           >
             New Agent Run
@@ -222,14 +223,14 @@ export function AgentTopicAnalyzer({
         </div>
       ) : null}
 
-      {initialHydration && !startNew ? (
-        <AgentActiveRunWorkflow hydration={initialHydration} />
-      ) : null}
-
       <AgentResumeRuns
         runs={resumableRuns}
         activeRunId={activeRunId}
       />
+
+      {initialHydration && !startNew ? (
+        <AgentActiveRunWorkflow hydration={initialHydration} />
+      ) : null}
 
       {showNewTopicFlow ? (
         <>

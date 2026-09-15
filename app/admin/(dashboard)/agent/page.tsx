@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { AgentTopicAnalyzer } from "@/components/admin/agent/AgentTopicAnalyzer";
 import {
+  buildAgentRunResumeHref,
   parseAgentRunPageQuery,
 } from "@/lib/agent/resume/resume-core";
 import { resolveAgentPageHydration } from "@/lib/agent/resume/resume-run";
@@ -10,6 +12,8 @@ export const metadata: Metadata = {
   title: "HCX Agent | HCX Admin",
   robots: { index: false, follow: false },
 };
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminAgentPage({
   searchParams,
@@ -31,6 +35,15 @@ export default async function AdminAgentPage({
         hydrationError: null,
         activeRunId: null,
       };
+
+  if (
+    auth.ok &&
+    resolved.hydration &&
+    !query.requestedRunId &&
+    !query.startNew
+  ) {
+    redirect(buildAgentRunResumeHref(resolved.hydration.agentRunId));
+  }
 
   return (
     <div>
@@ -54,6 +67,7 @@ export default async function AdminAgentPage({
       </div>
 
       <AgentTopicAnalyzer
+        key={resolved.activeRunId ?? (query.startNew ? "new-agent-run" : "no-active-run")}
         resumableRuns={resolved.resumableRuns}
         initialHydration={resolved.hydration}
         hydrationError={resolved.hydrationError}

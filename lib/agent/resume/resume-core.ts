@@ -72,6 +72,14 @@ export function parseAgentRunPageQuery(input: {
   };
 }
 
+export function buildAgentRunResumeHref(agentRunId: string): string {
+  return `/admin/agent?run=${agentRunId}`;
+}
+
+export function buildAgentRunNewTopicHref(): string {
+  return "/admin/agent?new=1";
+}
+
 export function isExcludedFromAutoRestore(run: AgentRun): boolean {
   return (
     run.status === "failed" ||

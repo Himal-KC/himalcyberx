@@ -8,6 +8,8 @@ import type { AgentRun, AgentContentType } from "../../supabase/types";
 const testDir = dirname(fileURLToPath(import.meta.url));
 
 const {
+  buildAgentRunNewTopicHref,
+  buildAgentRunResumeHref,
   buildResumableAgentRunSummary,
   buildResearchResultFromPersistedRun,
   buildResumedAgentRunResult,
@@ -259,6 +261,67 @@ describe("Agent run resume server module boundaries", () => {
   });
 });
 
+describe("Agent run switch navigation", () => {
+  it("builds stable resume and new-topic hrefs", () => {
+    assert.equal(
+      buildAgentRunResumeHref(VALID_RUN_ID),
+      `/admin/agent?run=${VALID_RUN_ID}`,
+    );
+    assert.equal(buildAgentRunNewTopicHref(), "/admin/agent?new=1");
+  });
+
+  it("renders Resume Run as a navigable anchor with the selected run UUID", () => {
+    const resumePanel = readFileSync(
+      join(testDir, "../../../components/admin/agent/AgentResumeRuns.tsx"),
+      "utf8",
+    );
+    assert.match(resumePanel, /<a[\s\S]*href=\{href\}/);
+    assert.match(resumePanel, /buildAgentRunResumeHref\(run\.agentRunId\)/);
+    assert.match(resumePanel, /router\.push\(href\)/);
+    assert.match(resumePanel, /router\.refresh\(\)/);
+    assert.match(resumePanel, /cursor-pointer/);
+    assert.match(resumePanel, /relative z-10/);
+  });
+
+  it("excludes the active run from the switch list", () => {
+    const resumePanel = readFileSync(
+      join(testDir, "../../../components/admin/agent/AgentResumeRuns.tsx"),
+      "utf8",
+    );
+    assert.match(resumePanel, /runs\.filter\(\(run\) => run\.agentRunId !== activeRunId\)/);
+    assert.match(resumePanel, /Switch to another run/);
+  });
+
+  it("places the switch list above the active workflow and remounts on run change", () => {
+    const analyzerSource = readFileSync(
+      join(testDir, "../../../components/admin/agent/AgentTopicAnalyzer.tsx"),
+      "utf8",
+    );
+    assert.match(
+      analyzerSource,
+      /AgentResumeRuns[\s\S]{0,200}AgentActiveRunWorkflow/,
+    );
+
+    const pageSource = readFileSync(
+      join(testDir, "../../../app/admin/(dashboard)/agent/page.tsx"),
+      "utf8",
+    );
+    assert.match(pageSource, /key=\{resolved\.activeRunId/);
+    assert.match(pageSource, /export const dynamic = "force-dynamic"/);
+    assert.match(pageSource, /redirect\(buildAgentRunResumeHref/);
+  });
+
+  it("uses server hydration for switched runs without external side effects", () => {
+    const resumeSource = readFileSync(join(testDir, "resume-run.ts"), "utf8");
+    assert.match(resumeSource, /resolveAgentPageHydration/);
+    assert.match(resumeSource, /hydratePersistedAgentRun/);
+    assert.doesNotMatch(
+      resumeSource,
+      /runAgentResearch|runAgentReview|runAgentReadinessEvaluation|runAgentContentPublication|deliverPublicContentNotification/,
+    );
+  });
+});
+
 describe("Agent run refresh restore", () => {
   it("parses stable page query params for run restore and new-topic mode", () => {
     assert.deepEqual(parseAgentRunPageQuery({ run: VALID_RUN_ID }), {
@@ -384,13 +447,14 @@ describe("Agent run refresh server contracts", () => {
       join(testDir, "../../../components/admin/agent/AgentResumeRuns.tsx"),
       "utf8",
     );
-    assert.match(resumePanel, /\/admin\/agent\?run=\$\{run\.agentRunId\}/);
+    assert.match(resumePanel, /buildAgentRunResumeHref/);
+    assert.match(resumePanel, /router\.push\(href\)/);
 
     const analyzerSource = readFileSync(
       join(testDir, "../../../components/admin/agent/AgentTopicAnalyzer.tsx"),
       "utf8",
     );
-    assert.match(analyzerSource, /\/admin\/agent\?new=1/);
+    assert.match(analyzerSource, /buildAgentRunNewTopicHref/);
     assert.match(analyzerSource, /router\.replace\(`\/admin\/agent\?run=/);
     assert.match(analyzerSource, /AgentActiveRunWorkflow/);
     assert.match(analyzerSource, /initialHydration/);

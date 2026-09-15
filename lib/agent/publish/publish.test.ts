@@ -681,7 +681,7 @@ describe("Phase 8 architecture contracts", () => {
       join(testDir, "../../../components/admin/agent/AgentResumeRuns.tsx"),
       "utf8",
     );
-    assert.match(resumePanel, /\/admin\/agent\?run=\$\{run\.agentRunId\}/);
+    assert.match(resumePanel, /buildAgentRunResumeHref/);
 
     const pageSource = readFileSync(
       join(testDir, "../../../app/admin/(dashboard)/agent/page.tsx"),
