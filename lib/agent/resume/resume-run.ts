@@ -20,6 +20,13 @@ import {
   type ResumedAgentRunResult,
   validateResumeAgentRunInput,
 } from "@/lib/agent/resume/resume-core";
+import {
+  buildOutOfBandPublishedResult,
+  buildProvenPhase8PublishedResult,
+  type PublishedContentContext,
+} from "@/lib/agent/publish/published-content-core";
+import { getPhase8PublicationProofFromMetadata } from "@/lib/agent/publish/metadata-core";
+import type { RunPublishResult } from "@/lib/agent/publish/types";
 import { buildReadinessFingerprint } from "@/lib/agent/readiness/readiness-fingerprint-core";
 import { loadPersistedReadinessForRun } from "@/lib/agent/readiness/engine";
 import {
@@ -59,6 +66,41 @@ async function loadLinkedContentRecord(
   }
 
   return data as LinkedContentRecord;
+}
+
+function buildLatestPublishFromRun(input: {
+  run: AgentRun;
+  content: LinkedContentRecord;
+}): RunPublishResult | null {
+  const metadata =
+    input.run.generation_metadata && typeof input.run.generation_metadata === "object"
+      ? (input.run.generation_metadata as Record<string, unknown>)
+      : null;
+
+  const context: PublishedContentContext = {
+    agentRunId: input.run.id,
+    contentType: input.run.content_type,
+    contentId: input.content.id,
+    slug: input.content.slug,
+  };
+
+  const proof = getPhase8PublicationProofFromMetadata(metadata, {
+    contentId: input.content.id,
+    contentType: input.run.content_type,
+  });
+
+  if (proof) {
+    return buildProvenPhase8PublishedResult({
+      context,
+      proof,
+    });
+  }
+
+  if (input.content.status === "published") {
+    return buildOutOfBandPublishedResult({ context });
+  }
+
+  return null;
 }
 
 async function loadDraftTitleForRun(
@@ -169,6 +211,8 @@ export async function resumePersistedAgentRun(
         )
       : null;
 
+  const latestPublish = buildLatestPublishFromRun({ run, content });
+
   return {
     ok: true,
     result: buildResumedAgentRunResult({
@@ -177,6 +221,7 @@ export async function resumePersistedAgentRun(
       latestReview,
       featuredImage,
       latestReadiness,
+      latestPublish,
     }),
   };
 }

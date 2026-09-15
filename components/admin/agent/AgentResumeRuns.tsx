@@ -116,6 +116,7 @@ export function AgentResumeRuns({
           initialReview={resumed.latestReview}
           initialFeaturedImage={resumed.featuredImage}
           initialReadiness={resumed.latestReadiness}
+          initialPublish={resumed.latestPublish}
         />
       </section>
     );

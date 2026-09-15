@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { AgentFeaturedImagePanel } from "@/components/admin/agent/AgentFeaturedImagePanel";
+import { AgentPublishPanel } from "@/components/admin/agent/AgentPublishPanel";
 import { AgentReadinessPanel } from "@/components/admin/agent/AgentReadinessPanel";
 import {
   reviewAgentDraft,
   type ReviewAgentDraftState,
 } from "@/lib/actions/agent";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
+import type { RunPublishResult } from "@/lib/agent/publish/types";
 import type { RunReadinessResult } from "@/lib/agent/readiness/types";
 import type { RunReviewResult } from "@/lib/agent/review/types";
 import { focusRing } from "@/lib/page-data";
@@ -43,12 +45,14 @@ export function AgentReviewPanel({
   initialReview = null,
   initialFeaturedImage = { url: null, alt: null },
   initialReadiness = null,
+  initialPublish = null,
 }: {
   agentRunId: string;
   draft: GenerateDraftResult;
   initialReview?: RunReviewResult | null;
   initialFeaturedImage?: { url: string | null; alt: string | null };
   initialReadiness?: RunReadinessResult | null;
+  initialPublish?: RunPublishResult | null;
 }) {
   const [state, formAction, isPending] = useActionState(
     reviewAgentDraft,
@@ -56,6 +60,7 @@ export function AgentReviewPanel({
   );
 
   const review = state.review?.review ?? initialReview?.review;
+  const readiness = initialReadiness;
 
   return (
     <div className="mt-8 rounded-xl border border-hcx-border bg-hcx-bg/40 p-5">
@@ -211,6 +216,12 @@ export function AgentReviewPanel({
             agentRunId={agentRunId}
             draft={draft}
             initialReadiness={initialReadiness}
+          />
+          <AgentPublishPanel
+            agentRunId={agentRunId}
+            draft={draft}
+            readiness={readiness}
+            initialPublish={initialPublish}
           />
         </>
       ) : null}
