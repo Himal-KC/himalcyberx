@@ -1,5 +1,4 @@
-import type { GenerateDraftResult } from "../generation/types";
-import type { PersistedResearchPayload } from "../generation/types";
+import type { GenerateDraftResult, PersistedResearchPayload } from "../generation/types";
 import type { RunReviewResult } from "../review/types";
 import type { RunPublishResult } from "../publish/types";
 import type { RunReadinessResult } from "../readiness/types";
@@ -26,6 +25,7 @@ export interface ResumableAgentRunSummary {
   status: AgentRunStatus;
   stage: AgentRunStage;
   draftTitle: string | null;
+  cardStatusLabel: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -53,6 +53,7 @@ export interface AgentRunPageHydration {
   resumed: ResumedAgentRunResult;
   research: ResearchResult;
   contentAwareness: ContentAwarenessResult | null;
+  presentation: import("../status/presentation-core").AgentRunAdminPresentation;
 }
 
 export function parseAgentRunPageQuery(input: {
@@ -248,6 +249,7 @@ export function validateResumeAgentRunInput(input: {
 export function buildResumableAgentRunSummary(input: {
   run: AgentRun;
   draftTitle: string | null;
+  cardStatusLabel: string;
 }): ResumableAgentRunSummary | null {
   if (!isResumableAgentRun(input.run)) {
     return null;
@@ -260,6 +262,7 @@ export function buildResumableAgentRunSummary(input: {
     status: input.run.status,
     stage: input.run.stage,
     draftTitle: input.draftTitle,
+    cardStatusLabel: input.cardStatusLabel,
     updatedAt: input.run.updated_at,
     createdAt: input.run.created_at,
   };

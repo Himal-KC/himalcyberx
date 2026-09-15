@@ -35,8 +35,13 @@ import {
 } from "@/lib/agent/publish/published-content-core";
 import { getPhase8PublicationProofFromMetadata } from "@/lib/agent/publish/metadata-core";
 import type { RunPublishResult } from "@/lib/agent/publish/types";
-import { buildReadinessFingerprint } from "@/lib/agent/readiness/readiness-fingerprint-core";
+import {
+  buildAgentRunAdminPresentationFromRun,
+  buildSwitchRunCardLabel,
+} from "@/lib/agent/status/presentation-core";
+import { getCurrentDraftFingerprintFromSnapshot } from "@/lib/agent/readiness/readiness-gate-core";
 import { loadPersistedReadinessForRun } from "@/lib/agent/readiness/engine";
+import { buildReadinessFingerprint } from "@/lib/agent/readiness/readiness-fingerprint-core";
 import {
   getAgentRun,
   getAgentSources,
@@ -112,14 +117,6 @@ function buildLatestPublishFromRun(input: {
   return null;
 }
 
-async function loadDraftTitleForRun(
-  supabase: AdminSupabase,
-  run: AgentRun,
-): Promise<string | null> {
-  const content = await loadLinkedContentRecord(supabase, run);
-  return content?.title ?? null;
-}
-
 export async function loadResumableAgentRunSummaries(
   supabase: AdminSupabase,
   limit = 10,
@@ -132,8 +129,23 @@ export async function loadResumableAgentRunSummaries(
   const summaries: ResumableAgentRunSummary[] = [];
 
   for (const run of listed.data) {
-    const draftTitle = await loadDraftTitleForRun(supabase, run);
-    const summary = buildResumableAgentRunSummary({ run, draftTitle });
+    const content = await loadLinkedContentRecord(supabase, run);
+    const draftTitle = content?.title ?? null;
+    const metadata =
+      run.generation_metadata && typeof run.generation_metadata === "object"
+        ? (run.generation_metadata as Record<string, unknown>)
+        : null;
+    const summary = buildResumableAgentRunSummary({
+      run,
+      draftTitle,
+      cardStatusLabel: buildSwitchRunCardLabel({
+        contentType: run.content_type,
+        contentId: content?.id ?? "",
+        contentStatus: content?.status ?? null,
+        runMetadata: metadata,
+        contentTypeOfRun: run.content_type,
+      }),
+    });
     if (summary) {
       summaries.push(summary);
     }
@@ -229,10 +241,21 @@ async function hydratePersistedAgentRun(
             featuredImageAlt: content.featured_image_alt ?? null,
             reviewFingerprint: latestReviewResult.data?.draft_fingerprint ?? null,
           }),
+          {
+            review: latestReview
+              ? {
+                  status: latestReview.review.status,
+                  qualityScore: latestReview.review.qualityScore,
+                }
+              : null,
+          },
         )
       : null;
 
   const latestPublish = buildLatestPublishFromRun({ run, content });
+  const currentDraftFingerprint = reviewContext.snapshot
+    ? getCurrentDraftFingerprintFromSnapshot(reviewContext.snapshot)
+    : null;
   const resumed = buildResumedAgentRunResult({
     run,
     draft,
@@ -240,6 +263,35 @@ async function hydratePersistedAgentRun(
     featuredImage,
     latestReadiness,
     latestPublish,
+  });
+  const presentation = buildAgentRunAdminPresentationFromRun({
+    run,
+    contentId: content.id,
+    contentStatus: content.status,
+    research: {
+      researchQuality: research.researchQuality,
+      researchConfidence: research.researchConfidence,
+    },
+    review: latestReview
+      ? {
+          status: latestReview.review.status,
+          qualityScore: latestReview.review.qualityScore,
+          stale:
+            currentDraftFingerprint !== null &&
+            latestReview.review.draftFingerprint !== currentDraftFingerprint,
+        }
+      : null,
+    readiness: latestReadiness
+      ? {
+          status: latestReadiness.status,
+          readinessScore: latestReadiness.readinessScore,
+          stale: latestReadiness.stale,
+          reviewStale: latestReadiness.warningIssues.some(
+            (entry) => entry.code === "REVIEW_STALE",
+          ),
+        }
+      : null,
+    publish: latestPublish,
   });
 
   return {
@@ -249,6 +301,7 @@ async function hydratePersistedAgentRun(
       resumed,
       research,
       contentAwareness: payload.contentAwareness ?? null,
+      presentation,
     },
   };
 }

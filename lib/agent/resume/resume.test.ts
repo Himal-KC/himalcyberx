@@ -90,9 +90,11 @@ describe("Agent run resume core", () => {
     const summary = buildResumableAgentRunSummary({
       run,
       draftTitle: "Article draft title",
+      cardStatusLabel: "Article · Readiness not checked",
     });
     assert.equal(summary?.agentRunId, VALID_RUN_ID);
     assert.equal(summary?.draftTitle, "Article draft title");
+    assert.equal(summary?.cardStatusLabel, "Article · Readiness not checked");
   });
 
   it("accepts tutorial and lab runs with linked drafts", () => {

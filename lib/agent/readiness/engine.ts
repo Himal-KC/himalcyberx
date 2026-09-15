@@ -455,6 +455,12 @@ export function resetActiveReadinessEvaluationsForTests(): void {
 export function loadPersistedReadinessForRun(
   run: AgentRun,
   currentFingerprint: string,
+  options?: {
+    review?: {
+      status: string;
+      qualityScore: number;
+    } | null;
+  },
 ): RunReadinessResult | null {
   const metadata =
     run.generation_metadata && typeof run.generation_metadata === "object"
@@ -481,17 +487,18 @@ export function loadPersistedReadinessForRun(
     persistedFingerprint: persisted.fingerprint,
     currentFingerprint,
   });
+  const review = options?.review ?? null;
 
   return {
     agentRunId: run.id,
     contentType: run.content_type,
     contentId,
-    status: stale ? "NEEDS_REVIEW" : persisted.status,
+    status: persisted.status,
     readinessScore: persisted.readinessScore,
     fingerprint: persisted.fingerprint,
     stale,
-    phase5Status: null,
-    phase5QualityScore: null,
+    phase5Status: review?.status ?? null,
+    phase5QualityScore: review?.qualityScore ?? null,
     issues: persisted.issues,
     blockingIssues,
     warningIssues,

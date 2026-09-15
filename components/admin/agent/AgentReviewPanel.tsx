@@ -11,6 +11,9 @@ import {
 } from "@/lib/actions/agent";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
 import type { RunPublishResult } from "@/lib/agent/publish/types";
+import {
+  formatFactCheckLabel,
+} from "@/lib/agent/status/presentation";
 import type { RunReadinessResult } from "@/lib/agent/readiness/types";
 import type { RunReviewResult } from "@/lib/agent/review/types";
 import { focusRing } from "@/lib/page-data";
@@ -25,17 +28,6 @@ function statusBadgeClass(status: string): string {
       return "border-hcx-orange/40 bg-hcx-orange/10 text-hcx-orange";
     default:
       return "border-hcx-red/40 bg-hcx-red/10 text-hcx-red";
-  }
-}
-
-function statusLabel(status: string): string {
-  switch (status) {
-    case "pass":
-      return "PASS";
-    case "needs_review":
-      return "NEEDS REVIEW";
-    default:
-      return "FAIL";
   }
 }
 
@@ -101,16 +93,16 @@ export function AgentReviewPanel({
           ) : null}
 
           <div className="flex flex-wrap gap-3">
+            <span className="inline-flex items-center rounded-full border border-hcx-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-hcx-text-secondary">
+              Fact-check
+            </span>
             <span
               className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusBadgeClass(review.status)}`}
             >
-              {statusLabel(review.status)}
-            </span>
-            <span className="inline-flex items-center rounded-full border border-hcx-border px-3 py-1 text-xs font-semibold text-hcx-text">
-              Quality score: {review.qualityScore}
-            </span>
-            <span className="inline-flex items-center rounded-full border border-hcx-border px-3 py-1 text-xs font-semibold text-hcx-text">
-              Fact-check: {review.factCheckStatus}
+              {formatFactCheckLabel({
+                status: review.status,
+                qualityScore: review.qualityScore,
+              })}
             </span>
           </div>
 

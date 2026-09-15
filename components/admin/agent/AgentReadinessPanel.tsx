@@ -8,6 +8,9 @@ import {
 } from "@/lib/actions/agent";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
 import type { RunReadinessResult } from "@/lib/agent/readiness/types";
+import {
+  formatPublicationReadinessLabel,
+} from "@/lib/agent/status/presentation";
 import { focusRing } from "@/lib/page-data";
 
 const initialState: EvaluateAgentReadinessState = {};
@@ -20,17 +23,6 @@ function statusBadgeClass(status: RunReadinessResult["status"]): string {
       return "border-hcx-orange/40 bg-hcx-orange/10 text-hcx-orange";
     default:
       return "border-hcx-red/40 bg-hcx-red/10 text-hcx-red";
-  }
-}
-
-function statusLabel(status: RunReadinessResult["status"]): string {
-  switch (status) {
-    case "READY_TO_PUBLISH":
-      return "READY TO PUBLISH";
-    case "NEEDS_REVIEW":
-      return "NEEDS REVIEW";
-    default:
-      return "BLOCKED";
   }
 }
 
@@ -94,13 +86,20 @@ export function AgentReadinessPanel({
       {readiness ? (
         <div className="mt-5 space-y-5">
           <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center rounded-full border border-hcx-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-hcx-text-secondary">
+              Publication readiness
+            </span>
             <span
               className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${statusBadgeClass(readiness.status)}`}
             >
-              {statusLabel(readiness.status)}
-            </span>
-            <span className="inline-flex items-center rounded-full border border-hcx-border px-3 py-1 text-xs font-semibold text-hcx-text">
-              Readiness score: {readiness.readinessScore}
+              {formatPublicationReadinessLabel({
+                status: readiness.status,
+                readinessScore: readiness.readinessScore,
+                stale: readiness.stale,
+                reviewStale: readiness.warningIssues.some(
+                  (entry) => entry.code === "REVIEW_STALE",
+                ),
+              })}
             </span>
             {readiness.stale ? (
               <span className="inline-flex items-center rounded-full border border-hcx-orange/40 bg-hcx-orange/10 px-3 py-1 text-xs font-semibold text-hcx-orange">

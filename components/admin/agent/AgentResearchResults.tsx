@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { AgentGenerateDraft } from "@/components/admin/agent/AgentGenerateDraft";
 import type { ResearchResult, VerifiedClaimType } from "@/lib/agent/types";
+import {
+  formatResearchAssessmentLabel,
+  formatResearchConfidenceLabel,
+  formatResearchQualityLabel,
+} from "@/lib/agent/status/presentation";
 import type { AgentContentType } from "@/lib/supabase/types";
 import { focusRing } from "@/lib/page-data";
 
@@ -108,17 +113,28 @@ export function AgentResearchResults({
     <section className="rounded-xl border border-hcx-border bg-hcx-card p-6 sm:p-8">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold text-hcx-text">Research Brief</h2>
+        <span className="rounded-full border border-hcx-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-hcx-text-secondary">
+          Research assessment
+        </span>
         <span
           className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${qualityBadgeClass(research.researchQuality)}`}
         >
-          {research.researchQuality.replace("_", " ")}
+          {formatResearchQualityLabel(research.researchQuality)}
         </span>
         <span
           className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${confidenceBadgeClass(research.researchConfidence)}`}
         >
-          {research.researchConfidence} confidence
+          {formatResearchConfidenceLabel(research.researchConfidence)}
         </span>
       </div>
+      <p className="mt-2 text-sm text-hcx-text-secondary">
+        {formatResearchAssessmentLabel({
+          researchQuality: research.researchQuality,
+          researchConfidence: research.researchConfidence,
+        })}
+        . This reflects Phase 3 research only and does not determine publication
+        readiness.
+      </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div>

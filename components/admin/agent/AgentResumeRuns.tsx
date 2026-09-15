@@ -76,8 +76,8 @@ export function AgentResumeRuns({
                     <span className="rounded-full border border-hcx-cyan/30 bg-hcx-cyan/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-hcx-cyan">
                       {contentTypeLabel(run.contentType)}
                     </span>
-                    <span className="rounded-full border border-hcx-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-hcx-text-secondary">
-                      {run.status} · {run.stage}
+                    <span className="rounded-full border border-hcx-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-hcx-text">
+                      {run.cardStatusLabel}
                     </span>
                   </div>
                   <p className="mt-2 font-medium text-hcx-text">{run.topic}</p>

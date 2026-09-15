@@ -4,18 +4,22 @@ import Link from "next/link";
 import { AgentResearchResults } from "@/components/admin/agent/AgentResearchResults";
 import { AgentReviewPanel } from "@/components/admin/agent/AgentReviewPanel";
 import type { AgentRunPageHydration } from "@/lib/agent/resume/resume-core";
+import type { StatusPresentationTone } from "@/lib/agent/status/presentation";
+import { contentTypeAdminLabel } from "@/lib/agent/status/presentation";
 import { focusRing } from "@/lib/page-data";
 
-function contentTypeLabel(
-  contentType: AgentRunPageHydration["resumed"]["contentType"],
-): string {
-  switch (contentType) {
-    case "article":
-      return "Article";
-    case "tutorial":
-      return "Tutorial";
-    case "lab":
-      return "Cyber Lab";
+function summaryToneClass(tone: StatusPresentationTone): string {
+  switch (tone) {
+    case "success":
+      return "text-hcx-green";
+    case "warning":
+      return "text-hcx-orange";
+    case "danger":
+      return "text-hcx-red";
+    case "info":
+      return "text-hcx-cyan";
+    default:
+      return "text-hcx-text";
   }
 }
 
@@ -25,6 +29,7 @@ export function AgentActiveRunWorkflow({
   hydration: AgentRunPageHydration;
 }) {
   const resumed = hydration.resumed;
+  const presentation = hydration.presentation;
 
   return (
     <section className="space-y-6">
@@ -42,19 +47,32 @@ export function AgentActiveRunWorkflow({
             </p>
           </div>
           <span className="rounded-full border border-hcx-border px-3 py-1 text-xs font-semibold uppercase tracking-wide text-hcx-text-secondary">
-            {contentTypeLabel(resumed.contentType)}
+            {contentTypeAdminLabel(resumed.contentType)}
           </span>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-hcx-text-secondary">
-              Run status
-            </p>
-            <p className="mt-1 text-sm text-hcx-text">
-              {resumed.status} · {resumed.stage}
-            </p>
-          </div>
+        <div className="mt-4 rounded-lg border border-hcx-border bg-hcx-bg/40 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-hcx-text-secondary">
+            Run summary
+          </p>
+          <dl className="mt-3 space-y-2">
+            {presentation.summaryLines.map((line) => (
+              <div
+                key={line.domain}
+                className="grid gap-1 sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-baseline"
+              >
+                <dt className="text-xs font-semibold uppercase tracking-wide text-hcx-text-secondary">
+                  {line.label}
+                </dt>
+                <dd className={`text-sm font-medium ${summaryToneClass(line.tone)}`}>
+                  {line.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-hcx-text-secondary">
               Run ID
