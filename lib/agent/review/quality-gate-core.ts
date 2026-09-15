@@ -5,16 +5,6 @@ import type {
   SolReviewOutput,
 } from "./types";
 
-export const QUALITY_WEIGHTS = {
-  factualGrounding: 35,
-  sourceIntegrity: 20,
-  technicalAccuracy: 15,
-  seoStructure: 10,
-  readability: 10,
-  originality: 5,
-  internalLinkIntegrity: 5,
-} as const;
-
 const MATERIAL_STATUSES = new Set(["unsupported", "conflicting"]);
 
 const CRITICAL_SEVERITIES = new Set(["critical", "major"]);
@@ -27,6 +17,34 @@ const CRITICAL_CLAIM_TYPES = new Set([
   "exploitation",
   "security_impact",
 ]);
+
+export function hasMaterialUnsupportedFinding(review: SolReviewOutput): boolean {
+  return review.findings.some(
+    (finding) =>
+      MATERIAL_STATUSES.has(finding.status) &&
+      (CRITICAL_SEVERITIES.has(finding.severity) ||
+        CRITICAL_CLAIM_TYPES.has(finding.claimType)),
+  );
+}
+
+export function hasMaterialConflictingFinding(review: SolReviewOutput): boolean {
+  return review.findings.some(
+    (finding) =>
+      finding.status === "conflicting" &&
+      (CRITICAL_SEVERITIES.has(finding.severity) ||
+        CRITICAL_CLAIM_TYPES.has(finding.claimType)),
+  );
+}
+
+export const QUALITY_WEIGHTS = {
+  factualGrounding: 35,
+  sourceIntegrity: 20,
+  technicalAccuracy: 15,
+  seoStructure: 10,
+  readability: 10,
+  originality: 5,
+  internalLinkIntegrity: 5,
+} as const;
 
 function clampScore(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
@@ -61,24 +79,6 @@ export function calculateDeterministicQualityScore(
     100;
 
   return clampScore(weighted);
-}
-
-function hasMaterialUnsupportedFinding(review: SolReviewOutput): boolean {
-  return review.findings.some(
-    (finding) =>
-      MATERIAL_STATUSES.has(finding.status) &&
-      (CRITICAL_SEVERITIES.has(finding.severity) ||
-        CRITICAL_CLAIM_TYPES.has(finding.claimType)),
-  );
-}
-
-function hasMaterialConflictingFinding(review: SolReviewOutput): boolean {
-  return review.findings.some(
-    (finding) =>
-      finding.status === "conflicting" &&
-      (CRITICAL_SEVERITIES.has(finding.severity) ||
-        CRITICAL_CLAIM_TYPES.has(finding.claimType)),
-  );
 }
 
 export function evaluateDeterministicSourceIntegrity(input: {
@@ -136,7 +136,8 @@ function hasNonCriticalPartialFindings(review: SolReviewOutput): boolean {
     (finding) =>
       (finding.status === "partially_supported" ||
         finding.status === "not_verifiable") &&
-      !CRITICAL_SEVERITIES.has(finding.severity),
+      finding.severity !== "critical" &&
+      finding.severity !== "major",
   );
 }
 

@@ -104,7 +104,12 @@ export function AgentReadinessPanel({
             </span>
             {readiness.stale ? (
               <span className="inline-flex items-center rounded-full border border-hcx-orange/40 bg-hcx-orange/10 px-3 py-1 text-xs font-semibold text-hcx-orange">
-                Stale — rerun required
+                Phase 7 result outdated — run Final Readiness Check again.
+              </span>
+            ) : null}
+            {readiness.warningIssues.some((entry) => entry.code === "REVIEW_STALE") ? (
+              <span className="inline-flex items-center rounded-full border border-hcx-orange/40 bg-hcx-orange/10 px-3 py-1 text-xs font-semibold text-hcx-orange">
+                Phase 5 review outdated — rerun Independent Review.
               </span>
             ) : null}
           </div>

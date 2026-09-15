@@ -337,13 +337,41 @@ describe("Phase 7 readiness gate core", () => {
     });
     assert.equal(unsupported.status, "BLOCKED");
 
-    const conflict = evaluate({
+    const materialFinding = evaluate({
+      content: buildArticle(),
+      review: buildReview({
+        findings: [
+          {
+            findingId: "finding-1",
+            severity: "major",
+            claimType: "security_impact",
+            claimText: "CVE-2099-0001 is actively exploited in the wild.",
+            status: "unsupported",
+            evidenceSourceIds: [],
+            explanation: "No verified evidence supports exploitation status.",
+            suggestedCorrection: "Remove or qualify the exploitation claim.",
+          },
+        ],
+      }),
+    });
+    assert.equal(materialFinding.status, "BLOCKED");
+    assert.ok(
+      materialFinding.issues.some((entry) => entry.code === "MATERIAL_UNSUPPORTED_CLAIM"),
+    );
+
+    const advisoryConflict = evaluate({
       content: buildArticle(),
       review: buildReview({
         conflictingClaims: ["Conflicting patch availability claim"],
       }),
     });
-    assert.equal(conflict.status, "BLOCKED");
+    assert.equal(advisoryConflict.status, "NEEDS_REVIEW");
+    assert.ok(
+      advisoryConflict.issues.some(
+        (entry) =>
+          entry.code === "REVIEW_CONFLICTING_CLAIM" && entry.severity === "warning",
+      ),
+    );
   });
 
   it("flags SEO and source transparency warnings without arbitrary blocking", () => {
@@ -445,6 +473,10 @@ describe("Phase 7 fingerprint and persistence", () => {
     });
 
     assert.equal(first, second);
+    assert.equal(
+      isPersistedReadinessStale({ persistedFingerprint: null, currentFingerprint: first }),
+      false,
+    );
     assert.equal(isPersistedReadinessStale({ persistedFingerprint: first, currentFingerprint: first }), false);
     assert.equal(
       isPersistedReadinessStale({
@@ -557,6 +589,251 @@ describe("Phase 7 security and diagnostics", () => {
     assert.doesNotMatch(source, /openai|tavily|notifySubscriber|publishArticle|autoPublish|schedulePublish/i);
     const engineSource = readFileSync(join(testDir, "engine.ts"), "utf8");
     assert.doesNotMatch(engineSource, /openai|tavily|publishArticle|notifySubscriber|autoPublish|schedulePublish/i);
+    assert.match(engineSource, /stale: false/);
+  });
+});
+
+describe("Phase 7 production stabilization regressions", () => {
+  it("persists fresh evaluations as not stale", () => {
+    const gate = evaluate({ content: buildArticle() });
+    const persisted = buildPersistedReadinessResult({
+      status: gate.status,
+      readinessScore: gate.readinessScore,
+      fingerprint: FINGERPRINT_A,
+      reviewFingerprint: FINGERPRINT_A,
+      stale: false,
+      issues: gate.issues,
+      checks: gate.checks,
+    });
+
+    assert.equal(persisted.stale, false);
+  });
+
+  it("treats missing prior readiness fingerprint as not stale", () => {
+    const snapshot = buildSnapshot();
+    const current = buildReadinessFingerprint({
+      snapshot,
+      seoFields: {
+        seoTitle: "SEO",
+        seoDescription: "Description",
+        ogTitle: "OG",
+        ogDescription: "OGD",
+      },
+      featuredImage: "https://example.com/a.webp",
+      featuredImageAlt: "Alt text long enough for accessibility review checks",
+      reviewFingerprint: FINGERPRINT_A,
+    });
+
+    assert.equal(
+      isPersistedReadinessStale({ persistedFingerprint: null, currentFingerprint: current }),
+      false,
+    );
+  });
+
+  it("marks loaded persisted readiness stale only when publication fingerprint changed", () => {
+    const snapshot = buildSnapshot();
+    const baseInput = {
+      snapshot,
+      seoFields: {
+        seoTitle: "SEO",
+        seoDescription: "Description",
+        ogTitle: "OG",
+        ogDescription: "OGD",
+      },
+      featuredImage: "https://example.com/a.webp",
+      featuredImageAlt: "Alt text long enough for accessibility review checks",
+      reviewFingerprint: FINGERPRINT_A,
+    };
+    const base = buildReadinessFingerprint(baseInput);
+
+    assert.equal(
+      isPersistedReadinessStale({ persistedFingerprint: base, currentFingerprint: base }),
+      false,
+    );
+    assert.equal(
+      isPersistedReadinessStale({
+        persistedFingerprint: base,
+        currentFingerprint: buildReadinessFingerprint({
+          ...baseInput,
+          seoFields: { ...baseInput.seoFields, seoTitle: "Changed SEO" },
+        }),
+      }),
+      true,
+    );
+    assert.equal(
+      isPersistedReadinessStale({
+        persistedFingerprint: base,
+        currentFingerprint: buildReadinessFingerprint({
+          ...baseInput,
+          featuredImage: "https://example.com/b.webp",
+        }),
+      }),
+      true,
+    );
+    assert.equal(
+      isPersistedReadinessStale({
+        persistedFingerprint: base,
+        currentFingerprint: buildReadinessFingerprint({
+          ...baseInput,
+          featuredImageAlt: "Updated alt text long enough for accessibility review checks",
+        }),
+      }),
+      true,
+    );
+    assert.equal(
+      isPersistedReadinessStale({
+        persistedFingerprint: base,
+        currentFingerprint: buildReadinessFingerprint({
+          ...baseInput,
+          reviewFingerprint: FINGERPRINT_B,
+        }),
+      }),
+      true,
+    );
+  });
+
+  it("keeps Phase 5 review stale separate from Phase 7 outdated semantics", () => {
+    const staleReview = evaluate({
+      content: buildArticle(),
+      review: buildReview({ draftFingerprint: FINGERPRINT_A }),
+      currentDraftFingerprint: FINGERPRINT_B,
+    });
+
+    assert.ok(staleReview.issues.some((entry) => entry.code === "REVIEW_STALE"));
+    const persisted = buildPersistedReadinessResult({
+      status: staleReview.status,
+      readinessScore: staleReview.readinessScore,
+      fingerprint: FINGERPRINT_B,
+      reviewFingerprint: FINGERPRINT_A,
+      stale: false,
+      issues: staleReview.issues,
+      checks: staleReview.checks,
+    });
+    assert.equal(persisted.stale, false);
+  });
+
+  it("emits exactly one article category warning when category is missing", () => {
+    const missingCategory = evaluate({
+      content: buildArticle({ categoryId: null }),
+      categoriesAvailable: true,
+    });
+    const categoryIssues = missingCategory.issues.filter(
+      (entry) =>
+        entry.code === "CMS_CATEGORY_MISSING" || entry.code === "CMS_CHECKLIST_CATEGORY",
+    );
+
+    assert.equal(categoryIssues.length, 1);
+    assert.equal(categoryIssues[0]?.code, "CMS_CATEGORY_MISSING");
+    assert.match(categoryIssues[0]?.message ?? "", /No article category is selected/i);
+  });
+
+  it("passes article category checks when category is selected", () => {
+    const result = evaluate({ content: buildArticle() });
+    assert.ok(!result.issues.some((entry) => entry.code === "CMS_CATEGORY_MISSING"));
+    assert.ok(!result.issues.some((entry) => entry.code === "CMS_CHECKLIST_CATEGORY"));
+  });
+
+  it("keeps tutorial and lab category requirements unchanged", () => {
+    const tutorial = evaluate({ content: buildTutorial({ category: null }) });
+    assert.equal(tutorial.status, "BLOCKED");
+    assert.ok(tutorial.issues.some((entry) => entry.code === "CMS_CATEGORY_MISSING"));
+
+    const lab = evaluate({ content: buildLab({ category: null }) });
+    assert.equal(lab.status, "BLOCKED");
+    assert.ok(lab.issues.some((entry) => entry.code === "CMS_CATEGORY_MISSING"));
+  });
+
+  it("does not block on advisory unsupported or conflicting claim arrays alone", () => {
+    const advisoryUnsupported = evaluate({
+      content: buildArticle(),
+      review: buildReview({
+        status: "needs_review",
+        qualityScore: 84,
+        unsupportedClaims: [
+          "Grounding audit does not independently verify one editorial inference.",
+        ],
+      }),
+    });
+    assert.equal(advisoryUnsupported.status, "NEEDS_REVIEW");
+    assert.ok(
+      advisoryUnsupported.issues.some(
+        (entry) =>
+          entry.code === "REVIEW_UNSUPPORTED_CLAIM" && entry.severity === "warning",
+      ),
+    );
+
+    const advisoryConflict = evaluate({
+      content: buildArticle(),
+      review: buildReview({
+        status: "needs_review",
+        conflictingClaims: ["Minor wording conflict in vendor guidance summary."],
+      }),
+    });
+    assert.equal(advisoryConflict.status, "NEEDS_REVIEW");
+    assert.ok(
+      advisoryConflict.issues.some(
+        (entry) =>
+          entry.code === "REVIEW_CONFLICTING_CLAIM" && entry.severity === "warning",
+      ),
+    );
+  });
+
+  it("still blocks Phase 5 fail and material findings", () => {
+    const fail = evaluate({
+      content: buildArticle(),
+      review: buildReview({ status: "fail", factCheckStatus: "failed" }),
+    });
+    assert.equal(fail.status, "BLOCKED");
+
+    const materialConflict = evaluate({
+      content: buildArticle(),
+      review: buildReview({
+        findings: [
+          {
+            findingId: "finding-2",
+            severity: "critical",
+            claimType: "patch_id",
+            claimText: "Patch KB500123 is available for all affected versions.",
+            status: "conflicting",
+            evidenceSourceIds: [],
+            explanation: "Sources disagree on patch availability.",
+            suggestedCorrection: "Clarify patch availability.",
+          },
+        ],
+      }),
+    });
+    assert.equal(materialConflict.status, "BLOCKED");
+  });
+
+  it("matches the production advisory Phase 5 needs_review shape", () => {
+    const result = evaluate({
+      content: buildArticle({
+        categoryId: null,
+        featuredImageAlt:
+          "Editorial cybersecurity artwork depicting zero trust architecture, related to CISA Zero Trust guidance for enterprise defenders and…",
+      }),
+      review: buildReview({
+        status: "needs_review",
+        qualityScore: 84,
+        unsupportedClaims: [
+          "Grounding audit does not independently verify one editorial inference.",
+        ],
+        warnings: [
+          "Source transparency could be clearer for one supported claim.",
+          "Draft relies on a single Cloudflare vendor source.",
+        ],
+      }),
+      categoriesAvailable: true,
+    });
+
+    assert.equal(result.status, "NEEDS_REVIEW");
+    assert.notEqual(result.status, "BLOCKED");
+    assert.ok(result.issues.some((entry) => entry.code === "PHASE5_NEEDS_REVIEW"));
+    assert.ok(result.issues.some((entry) => entry.code === "CMS_CATEGORY_MISSING"));
+    assert.equal(
+      result.issues.filter((entry) => entry.code === "CMS_CATEGORY_MISSING").length,
+      1,
+    );
   });
 });
 
@@ -568,6 +845,9 @@ describe("Phase 7 resume contract", () => {
     );
     assert.match(panelSource, /Phase 7 — Final Readiness/);
     assert.match(panelSource, /Run Final Readiness Check/);
+    assert.match(panelSource, /Phase 7 result outdated — run Final Readiness Check again\./);
+    assert.match(panelSource, /Phase 5 review outdated — rerun Independent Review\./);
+    assert.doesNotMatch(panelSource, /Stale — rerun required/);
     assert.doesNotMatch(panelSource, /Auto Publish|Schedule Publish|Approve & Publish|type=\"submit\"[^>]*>\s*Publish/i);
 
     const reviewPanelSource = readFileSync(

@@ -64,7 +64,7 @@ export function isPersistedReadinessStale(input: {
   currentFingerprint: string;
 }): boolean {
   if (!input.persistedFingerprint) {
-    return true;
+    return false;
   }
 
   return input.persistedFingerprint !== input.currentFingerprint;

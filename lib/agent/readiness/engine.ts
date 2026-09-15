@@ -363,14 +363,6 @@ async function runAgentReadinessEvaluationInternal(
     run.generation_metadata && typeof run.generation_metadata === "object"
       ? (run.generation_metadata as Record<string, unknown>)
       : null;
-  const persistedReadiness = parsePersistedReadinessResult(
-    existingMetadata?.finalReadiness,
-  );
-  const stale = isPersistedReadinessStale({
-    persistedFingerprint: persistedReadiness?.fingerprint,
-    currentFingerprint: fingerprint,
-  });
-
   const gate = evaluateReadinessGate({
     content,
     review: reviewRecord,
@@ -396,24 +388,12 @@ async function runAgentReadinessEvaluationInternal(
   });
 
   const persisted = buildPersistedReadinessResult({
-    status: stale && gate.status === "READY_TO_PUBLISH" ? "NEEDS_REVIEW" : gate.status,
+    status: gate.status,
     readinessScore: gate.readinessScore,
     fingerprint,
     reviewFingerprint,
-    stale,
-    issues:
-      stale && gate.status === "READY_TO_PUBLISH"
-        ? [
-            ...gate.issues,
-            {
-              code: "READINESS_STALE",
-              severity: "warning" as const,
-              category: "review" as const,
-              message: "Publication readiness is stale for the current draft state.",
-              recommendedAction: "Run the final readiness check again after recent edits.",
-            },
-          ]
-        : gate.issues,
+    stale: false,
+    issues: gate.issues,
     checks: gate.checks,
   });
 
@@ -454,7 +434,7 @@ async function runAgentReadinessEvaluationInternal(
       status: persisted.status,
       readinessScore: persisted.readinessScore,
       fingerprint: persisted.fingerprint,
-      stale: persisted.stale,
+      stale: false,
       phase5Status: reviewRecord?.status ?? null,
       phase5QualityScore: reviewRecord?.qualityScore ?? null,
       issues: persisted.issues,

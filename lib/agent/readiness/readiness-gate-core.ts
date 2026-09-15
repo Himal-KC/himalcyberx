@@ -1,12 +1,44 @@
 import { createHash } from "node:crypto";
 import type { GroundingAuditResult } from "../generation/types";
-import type { AgentReviewRecord, ReviewDraftSnapshot } from "../review/types";
+import type { AgentReviewRecord, ReviewDraftSnapshot, SolReviewOutput } from "../review/types";
 import type {
   PersistedReadinessResult,
   ReadinessChecksSummary,
   ReadinessIssue,
   ReadinessStatus,
 } from "./types";
+
+// Mirror quality-gate-core materiality helpers — keep definitions identical.
+const MATERIAL_STATUSES = new Set(["unsupported", "conflicting"]);
+
+const CRITICAL_SEVERITIES = new Set(["critical", "major"]);
+
+const CRITICAL_CLAIM_TYPES = new Set([
+  "cve_id",
+  "cvss",
+  "kev_status",
+  "patch_id",
+  "exploitation",
+  "security_impact",
+]);
+
+function hasMaterialUnsupportedFinding(review: { findings: SolReviewOutput["findings"] }): boolean {
+  return review.findings.some(
+    (finding) =>
+      MATERIAL_STATUSES.has(finding.status) &&
+      (CRITICAL_SEVERITIES.has(finding.severity) ||
+        CRITICAL_CLAIM_TYPES.has(finding.claimType)),
+  );
+}
+
+function hasMaterialConflictingFinding(review: { findings: SolReviewOutput["findings"] }): boolean {
+  return review.findings.some(
+    (finding) =>
+      finding.status === "conflicting" &&
+      (CRITICAL_SEVERITIES.has(finding.severity) ||
+        CRITICAL_CLAIM_TYPES.has(finding.claimType)),
+  );
+}
 
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
@@ -457,28 +489,54 @@ function checkReviewAndFactual(input: EvaluateReadinessGateInput): ReadinessIssu
     }
   }
 
-  if (input.review.unsupportedClaims.length > 0) {
+  const reviewMateriality = { findings: input.review.findings } as SolReviewOutput;
+
+  if (hasMaterialUnsupportedFinding(reviewMateriality)) {
     issues.push(
       issue(
-        "REVIEW_UNSUPPORTED_CLAIM",
+        "MATERIAL_UNSUPPORTED_CLAIM",
         "blocking",
         "factual",
-        "Phase 5 recorded unsupported claims.",
-        "Resolve unsupported claims identified in the Phase 5 review.",
+        "Phase 5 recorded a material unsupported security claim.",
+        "Resolve material unsupported claims before publishing.",
       ),
     );
+  } else if (input.review.unsupportedClaims.length > 0) {
+    for (const claim of input.review.unsupportedClaims.slice(0, 3)) {
+      issues.push(
+        issue(
+          "REVIEW_UNSUPPORTED_CLAIM",
+          "warning",
+          "factual",
+          `Phase 5 recorded an advisory unsupported observation: ${claim}`,
+          "Review and resolve or clarify the unsupported observation before publishing.",
+        ),
+      );
+    }
   }
 
-  if (input.review.conflictingClaims.length > 0) {
+  if (hasMaterialConflictingFinding(reviewMateriality)) {
     issues.push(
       issue(
         "REVIEW_CONFLICTING_CLAIM",
         "blocking",
         "factual",
-        "Phase 5 recorded conflicting claims.",
-        "Resolve conflicting factual claims before publishing.",
+        "Phase 5 recorded a material conflicting factual claim.",
+        "Resolve material conflicting claims before publishing.",
       ),
     );
+  } else if (input.review.conflictingClaims.length > 0) {
+    for (const claim of input.review.conflictingClaims.slice(0, 3)) {
+      issues.push(
+        issue(
+          "REVIEW_CONFLICTING_CLAIM",
+          "warning",
+          "factual",
+          `Phase 5 recorded an advisory conflicting observation: ${claim}`,
+          "Review and resolve the conflicting observation before publishing.",
+        ),
+      );
+    }
   }
 
   for (const warning of input.review.warnings) {
@@ -984,7 +1042,7 @@ function checkCmsFields(input: EvaluateReadinessGateInput): ReadinessIssue[] {
           "warning",
           "cms",
           "No article category is selected.",
-          "Select a category before publishing if categories are available.",
+          "Select an appropriate category before publishing.",
         ),
       );
     }
@@ -1001,31 +1059,20 @@ function checkCmsFields(input: EvaluateReadinessGateInput): ReadinessIssue[] {
 
     const checklistItems = [
       {
-        id: "excerpt",
-        label: "Excerpt present",
-        complete: content.excerpt.trim().length >= 20,
-      },
-      {
-        id: "category",
-        label: "Category selected",
-        complete:
-          !input.categoriesAvailable || Boolean(content.categoryId?.trim()),
-      },
-      {
         id: "alt-text",
-        label: "Alt text present",
+        label: "Alt text missing",
         complete:
           !content.featuredImage?.trim() ||
           Boolean(content.featuredImageAlt?.trim() || content.title.trim()),
       },
       {
         id: "seo-title",
-        label: "SEO title present or valid fallback",
+        label: "SEO title missing or invalid fallback",
         complete: Boolean(articleSeo.metaTitle.trim()),
       },
       {
         id: "seo-description",
-        label: "SEO description present or valid fallback",
+        label: "SEO description missing or invalid fallback",
         complete: Boolean(articleSeo.metaDescription.trim()),
       },
     ];
@@ -1034,7 +1081,7 @@ function checkCmsFields(input: EvaluateReadinessGateInput): ReadinessIssue[] {
       issues.push(
         issue(
           `CMS_CHECKLIST_${item.id.toUpperCase().replace(/-/g, "_")}`,
-          item.id === "category" ? "warning" : "warning",
+          "warning",
           "cms",
           item.label,
           "Complete this CMS checklist item before publishing.",
