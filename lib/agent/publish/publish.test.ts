@@ -669,19 +669,25 @@ describe("Phase 8 architecture contracts", () => {
     assert.doesNotMatch(panelSource, /window\.confirm/);
   });
 
-  it("resume wiring exposes published state and public link", () => {
+  it("resume wiring exposes server hydration and manual run links", () => {
     const resumeSource = readFileSync(
       join(testDir, "../resume/resume-run.ts"),
       "utf8",
     );
-    assert.match(resumeSource, /buildLatestPublishFromRun/);
-    assert.match(resumeSource, /latestPublish/);
+    assert.match(resumeSource, /resolveAgentPageHydration/);
+    assert.match(resumeSource, /hydratePersistedAgentRun/);
 
     const resumePanel = readFileSync(
       join(testDir, "../../../components/admin/agent/AgentResumeRuns.tsx"),
       "utf8",
     );
-    assert.match(resumePanel, /initialPublish=\{resumed\.latestPublish\}/);
+    assert.match(resumePanel, /\/admin\/agent\?run=\$\{run\.agentRunId\}/);
+
+    const pageSource = readFileSync(
+      join(testDir, "../../../app/admin/(dashboard)/agent/page.tsx"),
+      "utf8",
+    );
+    assert.match(pageSource, /initialHydration=\{resolved\.hydration\}/);
   });
 
   it("reuses CMS publish validation before side effects", () => {

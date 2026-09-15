@@ -9,10 +9,13 @@ const testDir = dirname(fileURLToPath(import.meta.url));
 
 const {
   buildResumableAgentRunSummary,
+  buildResearchResultFromPersistedRun,
   buildResumedAgentRunResult,
   getRunLinkedContentId,
   isResumableAgentRun,
   isValidAgentRunId,
+  parseAgentRunPageQuery,
+  selectAutoRestoreAgentRunId,
   validateContentBelongsToRun,
   validateResumeAgentRunInput,
 } = (await import(pathToFileURL(join(testDir, "resume-core.ts")).href)) as typeof import("./resume-core");
@@ -253,6 +256,162 @@ describe("Agent run resume server module boundaries", () => {
     assert.match(source, /getAgentRun/);
     assert.match(source, /getLatestAgentReviewForRun/);
     assert.match(source, /getExistingDraftFromRun/);
+  });
+});
+
+describe("Agent run refresh restore", () => {
+  it("parses stable page query params for run restore and new-topic mode", () => {
+    assert.deepEqual(parseAgentRunPageQuery({ run: VALID_RUN_ID }), {
+      startNew: false,
+      requestedRunId: VALID_RUN_ID,
+    });
+    assert.deepEqual(parseAgentRunPageQuery({ new: "1", run: VALID_RUN_ID }), {
+      startNew: true,
+      requestedRunId: null,
+    });
+    assert.deepEqual(parseAgentRunPageQuery({}), {
+      startNew: false,
+      requestedRunId: null,
+    });
+  });
+
+  it("auto-selects the most recent unfinished resumable run", () => {
+    const olderUnfinished = buildRun({
+      content_type: "article",
+      article_id: VALID_ARTICLE_ID,
+      id: "00000000-0000-4000-8000-000000000002",
+      updated_at: "2026-09-14T00:00:00.000Z",
+      status: "ready",
+      stage: "fact_check",
+    });
+    const newerUnfinished = buildRun({
+      content_type: "tutorial",
+      tutorial_id: VALID_TUTORIAL_ID,
+      id: "00000000-0000-4000-8000-000000000003",
+      updated_at: "2026-09-15T00:00:00.000Z",
+      status: "ready",
+      stage: "ready",
+    });
+    const completed = buildRun({
+      content_type: "lab",
+      lab_id: VALID_LAB_ID,
+      id: "00000000-0000-4000-8000-000000000004",
+      updated_at: "2026-09-16T00:00:00.000Z",
+      status: "completed",
+      stage: "completed",
+    });
+
+    assert.equal(
+      selectAutoRestoreAgentRunId([completed, newerUnfinished, olderUnfinished]),
+      newerUnfinished.id,
+    );
+  });
+
+  it("does not auto-select failed, cancelled, or completed-only runs", () => {
+    const failed = buildRun({
+      content_type: "article",
+      article_id: VALID_ARTICLE_ID,
+      status: "failed",
+      stage: "failed",
+    });
+    const cancelled = buildRun({
+      content_type: "article",
+      article_id: VALID_ARTICLE_ID,
+      status: "cancelled",
+      stage: "ready",
+    });
+    const completed = buildRun({
+      content_type: "article",
+      article_id: VALID_ARTICLE_ID,
+      status: "completed",
+      stage: "completed",
+    });
+
+    assert.equal(selectAutoRestoreAgentRunId([failed]), null);
+    assert.equal(selectAutoRestoreAgentRunId([cancelled]), null);
+    assert.equal(selectAutoRestoreAgentRunId([completed]), null);
+  });
+
+  it("builds persisted research results without external calls", () => {
+    const run = buildRun({
+      content_type: "article",
+      article_id: VALID_ARTICLE_ID,
+      research_summary: "Summary",
+      recommended_angle: "Angle",
+      primary_keyword: "keyword",
+      secondary_keywords: ["a", "b"],
+    });
+
+    const research = buildResearchResultFromPersistedRun({
+      run,
+      payload: RESEARCH_PAYLOAD as import("../generation/types").PersistedResearchPayload,
+      sources: [
+        {
+          title: "Example",
+          url: "https://example.com",
+          publisher: "Example",
+        },
+      ],
+    });
+
+    assert.equal(research.agentRunId, VALID_RUN_ID);
+    assert.equal(research.summary, "Summary");
+    assert.equal(research.sources.length, 1);
+    assert.equal(research.canGenerateDraft, true);
+  });
+});
+
+describe("Agent run refresh server contracts", () => {
+  it("resolves page hydration server-side from query params and shared loader", () => {
+    const pageSource = readFileSync(
+      join(testDir, "../../../app/admin/(dashboard)/agent/page.tsx"),
+      "utf8",
+    );
+    assert.match(pageSource, /resolveAgentPageHydration/);
+    assert.match(pageSource, /parseAgentRunPageQuery/);
+    assert.match(pageSource, /searchParams/);
+
+    const resumeSource = readFileSync(join(testDir, "resume-run.ts"), "utf8");
+    assert.match(resumeSource, /resolveAgentPageHydration/);
+    assert.match(resumeSource, /hydratePersistedAgentRun/);
+    assert.match(resumeSource, /getAgentSources/);
+    assert.match(resumeSource, /buildResearchResultFromPersistedRun/);
+    assert.doesNotMatch(resumeSource, /runAgentResearch|runAgentReview|runAgentReadinessEvaluation|runAgentContentPublication/);
+  });
+
+  it("uses URL navigation for manual resume and new-topic reset", () => {
+    const resumePanel = readFileSync(
+      join(testDir, "../../../components/admin/agent/AgentResumeRuns.tsx"),
+      "utf8",
+    );
+    assert.match(resumePanel, /\/admin\/agent\?run=\$\{run\.agentRunId\}/);
+
+    const analyzerSource = readFileSync(
+      join(testDir, "../../../components/admin/agent/AgentTopicAnalyzer.tsx"),
+      "utf8",
+    );
+    assert.match(analyzerSource, /\/admin\/agent\?new=1/);
+    assert.match(analyzerSource, /router\.replace\(`\/admin\/agent\?run=/);
+    assert.match(analyzerSource, /AgentActiveRunWorkflow/);
+    assert.match(analyzerSource, /initialHydration/);
+  });
+
+  it("restores phase panels read-only without mutating runs on page load", () => {
+    const workflowSource = readFileSync(
+      join(testDir, "../../../components/admin/agent/AgentActiveRunWorkflow.tsx"),
+      "utf8",
+    );
+    assert.match(workflowSource, /AgentReviewPanel/);
+    assert.match(workflowSource, /initialReadiness/);
+    assert.match(workflowSource, /initialPublish/);
+    assert.match(workflowSource, /AgentResearchResults/);
+    assert.doesNotMatch(workflowSource, /resumeAgentRun|runAgentResearch/);
+
+    const resumeSource = readFileSync(join(testDir, "resume-run.ts"), "utf8");
+    assert.doesNotMatch(
+      resumeSource,
+      /resolveAgentPageHydration[\s\S]{0,400}updateAgentRun/,
+    );
   });
 });
 

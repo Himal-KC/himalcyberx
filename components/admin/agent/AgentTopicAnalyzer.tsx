@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
+import { AgentActiveRunWorkflow } from "@/components/admin/agent/AgentActiveRunWorkflow";
 import { AgentResearchResults } from "@/components/admin/agent/AgentResearchResults";
 import { AgentResumeRuns } from "@/components/admin/agent/AgentResumeRuns";
 import {
@@ -10,7 +12,10 @@ import {
   type AgentTopicAnalysisMatch,
   type AnalyzeAgentTopicState,
 } from "@/lib/actions/agent";
-import type { ResumableAgentRunSummary } from "@/lib/agent/resume/resume-core";
+import type {
+  AgentRunPageHydration,
+  ResumableAgentRunSummary,
+} from "@/lib/agent/resume/resume-core";
 import type { AgentContentType } from "@/lib/supabase/types";
 import { focusRing } from "@/lib/page-data";
 
@@ -135,9 +140,18 @@ function MatchList({
 
 export function AgentTopicAnalyzer({
   resumableRuns = [],
+  initialHydration = null,
+  hydrationError = null,
+  activeRunId = null,
+  startNew = false,
 }: {
   resumableRuns?: ResumableAgentRunSummary[];
+  initialHydration?: AgentRunPageHydration | null;
+  hydrationError?: string | null;
+  activeRunId?: string | null;
+  startNew?: boolean;
 }) {
+  const router = useRouter();
   const [analysisState, analyzeAction, isAnalyzing] = useActionState(
     analyzeAgentTopic,
     {},
@@ -164,6 +178,18 @@ export function AgentTopicAnalyzer({
     return () => window.clearInterval(interval);
   }, [isResearching]);
 
+  useEffect(() => {
+    if (!researchState.success || !researchState.research?.agentRunId) {
+      return;
+    }
+
+    router.replace(`/admin/agent?run=${researchState.research.agentRunId}`, {
+      scroll: false,
+    });
+  }, [researchState.success, researchState.research?.agentRunId, router]);
+
+  const showNewTopicFlow = startNew || !initialHydration;
+
   const analyzedContentType = analysisState.contentType ?? contentType;
   const analyzedLabel =
     contentTypeOptions.find((option) => option.value === analyzedContentType)
@@ -174,8 +200,39 @@ export function AgentTopicAnalyzer({
 
   return (
     <div className="space-y-6">
-      <AgentResumeRuns runs={resumableRuns} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {initialHydration || resumableRuns.length > 0 ? (
+          <Link
+            href="/admin/agent?new=1"
+            className={`inline-flex items-center rounded-lg border border-hcx-border px-4 py-2 text-sm font-semibold text-hcx-text hover:bg-hcx-bg/60 ${focusRing}`}
+          >
+            New Agent Run
+          </Link>
+        ) : null}
+        {activeRunId ? (
+          <p className="text-xs text-hcx-text-secondary">
+            Active run restored from persisted state.
+          </p>
+        ) : null}
+      </div>
 
+      {hydrationError ? (
+        <div className="rounded-lg border border-hcx-orange/30 bg-hcx-orange/5 p-4 text-sm text-hcx-orange">
+          {hydrationError}
+        </div>
+      ) : null}
+
+      {initialHydration && !startNew ? (
+        <AgentActiveRunWorkflow hydration={initialHydration} />
+      ) : null}
+
+      <AgentResumeRuns
+        runs={resumableRuns}
+        activeRunId={activeRunId}
+      />
+
+      {showNewTopicFlow ? (
+        <>
       <form action={analyzeAction} className="space-y-6">
         <section className="rounded-xl border border-hcx-border bg-hcx-card p-6 sm:p-8">
           <h2 className="text-lg font-semibold text-hcx-text">
@@ -345,6 +402,8 @@ export function AgentTopicAnalyzer({
 
       {researchState.success && researchState.research ? (
         <AgentResearchResults research={researchState.research} />
+      ) : null}
+        </>
       ) : null}
     </div>
   );

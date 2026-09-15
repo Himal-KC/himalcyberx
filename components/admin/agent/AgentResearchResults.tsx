@@ -97,7 +97,13 @@ function buildAdminHref(contentType: AgentContentType, id: string): string {
   }
 }
 
-export function AgentResearchResults({ research }: { research: ResearchResult }) {
+export function AgentResearchResults({
+  research,
+  showGenerateDraft = true,
+}: {
+  research: ResearchResult;
+  showGenerateDraft?: boolean;
+}) {
   return (
     <section className="rounded-xl border border-hcx-border bg-hcx-card p-6 sm:p-8">
       <div className="flex flex-wrap items-center gap-3">
@@ -374,7 +380,7 @@ export function AgentResearchResults({ research }: { research: ResearchResult })
         )}
       </div>
 
-      <AgentGenerateDraft research={research} />
+      {showGenerateDraft ? <AgentGenerateDraft research={research} /> : null}
     </section>
   );
 }

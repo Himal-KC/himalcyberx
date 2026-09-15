@@ -5,7 +5,10 @@ import {
   buildGenerateDraftResult,
   targetTableForContentType,
 } from "@/lib/agent/generation/save-draft-core";
-import { getResearchPayloadFromRun } from "@/lib/agent/generation/research-payload";
+import {
+  getResearchPayloadFromRun,
+  parsePersistedResearchPayload,
+} from "@/lib/agent/generation/research-payload";
 import { loadReviewRunContext } from "@/lib/agent/review/load-draft";
 import {
   buildRunReviewResult,
@@ -13,7 +16,12 @@ import {
 } from "@/lib/agent/review/map-review-core";
 import {
   buildResumableAgentRunSummary,
+  buildResearchResultFromPersistedRun,
   buildResumedAgentRunResult,
+  isValidAgentRunId,
+  mapAgentSourceToResearchSource,
+  selectAutoRestoreAgentRunId,
+  type AgentRunPageHydration,
   type FeaturedImageState,
   type LinkedContentRecord,
   type ResumableAgentRunSummary,
@@ -31,6 +39,7 @@ import { buildReadinessFingerprint } from "@/lib/agent/readiness/readiness-finge
 import { loadPersistedReadinessForRun } from "@/lib/agent/readiness/engine";
 import {
   getAgentRun,
+  getAgentSources,
   listResumableAgentRuns,
 } from "@/lib/supabase/admin-agent";
 import { getLatestAgentReviewForRun } from "@/lib/supabase/admin-agent-review";
@@ -133,11 +142,11 @@ export async function loadResumableAgentRunSummaries(
   return { data: summaries, error: null };
 }
 
-export async function resumePersistedAgentRun(
+async function hydratePersistedAgentRun(
   supabase: AdminSupabase,
   agentRunId: string,
 ): Promise<
-  | { ok: true; result: ResumedAgentRunResult }
+  | { ok: true; hydration: AgentRunPageHydration }
   | { ok: false; error: string }
 > {
   const trimmedRunId = agentRunId.trim();
@@ -163,6 +172,18 @@ export async function resumePersistedAgentRun(
 
   const run = loadedRun.data!;
   const content = linkedContent!;
+  const payload = parsePersistedResearchPayload(run.research_payload);
+  if (!payload) {
+    return { ok: false, error: "Research evidence is insufficient." };
+  }
+
+  const sourcesResult = await getAgentSources(supabase, run.id);
+  const research = buildResearchResultFromPersistedRun({
+    run,
+    payload,
+    sources: (sourcesResult.data ?? []).map(mapAgentSourceToResearchSource),
+  });
+
   const draft =
     getExistingDraftFromRun(run) ??
     buildGenerateDraftResult({
@@ -212,16 +233,120 @@ export async function resumePersistedAgentRun(
       : null;
 
   const latestPublish = buildLatestPublishFromRun({ run, content });
+  const resumed = buildResumedAgentRunResult({
+    run,
+    draft,
+    latestReview,
+    featuredImage,
+    latestReadiness,
+    latestPublish,
+  });
 
   return {
     ok: true,
-    result: buildResumedAgentRunResult({
-      run,
-      draft,
-      latestReview,
-      featuredImage,
-      latestReadiness,
-      latestPublish,
-    }),
+    hydration: {
+      agentRunId: run.id,
+      resumed,
+      research,
+      contentAwareness: payload.contentAwareness ?? null,
+    },
+  };
+}
+
+export async function resolveAgentPageHydration(
+  supabase: AdminSupabase,
+  input: {
+    requestedRunId?: string | null;
+    startNew?: boolean;
+    summaryLimit?: number;
+  },
+): Promise<{
+  hydration: AgentRunPageHydration | null;
+  resumableRuns: ResumableAgentRunSummary[];
+  hydrationError: string | null;
+  activeRunId: string | null;
+}> {
+  const summariesResult = await loadResumableAgentRunSummaries(
+    supabase,
+    input.summaryLimit ?? 10,
+  );
+  const resumableRuns = summariesResult.data;
+
+  if (input.startNew) {
+    return {
+      hydration: null,
+      resumableRuns,
+      hydrationError: null,
+      activeRunId: null,
+    };
+  }
+
+  let targetRunId: string | null = null;
+
+  if (input.requestedRunId) {
+    if (!isValidAgentRunId(input.requestedRunId)) {
+      return {
+        hydration: null,
+        resumableRuns,
+        hydrationError: "Invalid agent run ID.",
+        activeRunId: null,
+      };
+    }
+    targetRunId = input.requestedRunId.trim();
+  } else {
+    const listed = await listResumableAgentRuns(supabase, 10);
+    if (listed.error) {
+      return {
+        hydration: null,
+        resumableRuns,
+        hydrationError: listed.error,
+        activeRunId: null,
+      };
+    }
+    targetRunId = selectAutoRestoreAgentRunId(listed.data);
+  }
+
+  if (!targetRunId) {
+    return {
+      hydration: null,
+      resumableRuns,
+      hydrationError: null,
+      activeRunId: null,
+    };
+  }
+
+  const outcome = await hydratePersistedAgentRun(supabase, targetRunId);
+  if (!outcome.ok) {
+    return {
+      hydration: null,
+      resumableRuns,
+      hydrationError: input.requestedRunId ? outcome.error : null,
+      activeRunId: null,
+    };
+  }
+
+  return {
+    hydration: outcome.hydration,
+    resumableRuns,
+    hydrationError: null,
+    activeRunId: targetRunId,
+  };
+}
+
+export async function resumePersistedAgentRun(
+  supabase: AdminSupabase,
+  agentRunId: string,
+): Promise<
+  | { ok: true; result: ResumedAgentRunResult }
+  | { ok: false; error: string }
+> {
+  const outcome = await hydratePersistedAgentRun(supabase, agentRunId);
+  if (!outcome.ok) {
+    return outcome;
+  }
+
+  return {
+    ok: true,
+    result: outcome.hydration.resumed,
   };
 }

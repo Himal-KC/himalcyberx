@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { AgentTopicAnalyzer } from "@/components/admin/agent/AgentTopicAnalyzer";
-import { loadResumableAgentRunSummaries } from "@/lib/agent/resume/resume-run";
+import {
+  parseAgentRunPageQuery,
+} from "@/lib/agent/resume/resume-core";
+import { resolveAgentPageHydration } from "@/lib/agent/resume/resume-run";
 import { getAuthenticatedServerClient } from "@/lib/supabase/admin-session";
 
 export const metadata: Metadata = {
@@ -8,11 +11,26 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminAgentPage() {
+export default async function AdminAgentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ run?: string; new?: string }>;
+}) {
+  const params = await searchParams;
+  const query = parseAgentRunPageQuery(params);
   const auth = await getAuthenticatedServerClient("adminAgentPage");
-  const resumableRuns = auth.ok
-    ? (await loadResumableAgentRunSummaries(auth.supabase, 10)).data
-    : [];
+
+  const resolved = auth.ok
+    ? await resolveAgentPageHydration(auth.supabase, {
+        requestedRunId: query.requestedRunId,
+        startNew: query.startNew,
+      })
+    : {
+        hydration: null,
+        resumableRuns: [],
+        hydrationError: null,
+        activeRunId: null,
+      };
 
   return (
     <div>
@@ -35,7 +53,13 @@ export default async function AdminAgentPage() {
         </p>
       </div>
 
-      <AgentTopicAnalyzer resumableRuns={resumableRuns} />
+      <AgentTopicAnalyzer
+        resumableRuns={resolved.resumableRuns}
+        initialHydration={resolved.hydration}
+        hydrationError={resolved.hydrationError}
+        activeRunId={resolved.activeRunId}
+        startNew={query.startNew}
+      />
     </div>
   );
 }

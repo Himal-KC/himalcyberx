@@ -1,12 +1,19 @@
 import type { GenerateDraftResult } from "../generation/types";
+import type { PersistedResearchPayload } from "../generation/types";
 import type { RunReviewResult } from "../review/types";
 import type { RunPublishResult } from "../publish/types";
 import type { RunReadinessResult } from "../readiness/types";
+import type {
+  ContentAwarenessResult,
+  ResearchResult,
+  ResearchSource,
+} from "../types";
 import type {
   AgentContentType,
   AgentRun,
   AgentRunStage,
   AgentRunStatus,
+  AgentSource,
 } from "../../supabase/types";
 
 const UUID_PATTERN =
@@ -39,6 +46,93 @@ export interface ResumedAgentRunResult {
   featuredImage: FeaturedImageState;
   latestReadiness: RunReadinessResult | null;
   latestPublish: RunPublishResult | null;
+}
+
+export interface AgentRunPageHydration {
+  agentRunId: string;
+  resumed: ResumedAgentRunResult;
+  research: ResearchResult;
+  contentAwareness: ContentAwarenessResult | null;
+}
+
+export function parseAgentRunPageQuery(input: {
+  run?: string | null;
+  new?: string | null;
+}): {
+  startNew: boolean;
+  requestedRunId: string | null;
+} {
+  const startNew = input.new === "1" || input.new === "true";
+  const requestedRunId =
+    startNew || !input.run?.trim() ? null : input.run.trim();
+
+  return {
+    startNew,
+    requestedRunId,
+  };
+}
+
+export function isExcludedFromAutoRestore(run: AgentRun): boolean {
+  return (
+    run.status === "failed" ||
+    run.status === "cancelled" ||
+    run.stage === "failed"
+  );
+}
+
+export function isUnfinishedAgentRun(run: AgentRun): boolean {
+  return run.status !== "completed" && run.stage !== "completed";
+}
+
+export function selectAutoRestoreAgentRunId(runs: AgentRun[]): string | null {
+  for (const run of runs) {
+    if (
+      isResumableAgentRun(run) &&
+      !isExcludedFromAutoRestore(run) &&
+      isUnfinishedAgentRun(run)
+    ) {
+      return run.id;
+    }
+  }
+
+  return null;
+}
+
+export function mapAgentSourceToResearchSource(source: AgentSource): ResearchSource {
+  return {
+    title: source.title,
+    url: source.url,
+    publisher: source.publisher,
+    sourceType: source.source_type,
+    publishedAt: source.published_at,
+    supportsClaims: source.supports_claims,
+    sortOrder: source.sort_order,
+  };
+}
+
+export function buildResearchResultFromPersistedRun(input: {
+  run: AgentRun;
+  payload: PersistedResearchPayload;
+  sources: ResearchSource[];
+}): ResearchResult {
+  return {
+    agentRunId: input.run.id,
+    topic: input.run.topic,
+    contentType: input.run.content_type,
+    summary: input.run.research_summary ?? "",
+    recommendedAngle: input.run.recommended_angle ?? "",
+    primaryKeyword: input.run.primary_keyword ?? "",
+    secondaryKeywords: input.run.secondary_keywords ?? [],
+    keyFindings: input.payload.keyFindings,
+    verifiedClaims: input.payload.verifiedClaims,
+    uncertainClaims: input.payload.uncertainClaims,
+    discoveryContexts: input.payload.discoveryContexts,
+    sources: input.sources,
+    relatedHCXContent: input.payload.relatedHCXContent,
+    researchConfidence: input.payload.researchConfidence,
+    researchQuality: input.payload.researchQuality,
+    canGenerateDraft: input.payload.canGenerateDraft,
+  };
 }
 
 export interface LinkedContentRecord {
