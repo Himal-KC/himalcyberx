@@ -1,5 +1,6 @@
 import "server-only";
 
+import { resolveArticleCategoryIdForAgentSave } from "@/lib/agent/category/apply-article-category";
 import { prepareRichContentForSave } from "@/lib/content/sanitize-on-save";
 import {
   appendArticleKeyTakeawaysToContent,
@@ -97,14 +98,12 @@ export async function saveGeneratedDraft({
   draft,
   researchQuality,
   qualityScore,
-  categoryId,
 }: {
   supabase: AdminSupabase;
   run: AgentRun;
   draft: GeneratedDraft;
   researchQuality: string;
   qualityScore: number;
-  categoryId?: string | null;
 }): Promise<SaveGeneratedDraftResult> {
   const factCheckStatus = resolveFactCheckStatus(researchQuality);
   const targetTable = targetTableForContentType(run.content_type);
@@ -149,6 +148,10 @@ export async function saveGeneratedDraft({
   const slug = await resolveUniqueSlug(run.content_type, draft.slug);
 
   if (run.content_type === "article" && draft.contentType === "article") {
+    const validatedCategoryId = await resolveArticleCategoryIdForAgentSave({
+      supabase,
+      run,
+    });
     const articleContent = appendArticleKeyTakeawaysToContent(
       draft.content,
       draft.keyTakeaways,
@@ -159,7 +162,7 @@ export async function saveGeneratedDraft({
       agentRunId: run.id,
       factCheckStatus,
       qualityScore,
-      categoryId,
+      categoryId: validatedCategoryId,
       preparedContent: prepareRichContentForSave(articleContent),
     });
 

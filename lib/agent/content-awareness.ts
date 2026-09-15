@@ -3,13 +3,15 @@ import { TUTORIAL_CATEGORIES } from "@/lib/tutorials/constants";
 import { stripRichHtml } from "@/lib/content/html";
 import type { AgentContentType } from "@/lib/supabase/types";
 import type {
-  CategoryInventoryItem,
   ContentAwarenessResult,
   ContentDuplicateRisk,
   ContentSimilarityMatch,
   RecommendedCategory,
   SiteContentInventory,
 } from "@/lib/agent/types";
+import { recommendArticleCategory } from "./category/article-category-core";
+
+export { recommendArticleCategory } from "./category/article-category-core";
 
 const STOP_WORDS = new Set([
   "a",
@@ -337,32 +339,6 @@ function scoreCategoryMatch(topic: string, categoryText: string): number {
   return Math.round(jaccardTokenSimilarity(topicTokens, categoryTokens) * 100);
 }
 
-function recommendArticleCategory(
-  topic: string,
-  categories: CategoryInventoryItem[],
-): RecommendedCategory {
-  let best: RecommendedCategory = { id: null, name: "" };
-  let bestScore = 0;
-
-  for (const category of categories) {
-    const score = Math.max(
-      scoreCategoryMatch(topic, category.name),
-      scoreCategoryMatch(topic, `${category.name} ${category.slug}`),
-      scoreCategoryMatch(topic, category.description ?? ""),
-    );
-
-    if (score > bestScore) {
-      bestScore = score;
-      best = { id: category.id, name: category.name };
-    }
-  }
-
-  if (bestScore < 20) {
-    return { id: null, name: "" };
-  }
-
-  return best;
-}
 
 function collectTutorialCategoryOptions(
   inventory: SiteContentInventory,

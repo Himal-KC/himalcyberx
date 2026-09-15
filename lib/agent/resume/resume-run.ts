@@ -36,6 +36,11 @@ import {
 import { getPhase8PublicationProofFromMetadata } from "@/lib/agent/publish/metadata-core";
 import type { RunPublishResult } from "@/lib/agent/publish/types";
 import {
+  getPersistedArticleCategoryRecommendation,
+  mapCategoryRowsToInventory,
+  resolveApplicableArticleCategory,
+} from "@/lib/agent/category/article-category-core";
+import {
   buildAgentRunAdminPresentationFromRun,
   buildSwitchRunCardLabel,
 } from "@/lib/agent/status/presentation-core";
@@ -71,7 +76,7 @@ async function loadLinkedContentRecord(
 
   const { data, error } = await supabase
     .from(table)
-    .select("id, title, slug, status, agent_run_id, featured_image, featured_image_alt, seo_title, seo_description, og_title, og_description")
+    .select("id, title, slug, status, agent_run_id, category_id, featured_image, featured_image_alt, seo_title, seo_description, og_title, og_description")
     .eq("id", contentId)
     .maybeSingle();
 
@@ -264,6 +269,23 @@ async function hydratePersistedAgentRun(
     latestReadiness,
     latestPublish,
   });
+
+  let applicableArticleCategory = null;
+  if (
+    run.content_type === "article" &&
+    !content.category_id
+  ) {
+    const { data: categoryRows } = await supabase
+      .from("categories")
+      .select("id, name, slug, description")
+      .order("name", { ascending: true });
+    applicableArticleCategory = resolveApplicableArticleCategory({
+      topic: run.topic,
+      categories: mapCategoryRowsToInventory(categoryRows ?? []),
+      persistedRecommendation: getPersistedArticleCategoryRecommendation(payload),
+    });
+  }
+
   const presentation = buildAgentRunAdminPresentationFromRun({
     run,
     contentId: content.id,
@@ -302,6 +324,9 @@ async function hydratePersistedAgentRun(
       research,
       contentAwareness: payload.contentAwareness ?? null,
       presentation,
+      applicableArticleCategory,
+      linkedArticleCategoryId:
+        run.content_type === "article" ? content.category_id ?? null : null,
     },
   };
 }

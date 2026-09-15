@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AgentApplyCategoryPanel } from "@/components/admin/agent/AgentApplyCategoryPanel";
 import { AgentResearchResults } from "@/components/admin/agent/AgentResearchResults";
 import { AgentReviewPanel } from "@/components/admin/agent/AgentReviewPanel";
 import type { AgentRunPageHydration } from "@/lib/agent/resume/resume-core";
@@ -125,6 +126,14 @@ export function AgentActiveRunWorkflow({
         research={hydration.research}
         showGenerateDraft={false}
       />
+
+      {resumed.contentType === "article" ? (
+        <AgentApplyCategoryPanel
+          agentRunId={resumed.agentRunId}
+          applicableCategory={hydration.applicableArticleCategory}
+          currentCategoryId={hydration.linkedArticleCategoryId}
+        />
+      ) : null}
 
       <AgentReviewPanel
         agentRunId={resumed.agentRunId}

@@ -328,7 +328,6 @@ export async function runAgentGeneration(
     draft,
     researchQuality: payload.researchQuality,
     qualityScore: quality.score,
-    categoryId: context.categoryId,
   });
 
   let draftResult = saved.result;

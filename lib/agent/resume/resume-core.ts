@@ -6,6 +6,7 @@ import type {
   ContentAwarenessResult,
   ResearchResult,
   ResearchSource,
+  RecommendedCategory,
 } from "../types";
 import type {
   AgentContentType,
@@ -54,6 +55,8 @@ export interface AgentRunPageHydration {
   research: ResearchResult;
   contentAwareness: ContentAwarenessResult | null;
   presentation: import("../status/presentation-core").AgentRunAdminPresentation;
+  applicableArticleCategory: RecommendedCategory | null;
+  linkedArticleCategoryId: string | null;
 }
 
 export function parseAgentRunPageQuery(input: {
@@ -150,6 +153,7 @@ export interface LinkedContentRecord {
   slug: string;
   status: string;
   agent_run_id: string | null;
+  category_id?: string | null;
   featured_image?: string | null;
   featured_image_alt?: string | null;
   seo_title?: string | null;

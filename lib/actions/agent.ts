@@ -6,6 +6,7 @@ import {
   isSafeToContinueAnalysis,
 } from "@/lib/agent/content-awareness";
 import { loadSiteContentInventory } from "@/lib/agent/content-inventory";
+import { applyRecommendedArticleCategoryToDraft } from "@/lib/agent/category/apply-article-category";
 import { runAgentGeneration } from "@/lib/agent/generation/engine";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
 import { runAgentReview } from "@/lib/agent/review/engine";
@@ -108,6 +109,13 @@ export interface ReviewAgentDraftState {
   success?: boolean;
   error?: string;
   review?: RunReviewResult;
+}
+
+export interface ApplyRecommendedArticleCategoryState {
+  success?: boolean;
+  error?: string;
+  categoryId?: string;
+  categoryName?: string;
 }
 
 export interface ResumeAgentRunState {
@@ -265,6 +273,37 @@ export async function reviewAgentDraft(
   return {
     success: true,
     review: outcome.result,
+  };
+}
+
+export async function applyRecommendedArticleCategory(
+  _prevState: ApplyRecommendedArticleCategoryState,
+  formData: FormData,
+): Promise<ApplyRecommendedArticleCategoryState> {
+  const auth = await getAuthenticatedServerClient("applyRecommendedArticleCategory");
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  const agentRunId = String(formData.get("agentRunId") ?? "").trim();
+  if (!isValidAgentRunId(agentRunId)) {
+    return { error: "Invalid agent run ID." };
+  }
+
+  const outcome = await applyRecommendedArticleCategoryToDraft({
+    supabase: auth.supabase,
+    agentRunId,
+  });
+
+  if (!outcome.ok) {
+    return { error: outcome.error };
+  }
+
+  return {
+    success: true,
+    categoryId: outcome.categoryId,
+    categoryName: outcome.categoryName,
   };
 }
 
