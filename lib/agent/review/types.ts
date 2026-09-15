@@ -107,6 +107,7 @@ export interface ReviewGateResult {
 export interface ReviewDraftSnapshot {
   contentId: string;
   contentType: AgentContentType;
+  agentRunId: string;
   title: string;
   slug: string;
   status: string;
@@ -115,6 +116,7 @@ export interface ReviewDraftSnapshot {
   sourceMappings: SourceMapping[];
   internalLinks: InternalLinkSuggestion[];
   generationWarnings: string[];
+  reviewFingerprintFields: Record<string, unknown> | null;
 }
 
 export interface AuthoritativeSourceRecord {

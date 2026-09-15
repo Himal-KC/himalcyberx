@@ -53,14 +53,17 @@ export function buildArticleDraftFromRow(
     slug: row.slug,
     excerpt: row.excerpt,
     content: row.content ?? "",
-    categoryRecommendation: "General",
+    categoryRecommendation: row.category_id ? "Assigned" : "General",
     primaryKeyword: topic,
     secondaryKeywords: [],
     keyTakeaways: row.key_takeaways ?? [],
-    seo: defaultSeo(
-      row.seo_title ?? row.title,
-      row.seo_description ?? row.excerpt,
-    ),
+    seo: {
+      seoTitle: row.seo_title ?? row.title,
+      seoDescription: row.seo_description ?? row.excerpt,
+      seoKeywords: row.seo_keywords ?? [],
+      ogTitle: row.og_title ?? row.seo_title ?? row.title,
+      ogDescription: row.og_description ?? row.seo_description ?? row.excerpt,
+    },
     generationPlan: defaultGenerationPlan(topic),
     sourceMappings: metadata?.sourceMappings ?? [],
     internalLinks: metadata?.internalLinks ?? [],
@@ -132,16 +135,19 @@ export function buildLabDraftFromRow(
 }
 
 export function buildReviewDraftSnapshot(input: {
+  agentRunId: string;
   contentType: AgentContentType;
   contentId: string;
   status: string;
   publishedAt: string | null;
   draft: GeneratedDraft;
   metadata: ParsedGenerationMetadata | null;
+  reviewFingerprintFields: Record<string, unknown>;
 }): ReviewDraftSnapshot {
   return {
     contentId: input.contentId,
     contentType: input.contentType,
+    agentRunId: input.agentRunId,
     title: input.draft.title,
     slug: input.draft.slug,
     status: input.status,
@@ -151,5 +157,13 @@ export function buildReviewDraftSnapshot(input: {
     internalLinks: input.metadata?.internalLinks ?? input.draft.internalLinks,
     generationWarnings:
       input.metadata?.generationWarnings ?? input.draft.warnings,
+    reviewFingerprintFields: input.reviewFingerprintFields,
   };
+}
+
+export function validateLinkedDraftBelongsToRun(input: {
+  agentRunId: string;
+  contentAgentRunId: string | null;
+}): boolean {
+  return input.contentAgentRunId === input.agentRunId;
 }

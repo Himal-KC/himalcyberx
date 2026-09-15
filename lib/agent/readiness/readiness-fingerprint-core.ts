@@ -17,19 +17,32 @@ function stableStringify(value: unknown): string {
     .join(",")}}`;
 }
 
-export function buildDraftFingerprint(snapshot: ReviewDraftSnapshot): string {
-  const payload = {
-    contentId: snapshot.contentId,
-    contentType: snapshot.contentType,
-    title: snapshot.title,
-    slug: snapshot.slug,
-    draft: snapshot.draft,
-    sourceMappings: snapshot.sourceMappings,
-    internalLinks: snapshot.internalLinks,
-    generationWarnings: snapshot.generationWarnings,
-  };
+function buildDraftFingerprint(snapshot: ReviewDraftSnapshot): string {
+  const payload = snapshot.reviewFingerprintFields
+    ? {
+        contentId: snapshot.contentId,
+        contentType: snapshot.contentType,
+        agentRunId: snapshot.agentRunId,
+        fields: snapshot.reviewFingerprintFields,
+      }
+    : {
+        contentId: snapshot.contentId,
+        contentType: snapshot.contentType,
+        title: snapshot.title,
+        slug: snapshot.slug,
+        draft: snapshot.draft,
+        sourceMappings: snapshot.sourceMappings,
+        internalLinks: snapshot.internalLinks,
+        generationWarnings: snapshot.generationWarnings,
+      };
 
   return createHash("sha256").update(stableStringify(payload)).digest("hex");
+}
+
+export function getCurrentDraftFingerprintFromSnapshot(
+  snapshot: ReviewDraftSnapshot,
+): string {
+  return buildDraftFingerprint(snapshot);
 }
 
 export interface ReadinessFingerprintInput {

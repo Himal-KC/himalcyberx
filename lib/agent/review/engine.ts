@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_noStore as noStore } from "next/cache";
 import { getResearchPayloadFromRun } from "@/lib/agent/generation/research-payload";
 import { hasOpenAiApiKey } from "@/lib/agent/openai/env";
 import {
@@ -96,6 +97,7 @@ async function updateLinkedContentReviewStatus(
 export async function runAgentReview(
   input: RunReviewInput,
 ): Promise<RunReviewOutcome> {
+  noStore();
   const { supabase, agentRunId } = input;
 
   if (!hasOpenAiApiKey()) {

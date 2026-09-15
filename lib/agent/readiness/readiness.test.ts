@@ -81,6 +81,7 @@ function buildSnapshot(overrides: Partial<ReviewDraftSnapshot> = {}): ReviewDraf
   return {
     contentId: VALID_CONTENT_ID,
     contentType: "article",
+    agentRunId: VALID_RUN_ID,
     title: "Title",
     slug: "title",
     status: "draft",
@@ -110,6 +111,21 @@ function buildSnapshot(overrides: Partial<ReviewDraftSnapshot> = {}): ReviewDraf
     sourceMappings: [],
     internalLinks: [],
     generationWarnings: [],
+    reviewFingerprintFields: {
+      title: "Title",
+      slug: "title",
+      excerpt: "Excerpt long enough for checks",
+      content: "Body content long enough for publication checks here.",
+      categoryId: "00000000-0000-4000-8000-000000000020",
+      seoTitle: "SEO",
+      seoDescription: "Description",
+      ogTitle: "OG",
+      ogDescription: "OGD",
+      seoKeywords: ["security"],
+      sourceMappings: [],
+      internalLinks: [],
+      generationWarnings: [],
+    },
     ...overrides,
   };
 }
@@ -482,7 +498,14 @@ describe("Phase 7 fingerprint and persistence", () => {
       isPersistedReadinessStale({
         persistedFingerprint: first,
         currentFingerprint: buildReadinessFingerprint({
-          snapshot: { ...snapshot, title: "Changed title" },
+          snapshot: {
+            ...snapshot,
+            title: "Changed title",
+            reviewFingerprintFields: {
+              ...snapshot.reviewFingerprintFields!,
+              title: "Changed title",
+            },
+          },
           seoFields: {
             seoTitle: "SEO",
             seoDescription: "Description",

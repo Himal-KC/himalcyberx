@@ -1,12 +1,19 @@
 import "server-only";
 
+import { unstable_noStore as noStore } from "next/cache";
 import { getResearchPayloadFromRun } from "@/lib/agent/generation/research-payload";
+import {
+  buildArticleReviewFingerprintFields,
+  buildLabReviewFingerprintFields,
+  buildTutorialReviewFingerprintFields,
+} from "@/lib/agent/review/fingerprint-core";
 import {
   buildArticleDraftFromRow,
   buildLabDraftFromRow,
   buildReviewDraftSnapshot,
   buildTutorialDraftFromRow,
   parseGenerationMetadata,
+  validateLinkedDraftBelongsToRun,
 } from "@/lib/agent/review/load-draft-core";
 import type { ReviewDraftSnapshot } from "@/lib/agent/review/types";
 import { getAgentRun } from "@/lib/supabase/admin-agent";
@@ -19,6 +26,8 @@ export async function loadReviewDraftSnapshot(
   supabase: AdminSupabase,
   run: AgentRun,
 ): Promise<{ snapshot: ReviewDraftSnapshot | null; error: string | null }> {
+  noStore();
+
   const metadata = parseGenerationMetadata(run.generation_metadata);
   const contentId =
     run.content_type === "article"
@@ -42,15 +51,32 @@ export async function loadReviewDraftSnapshot(
       return { snapshot: null, error: "Unable to load article draft." };
     }
 
+    if (
+      !validateLinkedDraftBelongsToRun({
+        agentRunId: run.id,
+        contentAgentRunId: data.agent_run_id,
+      })
+    ) {
+      return {
+        snapshot: null,
+        error: "Linked draft does not belong to this agent run.",
+      };
+    }
+
     const draft = buildArticleDraftFromRow(data, metadata, run.topic);
     return {
       snapshot: buildReviewDraftSnapshot({
+        agentRunId: run.id,
         contentType: "article",
         contentId,
         status: data.status,
         publishedAt: data.published_at,
         draft,
         metadata,
+        reviewFingerprintFields: buildArticleReviewFingerprintFields({
+          row: data,
+          metadata,
+        }),
       }),
       error: null,
     };
@@ -67,15 +93,32 @@ export async function loadReviewDraftSnapshot(
       return { snapshot: null, error: "Unable to load tutorial draft." };
     }
 
+    if (
+      !validateLinkedDraftBelongsToRun({
+        agentRunId: run.id,
+        contentAgentRunId: data.agent_run_id,
+      })
+    ) {
+      return {
+        snapshot: null,
+        error: "Linked draft does not belong to this agent run.",
+      };
+    }
+
     const draft = buildTutorialDraftFromRow(data, metadata, run.topic);
     return {
       snapshot: buildReviewDraftSnapshot({
+        agentRunId: run.id,
         contentType: "tutorial",
         contentId,
         status: data.status,
         publishedAt: data.published_at,
         draft,
         metadata,
+        reviewFingerprintFields: buildTutorialReviewFingerprintFields({
+          row: data,
+          metadata,
+        }),
       }),
       error: null,
     };
@@ -91,15 +134,32 @@ export async function loadReviewDraftSnapshot(
     return { snapshot: null, error: "Unable to load lab draft." };
   }
 
+  if (
+    !validateLinkedDraftBelongsToRun({
+      agentRunId: run.id,
+      contentAgentRunId: data.agent_run_id,
+    })
+  ) {
+    return {
+      snapshot: null,
+      error: "Linked draft does not belong to this agent run.",
+    };
+  }
+
   const draft = buildLabDraftFromRow(data, metadata, run.topic);
   return {
     snapshot: buildReviewDraftSnapshot({
+      agentRunId: run.id,
       contentType: "lab",
       contentId,
       status: data.status,
       publishedAt: data.published_at,
       draft,
       metadata,
+      reviewFingerprintFields: buildLabReviewFingerprintFields({
+        row: data,
+        metadata,
+      }),
     }),
     error: null,
   };
@@ -113,6 +173,8 @@ export async function loadReviewRunContext(
   snapshot: ReviewDraftSnapshot | null;
   error: string | null;
 }> {
+  noStore();
+
   const loaded = await getAgentRun(supabase, agentRunId);
   if (!loaded.data || loaded.error) {
     return {

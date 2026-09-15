@@ -124,14 +124,7 @@ function runDeterministicPreCheck(input: {
 }
 
 function buildArticleSnapshot(content: string) {
-  return {
-    contentId: "00000000-0000-4000-8000-000000000010",
-    contentType: "article" as const,
-    title: "CVE-2024-21412 Guidance",
-    slug: "cve-2024-21412-guidance",
-    status: "draft",
-    publishedAt: null,
-    draft: {
+  const draft = {
       contentType: "article" as const,
       title: "CVE-2024-21412 Guidance",
       slug: "cve-2024-21412-guidance",
@@ -163,10 +156,35 @@ function buildArticleSnapshot(content: string) {
       ],
       internalLinks: [] as InternalLinkSuggestion[],
       warnings: [],
-    },
-    sourceMappings: [],
+    };
+
+  return {
+    contentId: "00000000-0000-4000-8000-000000000010",
+    contentType: "article" as const,
+    agentRunId: "00000000-0000-4000-8000-000000000001",
+    title: "CVE-2024-21412 Guidance",
+    slug: "cve-2024-21412-guidance",
+    status: "draft",
+    publishedAt: null,
+    draft,
+    sourceMappings: draft.sourceMappings,
     internalLinks: [],
     generationWarnings: [],
+    reviewFingerprintFields: {
+      title: "CVE-2024-21412 Guidance",
+      slug: "cve-2024-21412-guidance",
+      excerpt: "Grounded analysis.",
+      content,
+      categoryId: null,
+      seoTitle: "CVE-2024-21412 Guidance",
+      seoDescription: "Grounded analysis.",
+      ogTitle: "CVE-2024-21412 Guidance",
+      ogDescription: "Grounded analysis.",
+      seoKeywords: ["CVE-2024-21412"],
+      sourceMappings: draft.sourceMappings,
+      internalLinks: [],
+      generationWarnings: [],
+    },
   };
 }
 

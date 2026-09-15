@@ -56,6 +56,34 @@ function stableStringify(value: unknown): string {
     .join(",")}}`;
 }
 
+function buildDraftFingerprint(snapshot: ReviewDraftSnapshot): string {
+  const payload = snapshot.reviewFingerprintFields
+    ? {
+        contentId: snapshot.contentId,
+        contentType: snapshot.contentType,
+        agentRunId: snapshot.agentRunId,
+        fields: snapshot.reviewFingerprintFields,
+      }
+    : {
+        contentId: snapshot.contentId,
+        contentType: snapshot.contentType,
+        title: snapshot.title,
+        slug: snapshot.slug,
+        draft: snapshot.draft,
+        sourceMappings: snapshot.sourceMappings,
+        internalLinks: snapshot.internalLinks,
+        generationWarnings: snapshot.generationWarnings,
+      };
+
+  return createHash("sha256").update(stableStringify(payload)).digest("hex");
+}
+
+export function getCurrentDraftFingerprintFromSnapshot(
+  snapshot: ReviewDraftSnapshot,
+): string {
+  return buildDraftFingerprint(snapshot);
+}
+
 function stripRichHtml(content: string): string {
   return content
     .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, " ")
@@ -212,21 +240,6 @@ export interface EvaluateReadinessGateResult {
   issues: ReadinessIssue[];
   checks: ReadinessChecksSummary;
   passedChecks: string[];
-}
-
-function buildDraftFingerprint(snapshot: ReviewDraftSnapshot): string {
-  const payload = {
-    contentId: snapshot.contentId,
-    contentType: snapshot.contentType,
-    title: snapshot.title,
-    slug: snapshot.slug,
-    draft: snapshot.draft,
-    sourceMappings: snapshot.sourceMappings,
-    internalLinks: snapshot.internalLinks,
-    generationWarnings: snapshot.generationWarnings,
-  };
-
-  return createHash("sha256").update(stableStringify(payload)).digest("hex");
 }
 
 function evaluateDeterministicSourceIntegrity(input: {
@@ -1319,10 +1332,4 @@ export function buildAgentRunReadinessMetadataUpdate(input: {
     ...existing,
     finalReadiness: input.readiness,
   };
-}
-
-export function getCurrentDraftFingerprintFromSnapshot(
-  snapshot: Parameters<typeof buildDraftFingerprint>[0],
-): string {
-  return buildDraftFingerprint(snapshot);
 }
