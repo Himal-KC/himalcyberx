@@ -30,6 +30,14 @@ export interface ReviewErrorLog extends ReviewTraceContext {
   findingCount?: number | null;
   qualityScore?: number | null;
   finalStatus?: string | null;
+  evidenceClassificationDiagnostics?: Array<{
+    evidenceId: string;
+    effectiveClassification: string;
+    isVerifiedClaim: boolean;
+    isVerifiedSource: boolean;
+    isDiscoveryOnly: boolean;
+    isInternalHcx: boolean;
+  }> | null;
 }
 
 export function sanitizeReviewErrorMessage(message: string): string {
@@ -63,5 +71,7 @@ export function logReviewError(log: ReviewErrorLog): void {
     findingCount: log.findingCount ?? null,
     qualityScore: log.qualityScore ?? null,
     finalStatus: log.finalStatus ?? null,
+    evidenceClassificationDiagnostics:
+      log.evidenceClassificationDiagnostics ?? null,
   });
 }

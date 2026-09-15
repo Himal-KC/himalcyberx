@@ -8,8 +8,8 @@ import type {
 } from "./types";
 import type { PersistedResearchPayload } from "../generation/types";
 import type { AgentRun } from "../../supabase/types";
-
-export { buildAllowedEvidenceIds } from "./validate-review-core";
+import type { EvidenceCatalogEntry } from "./validate-review-core";
+import { buildEvidenceClassificationIndex } from "./validate-review-core";
 
 export function buildAuthoritativeSourceRecords(
   sources: AgentSource[],
@@ -21,6 +21,20 @@ export function buildAuthoritativeSourceRecords(
     publisher: source.publisher,
     sourceType: source.source_type,
   }));
+}
+
+export function buildEvidenceCatalogForPrompt(input: {
+  verifiedClaims: ReviewContextPayload["verifiedClaims"];
+  authoritativeSources: AuthoritativeSourceRecord[];
+  approvedInternalContent: ReviewContextPayload["approvedInternalContent"];
+  discoveryContexts: ReviewContextPayload["discoveryContexts"];
+}): EvidenceCatalogEntry[] {
+  return buildEvidenceClassificationIndex({
+    verifiedClaims: input.verifiedClaims,
+    authoritativeSources: input.authoritativeSources,
+    approvedInternalContent: input.approvedInternalContent,
+    discoveryContexts: input.discoveryContexts,
+  }).catalog;
 }
 
 export function buildReviewContextPayload(input: {
@@ -79,9 +93,25 @@ export function serializeReviewContextForPrompt(
         internalLinks: context.draftSnapshot.internalLinks,
         warnings: context.draftSnapshot.generationWarnings,
       },
-      verifiedResearchFacts: context.verifiedClaims,
+      verifiedResearchFacts: context.verifiedClaims.map((claim) => ({
+        id: claim.id,
+        type: claim.type,
+        confidence: claim.confidence,
+        relevanceLevel: claim.relevanceLevel ?? null,
+      })),
+      evidenceCatalog: buildEvidenceCatalogForPrompt({
+        verifiedClaims: context.verifiedClaims,
+        authoritativeSources: context.authoritativeSources,
+        approvedInternalContent: context.approvedInternalContent,
+        discoveryContexts: context.discoveryContexts,
+      }),
       uncertainClaims: context.uncertainClaims,
-      discoveryOnlyContexts: context.discoveryContexts,
+      discoveryOnlyContexts: context.discoveryContexts.map((item) => ({
+        url: item.url,
+        title: item.title,
+        publisher: item.publisher ?? null,
+        note: "Discovery-only context. Do not cite in evidenceSourceIds.",
+      })),
       authoritativeSources: context.authoritativeSources,
       approvedInternalContent: context.approvedInternalContent,
       deterministicGroundingAudit: context.groundingAudit,

@@ -3,7 +3,6 @@ import "server-only";
 import { getResearchPayloadFromRun } from "@/lib/agent/generation/research-payload";
 import { hasOpenAiApiKey } from "@/lib/agent/openai/env";
 import {
-  buildAllowedEvidenceIds,
   buildReviewContextPayload,
   runDeterministicPreCheck,
 } from "@/lib/agent/review/build-context-core";
@@ -28,7 +27,8 @@ import { logReviewError, logReviewTrace } from "@/lib/agent/review/review-log-co
 import type { RunReviewResult } from "@/lib/agent/review/types";
 import { REVIEW_VERSION } from "@/lib/agent/review/types";
 import {
-  validateDiscoveryNotPromotedToVerified,
+  buildReviewEvidenceIndex,
+  collectRejectedEvidenceDiagnostics,
   validateSolReviewOutput,
 } from "@/lib/agent/review/validate-review-core";
 import {
@@ -208,9 +208,11 @@ export async function runAgentReview(
     model: reviewed.model,
   });
 
-  const allowedEvidenceIds = buildAllowedEvidenceIds({
-    verifiedClaimIds: payload.verifiedClaims.map((claim) => claim.id),
+  const evidenceIndex = buildReviewEvidenceIndex({
+    verifiedClaims: payload.verifiedClaims,
     authoritativeSources: reviewContext.authoritativeSources,
+    approvedInternalContent: reviewContext.approvedInternalContent,
+    discoveryContexts: reviewContext.discoveryContexts,
   });
   const allowedSourceUrlSet = new Set(
     allowedSourceUrls.map((url) => url.trim().toLowerCase()),
@@ -219,22 +221,21 @@ export async function runAgentReview(
   const validation = validateSolReviewOutput({
     review: reviewed.review,
     contentType: run.content_type,
-    allowedEvidenceIds,
+    evidenceIndex,
     allowedSourceUrls: allowedSourceUrlSet,
   });
 
-  const discoveryIssues = validateDiscoveryNotPromotedToVerified({
-    review: reviewed.review,
-    verifiedClaimIds: new Set(payload.verifiedClaims.map((claim) => claim.id)),
-  });
-
-  if (!validation.valid || discoveryIssues.length > 0) {
+  if (!validation.valid) {
     logReviewError({
       checkpoint: "validation_start",
       agentRunId,
       contentType: run.content_type,
       model: reviewed.model,
-      errorMessage: [...validation.errors, ...discoveryIssues].join(", "),
+      errorMessage: validation.errors.join(", "),
+      evidenceClassificationDiagnostics: collectRejectedEvidenceDiagnostics({
+        errors: validation.errors,
+        index: evidenceIndex,
+      }),
     });
     return { ok: false, error: "Review output failed validation." };
   }

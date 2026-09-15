@@ -23,8 +23,7 @@ const {
 } = (await import(pathToFileURL(join(testDir, "quality-gate-core.ts")).href)) as typeof import("./quality-gate-core");
 
 const {
-  buildAllowedEvidenceIds,
-  validateDiscoveryNotPromotedToVerified,
+  buildReviewEvidenceIndex,
   validateSolReviewOutput,
 } = (await import(pathToFileURL(join(testDir, "validate-review-core.ts")).href)) as typeof import("./validate-review-core");
 
@@ -62,6 +61,38 @@ const APPROVED_INTERNAL = [
     slug: "cve-2026-33824-critical-windows-ike-rce",
   },
 ];
+
+const AUTHORITATIVE_SOURCES = [
+  {
+    id: "00000000-0000-4000-8000-000000000100",
+    title: "NVD",
+    url: "https://nvd.nist.gov/vuln/detail/CVE-2024-21412",
+    publisher: "NIST",
+    sourceType: "official",
+  },
+];
+
+const DISCOVERY_ONLY_CONTEXTS = [
+  {
+    url: "https://example.com/unverified-discovery",
+    title: "Unverified discovery snippet",
+    publisher: "Example",
+    excerpt: "Discovery-only excerpt.",
+  },
+];
+
+function buildTestEvidenceIndex(input?: {
+  verifiedClaims?: VerifiedClaim[];
+  authoritativeSources?: typeof AUTHORITATIVE_SOURCES;
+  discoveryContexts?: typeof DISCOVERY_ONLY_CONTEXTS;
+}) {
+  return buildReviewEvidenceIndex({
+    verifiedClaims: input?.verifiedClaims ?? VERIFIED_CLAIMS,
+    authoritativeSources: input?.authoritativeSources ?? AUTHORITATIVE_SOURCES,
+    approvedInternalContent: APPROVED_INTERNAL,
+    discoveryContexts: input?.discoveryContexts ?? DISCOVERY_ONLY_CONTEXTS,
+  });
+}
 
 function runDeterministicPreCheck(input: {
   draftSnapshot: ReturnType<typeof buildArticleSnapshot>;
@@ -341,19 +372,6 @@ describe("Phase 5 quality gates", () => {
 
 describe("Phase 5 source and internal-link integrity", () => {
   it("rejects invented source IDs and URLs", () => {
-    const allowedEvidenceIds = buildAllowedEvidenceIds({
-      verifiedClaimIds: ["claim-cve"],
-      authoritativeSources: [
-        {
-          id: "source-1",
-          title: "NVD",
-          url: "https://nvd.nist.gov/vuln/detail/CVE-2024-21412",
-          publisher: "NIST",
-          sourceType: "official",
-        },
-      ],
-    });
-
     const validation = validateSolReviewOutput({
       review: buildReview({
         findings: [
@@ -370,7 +388,7 @@ describe("Phase 5 source and internal-link integrity", () => {
         ],
       }),
       contentType: "article",
-      allowedEvidenceIds,
+      evidenceIndex: buildTestEvidenceIndex(),
       allowedSourceUrls: new Set([
         "https://nvd.nist.gov/vuln/detail/cve-2024-21412",
       ]),
@@ -635,7 +653,7 @@ describe("Phase 5 schema and request compatibility", () => {
   });
 
   it("blocks discovery-only evidence from becoming verified support", () => {
-    const issues = validateDiscoveryNotPromotedToVerified({
+    const validation = validateSolReviewOutput({
       review: buildReview({
         findings: [
           {
@@ -644,16 +662,27 @@ describe("Phase 5 schema and request compatibility", () => {
             claimType: "general",
             claimText: "Discovery promoted",
             status: "supported",
-            evidenceSourceIds: ["discovery-only-id"],
+            evidenceSourceIds: [
+              "url:https://example.com/unverified-discovery",
+            ],
             explanation: "Bad",
             suggestedCorrection: null,
           },
         ],
       }),
-      verifiedClaimIds: new Set(["claim-cve"]),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: new Set([
+        "https://nvd.nist.gov/vuln/detail/cve-2024-21412",
+      ]),
     });
 
-    assert.ok(issues.length > 0);
+    assert.equal(validation.valid, false);
+    assert.ok(
+      validation.errors.some((error) =>
+        error.startsWith("discovery_promoted_to_verified:"),
+      ),
+    );
   });
 });
 
@@ -685,7 +714,7 @@ describe("Phase 5 review policy hardening", () => {
           "Draft cites https://example.com/fake-nvd which is not in the evidence catalog.",
       }),
       contentType: "article",
-      allowedEvidenceIds: new Set(["claim-cve", "source-1"]),
+      evidenceIndex: buildTestEvidenceIndex(),
       allowedSourceUrls: new Set([
         "https://nvd.nist.gov/vuln/detail/cve-2024-21412",
       ]),
@@ -694,6 +723,166 @@ describe("Phase 5 review policy hardening", () => {
     assert.equal(validation.valid, false);
     assert.ok(
       validation.errors.some((error) => error.startsWith("unknown_review_url:")),
+    );
+  });
+});
+
+describe("Phase 5 evidence classification regression", () => {
+  it("accepts supported findings that cite verified authoritative source UUIDs", () => {
+    const sourceId = AUTHORITATIVE_SOURCES[0].id;
+    const validation = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-002",
+            severity: "informational",
+            claimType: "cvss",
+            claimText: "CVSS score is supported by NVD.",
+            status: "supported",
+            evidenceSourceIds: [sourceId],
+            explanation: "Matches authoritative source.",
+            suggestedCorrection: null,
+          },
+          {
+            findingId: "F-003",
+            severity: "informational",
+            claimType: "kev_status",
+            claimText: "KEV status is supported.",
+            status: "supported",
+            evidenceSourceIds: [`source:${sourceId}`],
+            explanation: "Uses source alias.",
+            suggestedCorrection: null,
+          },
+          {
+            findingId: "F-004",
+            severity: "informational",
+            claimType: "cve_id",
+            claimText: "CVE claim is supported.",
+            status: "supported",
+            evidenceSourceIds: ["claim-cve"],
+            explanation: "Uses verified claim id.",
+            suggestedCorrection: null,
+          },
+          {
+            findingId: "F-009",
+            severity: "informational",
+            claimType: "general",
+            claimText: "Source URL alias is supported.",
+            status: "supported",
+            evidenceSourceIds: [
+              "url:https://nvd.nist.gov/vuln/detail/cve-2024-21412",
+            ],
+            explanation: "Uses verified source url alias.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: new Set([
+        "https://nvd.nist.gov/vuln/detail/cve-2024-21412",
+      ]),
+    });
+
+    assert.equal(validation.valid, true);
+  });
+
+  it("prefers verified source classification when discovery context shares the same URL", () => {
+    const sharedUrl = "https://nvd.nist.gov/vuln/detail/CVE-2024-21412";
+    const validation = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-010",
+            severity: "informational",
+            claimType: "cve_id",
+            claimText: "Verified source with discovery provenance is accepted.",
+            status: "supported",
+            evidenceSourceIds: [AUTHORITATIVE_SOURCES[0].id],
+            explanation: "Authoritative source takes precedence.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex({
+        discoveryContexts: [
+          {
+            url: sharedUrl,
+            title: "Discovery excerpt from same URL",
+            publisher: "NVD",
+            excerpt: "Previously discovered snippet.",
+          },
+          ...DISCOVERY_ONLY_CONTEXTS,
+        ],
+      }),
+      allowedSourceUrls: new Set([sharedUrl.toLowerCase()]),
+    });
+
+    assert.equal(validation.valid, true);
+  });
+
+  it("rejects true discovery-only evidence IDs", () => {
+    const validation = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-011",
+            severity: "major",
+            claimType: "general",
+            claimText: "Discovery-only evidence promoted.",
+            status: "supported",
+            evidenceSourceIds: [
+              "url:https://example.com/unverified-discovery",
+            ],
+            explanation: "Discovery-only URL cannot support finding.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: new Set([
+        "https://nvd.nist.gov/vuln/detail/cve-2024-21412",
+      ]),
+    });
+
+    assert.equal(validation.valid, false);
+    assert.ok(
+      validation.errors.some((error) =>
+        error.startsWith("discovery_promoted_to_verified:F-011:"),
+      ),
+    );
+  });
+
+  it("rejects internal HCX IDs used as factual evidence", () => {
+    const validation = validateSolReviewOutput({
+      review: buildReview({
+        findings: [
+          {
+            findingId: "F-012",
+            severity: "major",
+            claimType: "cve_id",
+            claimText: "Internal content used as external evidence.",
+            status: "supported",
+            evidenceSourceIds: [APPROVED_INTERNAL[0].id],
+            explanation: "Internal link is not external evidence.",
+            suggestedCorrection: null,
+          },
+        ],
+      }),
+      contentType: "article",
+      evidenceIndex: buildTestEvidenceIndex(),
+      allowedSourceUrls: new Set([
+        "https://nvd.nist.gov/vuln/detail/cve-2024-21412",
+      ]),
+    });
+
+    assert.equal(validation.valid, false);
+    assert.ok(
+      validation.errors.some((error) =>
+        error.startsWith("internal_hcx_as_factual_evidence:F-012:"),
+      ),
     );
   });
 });
