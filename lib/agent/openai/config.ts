@@ -15,6 +15,13 @@ export const HCX_REVIEW_MODEL =
 
 export const HCX_REVIEW_MAX_OUTPUT_TOKENS = 12000;
 
+export const HCX_IMAGE_MODEL =
+  process.env.HCX_IMAGE_MODEL?.trim() || "gpt-image-2";
+
+export const HCX_IMAGE_QUALITY = "high" as const;
+
+export const HCX_IMAGE_OUTPUT_FORMAT = "webp" as const;
+
 export const HCX_GENERATION_MAX_OUTPUT_TOKENS = TERRA_DRAFT_MAX_OUTPUT_TOKENS;
 
 export const HCX_MAX_INTERNAL_LINKS = 5;

@@ -11,6 +11,8 @@ import type { GenerateDraftResult } from "@/lib/agent/generation/types";
 import { runAgentReview } from "@/lib/agent/review/engine";
 import type { RunReviewResult } from "@/lib/agent/review/types";
 import { resumePersistedAgentRun } from "@/lib/agent/resume/resume-run";
+import { runAgentFeaturedImageGeneration } from "@/lib/agent/image/engine";
+import type { GeneratedFeaturedImageResult } from "@/lib/agent/image/types";
 import {
   isValidAgentRunId,
   type ResumedAgentRunResult,
@@ -108,6 +110,12 @@ export interface ResumeAgentRunState {
   success?: boolean;
   error?: string;
   resumed?: ResumedAgentRunResult;
+}
+
+export interface GenerateAgentFeaturedImageState {
+  success?: boolean;
+  error?: string;
+  image?: GeneratedFeaturedImageResult;
 }
 
 export async function researchAgentTopic(
@@ -271,6 +279,41 @@ export async function resumeAgentRun(
   return {
     success: true,
     resumed: outcome.result,
+  };
+}
+
+export async function generateAgentFeaturedImage(
+  _prevState: GenerateAgentFeaturedImageState,
+  formData: FormData,
+): Promise<GenerateAgentFeaturedImageState> {
+  const auth = await getAuthenticatedServerClient("generateAgentFeaturedImage");
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  if (!hasOpenAiApiKey()) {
+    return { error: "OpenAI is not configured." };
+  }
+
+  const agentRunId = String(formData.get("agentRunId") ?? "").trim();
+  if (!isValidAgentRunId(agentRunId)) {
+    return { error: "Invalid agent run ID." };
+  }
+
+  const outcome = await runAgentFeaturedImageGeneration({
+    supabase: auth.supabase,
+    agentRunId,
+    adminUserId: auth.user.id,
+  });
+
+  if (!outcome.ok) {
+    return { error: outcome.error };
+  }
+
+  return {
+    success: true,
+    image: outcome.result,
   };
 }
 

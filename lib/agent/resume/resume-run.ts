@@ -14,6 +14,7 @@ import {
 import {
   buildResumableAgentRunSummary,
   buildResumedAgentRunResult,
+  type FeaturedImageState,
   type LinkedContentRecord,
   type ResumableAgentRunSummary,
   type ResumedAgentRunResult,
@@ -47,7 +48,7 @@ async function loadLinkedContentRecord(
 
   const { data, error } = await supabase
     .from(table)
-    .select("id, title, slug, status, agent_run_id")
+    .select("id, title, slug, status, agent_run_id, featured_image, featured_image_alt")
     .eq("id", contentId)
     .maybeSingle();
 
@@ -142,12 +143,18 @@ export async function resumePersistedAgentRun(
       )
     : null;
 
+  const featuredImage: FeaturedImageState = {
+    url: content.featured_image ?? null,
+    alt: content.featured_image_alt ?? null,
+  };
+
   return {
     ok: true,
     result: buildResumedAgentRunResult({
       run,
       draft,
       latestReview,
+      featuredImage,
     }),
   };
 }

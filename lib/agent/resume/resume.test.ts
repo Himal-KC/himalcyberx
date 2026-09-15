@@ -204,6 +204,7 @@ describe("Agent run resume core", () => {
         existingDraft: true,
       },
       latestReview: null,
+      featuredImage: { url: null, alt: null },
     });
 
     assert.equal(resumed.agentRunId, VALID_RUN_ID);

@@ -21,6 +21,11 @@ export interface ResumableAgentRunSummary {
   createdAt: string;
 }
 
+export interface FeaturedImageState {
+  url: string | null;
+  alt: string | null;
+}
+
 export interface ResumedAgentRunResult {
   agentRunId: string;
   topic: string;
@@ -29,6 +34,7 @@ export interface ResumedAgentRunResult {
   stage: AgentRunStage;
   draft: GenerateDraftResult;
   latestReview: RunReviewResult | null;
+  featuredImage: FeaturedImageState;
 }
 
 export interface LinkedContentRecord {
@@ -37,6 +43,8 @@ export interface LinkedContentRecord {
   slug: string;
   status: string;
   agent_run_id: string | null;
+  featured_image?: string | null;
+  featured_image_alt?: string | null;
 }
 
 export function isValidAgentRunId(value: string): boolean {
@@ -151,6 +159,7 @@ export function buildResumedAgentRunResult(input: {
   run: AgentRun;
   draft: GenerateDraftResult;
   latestReview: RunReviewResult | null;
+  featuredImage: FeaturedImageState;
 }): ResumedAgentRunResult {
   return {
     agentRunId: input.run.id,
@@ -160,5 +169,6 @@ export function buildResumedAgentRunResult(input: {
     stage: input.run.stage,
     draft: input.draft,
     latestReview: input.latestReview,
+    featuredImage: input.featuredImage,
   };
 }

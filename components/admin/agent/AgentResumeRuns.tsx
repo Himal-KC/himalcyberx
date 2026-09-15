@@ -114,6 +114,7 @@ export function AgentResumeRuns({
           agentRunId={resumed.agentRunId}
           draft={resumed.draft}
           initialReview={resumed.latestReview}
+          initialFeaturedImage={resumed.featuredImage}
         />
       </section>
     );

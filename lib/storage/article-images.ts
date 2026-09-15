@@ -89,6 +89,54 @@ export interface UploadedArticleImage {
   fileSize: number;
 }
 
+export async function uploadImageBuffer(
+  supabase: SupabaseClient,
+  input: {
+    buffer: Buffer;
+    mimeType: AllowedArticleImageType;
+    folder: "articles" | "labs" | "tutorials";
+    filename: string;
+  },
+): Promise<{ data?: UploadedArticleImage; error?: string }> {
+  if (
+    !ALLOWED_ARTICLE_IMAGE_TYPES.includes(input.mimeType as AllowedArticleImageType)
+  ) {
+    return { error: ARTICLE_IMAGE_TYPE_ERROR };
+  }
+
+  if (input.buffer.length > MAX_ARTICLE_IMAGE_SIZE_BYTES) {
+    return { error: ARTICLE_IMAGE_SIZE_ERROR };
+  }
+
+  const storagePath = buildImageStoragePath(input.folder, input.filename);
+  const { error: uploadError } = await supabase.storage
+    .from(ARTICLE_IMAGES_BUCKET)
+    .upload(storagePath, input.buffer, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: input.mimeType,
+    });
+
+  if (uploadError) {
+    return {
+      error: uploadError.message || "Unable to upload image. Please try again.",
+    };
+  }
+
+  const { data } = supabase.storage
+    .from(ARTICLE_IMAGES_BUCKET)
+    .getPublicUrl(storagePath);
+
+  return {
+    data: {
+      publicUrl: data.publicUrl,
+      storagePath,
+      filename: input.filename,
+      fileSize: input.buffer.length,
+    },
+  };
+}
+
 export async function uploadImage(
   supabase: SupabaseClient,
   file: File,

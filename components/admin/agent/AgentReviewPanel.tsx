@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { AgentFeaturedImagePanel } from "@/components/admin/agent/AgentFeaturedImagePanel";
 import {
   reviewAgentDraft,
   type ReviewAgentDraftState,
@@ -38,10 +39,12 @@ export function AgentReviewPanel({
   agentRunId,
   draft,
   initialReview = null,
+  initialFeaturedImage = { url: null, alt: null },
 }: {
   agentRunId: string;
   draft: GenerateDraftResult;
   initialReview?: RunReviewResult | null;
+  initialFeaturedImage?: { url: string | null; alt: string | null };
 }) {
   const [state, formAction, isPending] = useActionState(
     reviewAgentDraft,
@@ -190,6 +193,15 @@ export function AgentReviewPanel({
             ) : null}
           </div>
         </div>
+      ) : null}
+
+      {(review ?? initialReview) ? (
+        <AgentFeaturedImagePanel
+          agentRunId={agentRunId}
+          draft={draft}
+          review={state.review ?? initialReview ?? null}
+          initialImage={initialFeaturedImage}
+        />
       ) : null}
     </div>
   );
