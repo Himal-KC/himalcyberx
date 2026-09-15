@@ -9,4 +9,6 @@ export const RATE_LIMIT_MESSAGES = {
     "Too many research runs were started recently. Please wait before trying again.",
   agentGeneration:
     "Too many draft generations were started recently. Please wait before trying again.",
+  agentReview:
+    "Too many independent reviews were started recently. Please wait before trying again.",
 } as const;

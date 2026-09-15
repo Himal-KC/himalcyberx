@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
+import { AgentReviewPanel } from "@/components/admin/agent/AgentReviewPanel";
 import {
   generateAgentDraft,
   type GenerateAgentDraftState,
@@ -117,6 +118,13 @@ export function AgentGenerateDraft({ research }: { research: ResearchResult }) {
           published automatically.
         </p>
       )}
+
+      {state.success && state.draft ? (
+        <AgentReviewPanel
+          agentRunId={research.agentRunId}
+          draft={state.draft}
+        />
+      ) : null}
     </div>
   );
 }

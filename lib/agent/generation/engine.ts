@@ -355,6 +355,9 @@ export async function runAgentGeneration(
     quality,
     groundingAudit,
     generatedAt: new Date().toISOString(),
+    sourceMappings: draft.sourceMappings,
+    internalLinks: draft.internalLinks,
+    generationWarnings: draft.warnings,
   };
 
   logGenerationSave({

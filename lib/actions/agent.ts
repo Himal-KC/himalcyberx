@@ -8,6 +8,8 @@ import {
 import { loadSiteContentInventory } from "@/lib/agent/content-inventory";
 import { runAgentGeneration } from "@/lib/agent/generation/engine";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
+import { runAgentReview } from "@/lib/agent/review/engine";
+import type { RunReviewResult } from "@/lib/agent/review/types";
 import { hasOpenAiApiKey } from "@/lib/agent/openai/env";
 import { runAgentResearch } from "@/lib/agent/research/engine";
 import type {
@@ -89,6 +91,12 @@ export interface GenerateAgentDraftState {
   success?: boolean;
   error?: string;
   draft?: GenerateDraftResult;
+}
+
+export interface ReviewAgentDraftState {
+  success?: boolean;
+  error?: string;
+  review?: RunReviewResult;
 }
 
 export async function researchAgentTopic(
@@ -191,6 +199,41 @@ export async function generateAgentDraft(
   return {
     success: true,
     draft: outcome.result,
+  };
+}
+
+export async function reviewAgentDraft(
+  _prevState: ReviewAgentDraftState,
+  formData: FormData,
+): Promise<ReviewAgentDraftState> {
+  const auth = await getAuthenticatedServerClient("reviewAgentDraft");
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  if (!hasOpenAiApiKey()) {
+    return { error: "OpenAI is not configured." };
+  }
+
+  const agentRunId = String(formData.get("agentRunId") ?? "").trim();
+  if (!agentRunId) {
+    return { error: "A research run is required before running review." };
+  }
+
+  const outcome = await runAgentReview({
+    supabase: auth.supabase,
+    agentRunId,
+    adminUserId: auth.user.id,
+  });
+
+  if (!outcome.ok) {
+    return { error: outcome.error };
+  }
+
+  return {
+    success: true,
+    review: outcome.result,
   };
 }
 

@@ -153,6 +153,9 @@ export interface GenerationMetadata {
   quality?: DraftQualityAssessment | null;
   groundingAudit?: GroundingAuditResult | null;
   generatedAt?: string | null;
+  sourceMappings?: SourceMapping[];
+  internalLinks?: InternalLinkSuggestion[];
+  generationWarnings?: string[];
 }
 
 export interface GenerateDraftResult {

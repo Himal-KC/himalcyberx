@@ -6,9 +6,10 @@ export type RateLimitScope =
   | "contact"
   | "admin-login"
   | "agent-research"
-  | "agent-generation";
+  | "agent-generation"
+  | "agent-review";
 
-const LIMIT_CONFIG: Record<
+export const LIMIT_CONFIG: Record<
   RateLimitScope,
   { requests: number; window: `${number} m` }
 > = {
@@ -17,6 +18,7 @@ const LIMIT_CONFIG: Record<
   "admin-login": { requests: 5, window: "15 m" },
   "agent-research": { requests: 10, window: "30 m" },
   "agent-generation": { requests: 5, window: "30 m" },
+  "agent-review": { requests: 3, window: "30 m" },
 };
 
 let redisClient: Redis | null | undefined;
