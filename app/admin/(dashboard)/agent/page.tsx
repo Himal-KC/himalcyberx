@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
 import { AgentTopicAnalyzer } from "@/components/admin/agent/AgentTopicAnalyzer";
+import { loadResumableAgentRunSummaries } from "@/lib/agent/resume/resume-run";
+import { getAuthenticatedServerClient } from "@/lib/supabase/admin-session";
 
 export const metadata: Metadata = {
   title: "HCX Agent | HCX Admin",
   robots: { index: false, follow: false },
 };
 
-export default function AdminAgentPage() {
+export default async function AdminAgentPage() {
+  const auth = await getAuthenticatedServerClient("adminAgentPage");
+  const resumableRuns = auth.ok
+    ? (await loadResumableAgentRunSummaries(auth.supabase, 10)).data
+    : [];
+
   return (
     <div>
       <div className="mb-8">
@@ -28,7 +35,7 @@ export default function AdminAgentPage() {
         </p>
       </div>
 
-      <AgentTopicAnalyzer />
+      <AgentTopicAnalyzer resumableRuns={resumableRuns} />
     </div>
   );
 }

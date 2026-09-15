@@ -10,6 +10,11 @@ import { runAgentGeneration } from "@/lib/agent/generation/engine";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
 import { runAgentReview } from "@/lib/agent/review/engine";
 import type { RunReviewResult } from "@/lib/agent/review/types";
+import { resumePersistedAgentRun } from "@/lib/agent/resume/resume-run";
+import {
+  isValidAgentRunId,
+  type ResumedAgentRunResult,
+} from "@/lib/agent/resume/resume-core";
 import { hasOpenAiApiKey } from "@/lib/agent/openai/env";
 import { runAgentResearch } from "@/lib/agent/research/engine";
 import type {
@@ -97,6 +102,12 @@ export interface ReviewAgentDraftState {
   success?: boolean;
   error?: string;
   review?: RunReviewResult;
+}
+
+export interface ResumeAgentRunState {
+  success?: boolean;
+  error?: string;
+  resumed?: ResumedAgentRunResult;
 }
 
 export async function researchAgentTopic(
@@ -234,6 +245,32 @@ export async function reviewAgentDraft(
   return {
     success: true,
     review: outcome.result,
+  };
+}
+
+export async function resumeAgentRun(
+  _prevState: ResumeAgentRunState,
+  formData: FormData,
+): Promise<ResumeAgentRunState> {
+  const auth = await getAuthenticatedServerClient("resumeAgentRun");
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  const agentRunId = String(formData.get("agentRunId") ?? "").trim();
+  if (!isValidAgentRunId(agentRunId)) {
+    return { error: "Invalid agent run ID." };
+  }
+
+  const outcome = await resumePersistedAgentRun(auth.supabase, agentRunId);
+  if (!outcome.ok) {
+    return { error: outcome.error };
+  }
+
+  return {
+    success: true,
+    resumed: outcome.result,
   };
 }
 

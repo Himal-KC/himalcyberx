@@ -84,6 +84,30 @@ export async function getAgentRun(
   return { data: (data as AgentRun | null) ?? null, error: null };
 }
 
+export async function listResumableAgentRuns(
+  supabase: AdminSupabase,
+  limit = 10,
+): Promise<{ data: AgentRun[]; error: string | null }> {
+  const safeLimit = Math.min(Math.max(limit, 1), 10);
+
+  const { data, error } = await supabase
+    .from("agent_runs")
+    .select("*")
+    .not("research_payload", "is", null)
+    .or(
+      "article_id.not.is.null,tutorial_id.not.is.null,lab_id.not.is.null",
+    )
+    .order("updated_at", { ascending: false })
+    .limit(safeLimit);
+
+  if (error) {
+    logQueryError("listResumableAgentRuns", error);
+    return { data: [], error: "Unable to load agent research runs." };
+  }
+
+  return { data: (data ?? []) as AgentRun[], error: null };
+}
+
 export async function insertAgentSources(
   supabase: AdminSupabase,
   sources: AgentSourceInsert[],

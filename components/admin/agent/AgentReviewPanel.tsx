@@ -7,6 +7,7 @@ import {
   type ReviewAgentDraftState,
 } from "@/lib/actions/agent";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
+import type { RunReviewResult } from "@/lib/agent/review/types";
 import { focusRing } from "@/lib/page-data";
 
 const initialState: ReviewAgentDraftState = {};
@@ -36,16 +37,18 @@ function statusLabel(status: string): string {
 export function AgentReviewPanel({
   agentRunId,
   draft,
+  initialReview = null,
 }: {
   agentRunId: string;
   draft: GenerateDraftResult;
+  initialReview?: RunReviewResult | null;
 }) {
   const [state, formAction, isPending] = useActionState(
     reviewAgentDraft,
-    initialState,
+    initialReview ? { success: true, review: initialReview } : initialState,
   );
 
-  const review = state.review?.review;
+  const review = state.review?.review ?? initialReview?.review;
 
   return (
     <div className="mt-8 rounded-xl border border-hcx-border bg-hcx-bg/40 p-5">
@@ -165,14 +168,21 @@ export function AgentReviewPanel({
 
           <div className="flex flex-wrap gap-3">
             <Link
-              href={state.review?.editUrl ?? draft.editUrl}
+              href={state.review?.editUrl ?? initialReview?.editUrl ?? draft.editUrl}
               className={`inline-flex items-center rounded-lg border border-hcx-cyan/40 bg-hcx-cyan/10 px-4 py-2 text-sm font-semibold text-hcx-cyan hover:bg-hcx-cyan/20 ${focusRing}`}
             >
               Open Draft
             </Link>
-            {(state.review?.previewUrl ?? draft.previewUrl) ? (
+            {(state.review?.previewUrl ??
+              initialReview?.previewUrl ??
+              draft.previewUrl) ? (
               <Link
-                href={state.review?.previewUrl ?? draft.previewUrl ?? "#"}
+                href={
+                  state.review?.previewUrl ??
+                  initialReview?.previewUrl ??
+                  draft.previewUrl ??
+                  "#"
+                }
                 className={`inline-flex items-center rounded-lg border border-hcx-border px-4 py-2 text-sm font-semibold text-hcx-text hover:bg-hcx-bg/60 ${focusRing}`}
               >
                 Preview Draft

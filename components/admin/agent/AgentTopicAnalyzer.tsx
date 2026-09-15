@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { AgentResearchResults } from "@/components/admin/agent/AgentResearchResults";
+import { AgentResumeRuns } from "@/components/admin/agent/AgentResumeRuns";
 import {
   analyzeAgentTopic,
   researchAgentTopic,
   type AgentTopicAnalysisMatch,
   type AnalyzeAgentTopicState,
 } from "@/lib/actions/agent";
+import type { ResumableAgentRunSummary } from "@/lib/agent/resume/resume-core";
 import type { AgentContentType } from "@/lib/supabase/types";
 import { focusRing } from "@/lib/page-data";
 
@@ -131,7 +133,11 @@ function MatchList({
   );
 }
 
-export function AgentTopicAnalyzer() {
+export function AgentTopicAnalyzer({
+  resumableRuns = [],
+}: {
+  resumableRuns?: ResumableAgentRunSummary[];
+}) {
   const [analysisState, analyzeAction, isAnalyzing] = useActionState(
     analyzeAgentTopic,
     {},
@@ -168,6 +174,8 @@ export function AgentTopicAnalyzer() {
 
   return (
     <div className="space-y-6">
+      <AgentResumeRuns runs={resumableRuns} />
+
       <form action={analyzeAction} className="space-y-6">
         <section className="rounded-xl border border-hcx-border bg-hcx-card p-6 sm:p-8">
           <h2 className="text-lg font-semibold text-hcx-text">
