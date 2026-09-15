@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { AgentFeaturedImagePanel } from "@/components/admin/agent/AgentFeaturedImagePanel";
+import { AgentReadinessPanel } from "@/components/admin/agent/AgentReadinessPanel";
 import {
   reviewAgentDraft,
   type ReviewAgentDraftState,
 } from "@/lib/actions/agent";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
+import type { RunReadinessResult } from "@/lib/agent/readiness/types";
 import type { RunReviewResult } from "@/lib/agent/review/types";
 import { focusRing } from "@/lib/page-data";
 
@@ -40,11 +42,13 @@ export function AgentReviewPanel({
   draft,
   initialReview = null,
   initialFeaturedImage = { url: null, alt: null },
+  initialReadiness = null,
 }: {
   agentRunId: string;
   draft: GenerateDraftResult;
   initialReview?: RunReviewResult | null;
   initialFeaturedImage?: { url: string | null; alt: string | null };
+  initialReadiness?: RunReadinessResult | null;
 }) {
   const [state, formAction, isPending] = useActionState(
     reviewAgentDraft,
@@ -196,12 +200,19 @@ export function AgentReviewPanel({
       ) : null}
 
       {(review ?? initialReview) ? (
-        <AgentFeaturedImagePanel
-          agentRunId={agentRunId}
-          draft={draft}
-          review={state.review ?? initialReview ?? null}
-          initialImage={initialFeaturedImage}
-        />
+        <>
+          <AgentFeaturedImagePanel
+            agentRunId={agentRunId}
+            draft={draft}
+            review={state.review ?? initialReview ?? null}
+            initialImage={initialFeaturedImage}
+          />
+          <AgentReadinessPanel
+            agentRunId={agentRunId}
+            draft={draft}
+            initialReadiness={initialReadiness}
+          />
+        </>
       ) : null}
     </div>
   );

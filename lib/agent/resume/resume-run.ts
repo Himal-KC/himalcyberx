@@ -20,6 +20,8 @@ import {
   type ResumedAgentRunResult,
   validateResumeAgentRunInput,
 } from "@/lib/agent/resume/resume-core";
+import { buildReadinessFingerprint } from "@/lib/agent/readiness/readiness-fingerprint-core";
+import { loadPersistedReadinessForRun } from "@/lib/agent/readiness/engine";
 import {
   getAgentRun,
   listResumableAgentRuns,
@@ -48,7 +50,7 @@ async function loadLinkedContentRecord(
 
   const { data, error } = await supabase
     .from(table)
-    .select("id, title, slug, status, agent_run_id, featured_image, featured_image_alt")
+    .select("id, title, slug, status, agent_run_id, featured_image, featured_image_alt, seo_title, seo_description, og_title, og_description")
     .eq("id", contentId)
     .maybeSingle();
 
@@ -148,6 +150,25 @@ export async function resumePersistedAgentRun(
     alt: content.featured_image_alt ?? null,
   };
 
+  const latestReadiness =
+    reviewContext.snapshot
+      ? loadPersistedReadinessForRun(
+          run,
+          buildReadinessFingerprint({
+            snapshot: reviewContext.snapshot,
+            seoFields: {
+              seoTitle: content.seo_title ?? null,
+              seoDescription: content.seo_description ?? null,
+              ogTitle: content.og_title ?? null,
+              ogDescription: content.og_description ?? null,
+            },
+            featuredImage: content.featured_image ?? null,
+            featuredImageAlt: content.featured_image_alt ?? null,
+            reviewFingerprint: latestReviewResult.data?.draft_fingerprint ?? null,
+          }),
+        )
+      : null;
+
   return {
     ok: true,
     result: buildResumedAgentRunResult({
@@ -155,6 +176,7 @@ export async function resumePersistedAgentRun(
       draft,
       latestReview,
       featuredImage,
+      latestReadiness,
     }),
   };
 }

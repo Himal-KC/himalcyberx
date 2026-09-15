@@ -13,6 +13,8 @@ import type { RunReviewResult } from "@/lib/agent/review/types";
 import { resumePersistedAgentRun } from "@/lib/agent/resume/resume-run";
 import { runAgentFeaturedImageGeneration } from "@/lib/agent/image/engine";
 import type { GeneratedFeaturedImageResult } from "@/lib/agent/image/types";
+import { runAgentReadinessEvaluation } from "@/lib/agent/readiness/engine";
+import type { RunReadinessResult } from "@/lib/agent/readiness/types";
 import {
   isValidAgentRunId,
   type ResumedAgentRunResult,
@@ -116,6 +118,12 @@ export interface GenerateAgentFeaturedImageState {
   success?: boolean;
   error?: string;
   image?: GeneratedFeaturedImageResult;
+}
+
+export interface EvaluateAgentReadinessState {
+  success?: boolean;
+  error?: string;
+  readiness?: RunReadinessResult;
 }
 
 export async function researchAgentTopic(
@@ -314,6 +322,36 @@ export async function generateAgentFeaturedImage(
   return {
     success: true,
     image: outcome.result,
+  };
+}
+
+export async function evaluateAgentReadiness(
+  _prevState: EvaluateAgentReadinessState,
+  formData: FormData,
+): Promise<EvaluateAgentReadinessState> {
+  const auth = await getAuthenticatedServerClient("evaluateAgentReadiness");
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  const agentRunId = String(formData.get("agentRunId") ?? "").trim();
+  if (!isValidAgentRunId(agentRunId)) {
+    return { error: "Invalid agent run ID." };
+  }
+
+  const outcome = await runAgentReadinessEvaluation({
+    supabase: auth.supabase,
+    agentRunId,
+  });
+
+  if (!outcome.ok) {
+    return { error: outcome.error };
+  }
+
+  return {
+    success: true,
+    readiness: outcome.result,
   };
 }
 

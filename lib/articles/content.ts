@@ -8,4 +8,4 @@ export {
   stripArticleHtml,
   stripRichHtml,
   escapeArticleHtml,
-} from "@/lib/content/html";
+} from "../content/html";

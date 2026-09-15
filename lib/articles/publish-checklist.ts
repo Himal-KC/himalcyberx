@@ -1,5 +1,5 @@
-import { getArticleContentTextLength } from "@/lib/articles/content";
-import { resolveArticleSeo } from "@/lib/articles/seo";
+import { getArticleContentTextLength } from "../content/html";
+import { resolveArticleSeo } from "./seo";
 
 export interface PublishChecklistInput {
   title: string;

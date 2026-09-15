@@ -1,5 +1,6 @@
 import type { GenerateDraftResult } from "../generation/types";
 import type { RunReviewResult } from "../review/types";
+import type { RunReadinessResult } from "../readiness/types";
 import type {
   AgentContentType,
   AgentRun,
@@ -35,6 +36,7 @@ export interface ResumedAgentRunResult {
   draft: GenerateDraftResult;
   latestReview: RunReviewResult | null;
   featuredImage: FeaturedImageState;
+  latestReadiness: RunReadinessResult | null;
 }
 
 export interface LinkedContentRecord {
@@ -45,6 +47,10 @@ export interface LinkedContentRecord {
   agent_run_id: string | null;
   featured_image?: string | null;
   featured_image_alt?: string | null;
+  seo_title?: string | null;
+  seo_description?: string | null;
+  og_title?: string | null;
+  og_description?: string | null;
 }
 
 export function isValidAgentRunId(value: string): boolean {
@@ -160,6 +166,7 @@ export function buildResumedAgentRunResult(input: {
   draft: GenerateDraftResult;
   latestReview: RunReviewResult | null;
   featuredImage: FeaturedImageState;
+  latestReadiness: RunReadinessResult | null;
 }): ResumedAgentRunResult {
   return {
     agentRunId: input.run.id,
@@ -170,5 +177,6 @@ export function buildResumedAgentRunResult(input: {
     draft: input.draft,
     latestReview: input.latestReview,
     featuredImage: input.featuredImage,
+    latestReadiness: input.latestReadiness,
   };
 }
