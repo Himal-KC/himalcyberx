@@ -120,41 +120,153 @@ function collectCanonicalRichFields(
   ];
 }
 
+export type RichFieldHtmlIssue =
+  | "prohibited_html"
+  | "markdown_href"
+  | "nested_anchor"
+  | "backslash_escaped_tag"
+  | "entity_escaped_tag";
+
+export function diagnoseRichFieldHtmlIssue(field: string): RichFieldHtmlIssue | null {
+  if (containsProhibitedHtml(field)) {
+    return "prohibited_html";
+  }
+
+  if (containsMarkdownHrefValues(field)) {
+    return "markdown_href";
+  }
+
+  if (containsNestedAnchorTags(field)) {
+    return "nested_anchor";
+  }
+
+  if (containsBackslashEscapedHtmlTags(field)) {
+    return "backslash_escaped_tag";
+  }
+
+  if (containsEntityEscapedHtmlTags(field)) {
+    return "entity_escaped_tag";
+  }
+
+  return null;
+}
+
+function richFieldNamesForDraft(draft: GeneratedDraft): string[] {
+  if (draft.contentType === "article") {
+    return ["content"];
+  }
+
+  if (draft.contentType === "tutorial") {
+    return [
+      "requirements",
+      "introduction",
+      "instructions",
+      "keyTakeaways",
+      "securityNotes",
+    ];
+  }
+
+  return [
+    "learningObjectives",
+    "requirementsTools",
+    "introduction",
+    "instructions",
+    "expectedResult",
+    "securityNotes",
+  ];
+}
+
+export function validateGeneratedDraftStructureDetailed(
+  draft: GeneratedDraft,
+  expectedContentType: AgentContentType,
+  allowedSourceUrls?: readonly string[],
+): {
+  message: string;
+  field: string;
+  issue: RichFieldHtmlIssue | "content_type_mismatch" | "invalid_slug" | "title_too_short";
+} | null {
+  if (draft.contentType !== expectedContentType) {
+    return {
+      message: "Generated output did not match the requested content type.",
+      field: "contentType",
+      issue: "content_type_mismatch",
+    };
+  }
+
+  if (!isSlugValidForContentType(draft.slug, expectedContentType)) {
+    return {
+      message: "Generated slug failed validation.",
+      field: "slug",
+      issue: "invalid_slug",
+    };
+  }
+
+  const fieldNames = richFieldNamesForDraft(draft);
+  const richFields = collectCanonicalRichFields(draft, allowedSourceUrls);
+
+  for (let index = 0; index < richFields.length; index += 1) {
+    const field = richFields[index];
+    const fieldName = fieldNames[index] ?? `richField${index + 1}`;
+    const htmlIssue = diagnoseRichFieldHtmlIssue(field);
+    if (htmlIssue) {
+      if (htmlIssue === "prohibited_html") {
+        return {
+          message: `Generated output contained prohibited HTML in ${draft.contentType}.${fieldName}.`,
+          field: `${draft.contentType}.${fieldName}`,
+          issue: htmlIssue,
+        };
+      }
+
+      return {
+        message: `Generated output contained malformed HTML markup in ${draft.contentType}.${fieldName} (${htmlIssue}).`,
+        field: `${draft.contentType}.${fieldName}`,
+        issue: htmlIssue,
+      };
+    }
+  }
+
+  if (draft.title.trim().length < 8) {
+    return {
+      message: "Generated title was too short.",
+      field: "title",
+      issue: "title_too_short",
+    };
+  }
+
+  return null;
+}
+
 export function validateGeneratedDraftStructure(
   draft: GeneratedDraft,
   expectedContentType: AgentContentType,
   allowedSourceUrls?: readonly string[],
 ): string | null {
-  if (draft.contentType !== expectedContentType) {
-    return "Generated output did not match the requested content type.";
+  const failure = validateGeneratedDraftStructureDetailed(
+    draft,
+    expectedContentType,
+    allowedSourceUrls,
+  );
+  if (!failure) {
+    return null;
   }
 
-  if (!isSlugValidForContentType(draft.slug, expectedContentType)) {
-    return "Generated slug failed validation.";
+  if (failure.issue === "content_type_mismatch") {
+    return failure.message;
   }
 
-  const richFields = collectCanonicalRichFields(draft, allowedSourceUrls);
-
-  for (const field of richFields) {
-    if (containsProhibitedHtml(field)) {
-      return "Generated output contained prohibited HTML.";
-    }
-
-    if (
-      containsMarkdownHrefValues(field) ||
-      containsNestedAnchorTags(field) ||
-      containsBackslashEscapedHtmlTags(field) ||
-      containsEntityEscapedHtmlTags(field)
-    ) {
-      return "Generated output contained malformed HTML markup.";
-    }
+  if (failure.issue === "invalid_slug") {
+    return failure.message;
   }
 
-  if (draft.title.trim().length < 8) {
-    return "Generated title was too short.";
+  if (failure.issue === "title_too_short") {
+    return failure.message;
   }
 
-  return null;
+  if (failure.issue === "prohibited_html") {
+    return "Generated output contained prohibited HTML.";
+  }
+
+  return "Generated output contained malformed HTML markup.";
 }
 
 export { filterSourceMappings, validateDraftReferences, validateDraftReferencesDetailed } from "@/lib/agent/generation/validate-output-core";

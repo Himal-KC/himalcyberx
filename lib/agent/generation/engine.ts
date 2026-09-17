@@ -32,6 +32,7 @@ import {
   sanitizeGeneratedRichFields,
   validateDraftReferencesDetailed,
   validateGeneratedDraftStructure,
+  validateGeneratedDraftStructureDetailed,
 } from "@/lib/agent/generation/validate-output";
 import {
   buildGroundingValidationLog,
@@ -255,13 +256,20 @@ export async function runAgentGeneration(
     context.allowedSourceUrls,
   );
   if (structureError) {
+    const structureDetails = validateGeneratedDraftStructureDetailed(
+      draft,
+      run.content_type,
+      context.allowedSourceUrls,
+    );
     logGenerationValidationFailure(
       buildValidationFailureLog({
         agentRunId,
         contentType: run.content_type,
         validationStage: "structure_validation",
         issueCodes: issueCodesForStructureError(structureError),
-        reason: structureError,
+        reason:
+          structureDetails?.message ??
+          structureError,
       }),
     );
 

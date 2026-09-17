@@ -169,6 +169,10 @@ export function issueCodesForStructureError(
     return ["INVALID_HTML"];
   }
 
+  if (reason.includes("malformed HTML markup")) {
+    return ["INVALID_HTML"];
+  }
+
   if (reason.includes("title was too short")) {
     return ["CONTENT_TOO_SHORT"];
   }

@@ -171,7 +171,7 @@ function repairMalformedOpeningAnchorTags(
         allowedSourceUrls,
       );
       if (normalizedHref) {
-        return full;
+        return `<a href="${normalizedHref}">${inner}</a>`;
       }
 
       const splitInner = inner.trim().match(
@@ -319,11 +319,27 @@ export function unwrapBlockElementsFromParagraphs(html: string): string {
 export function flattenNestedAnchorTags(html: string): string {
   let next = html;
   let guard = 0;
-  const nestedAnchor =
-    /<a\b([^>]*)>([\s\S]*?)<a\b[^>]*>([\s\S]*?)<\/a>([\s\S]*?)<\/a>/gi;
 
-  while (nestedAnchor.test(next) && guard < 12) {
-    next = next.replace(nestedAnchor, "<a$1>$2$3$4</a>");
+  while (containsNestedAnchorTags(next) && guard < 30) {
+    const updated = next.replace(
+      /<a\b([^>]*)>([\s\S]*?)<\/a>/gi,
+      (full, openAttrs: string, inner: string) => {
+        if (!/<a\b/i.test(inner)) {
+          return full;
+        }
+
+        const flattenedInner = inner
+          .replace(/<a\b[^>]*>/gi, "")
+          .replace(/<\/a>/gi, "");
+        return `<a${openAttrs}>${flattenedInner}</a>`;
+      },
+    );
+
+    if (updated === next) {
+      break;
+    }
+
+    next = updated;
     guard += 1;
   }
 
@@ -349,6 +365,42 @@ export function containsEntityEscapedHtmlTags(html: string): boolean {
   return /&lt;\/?[a-z]/i.test(html);
 }
 
+function stripUnsupportedWrapperTags(html: string): string {
+  return html
+    .replace(/<\/?article\b[^>]*>/gi, "")
+    .replace(/<\/?section\b[^>]*>/gi, "");
+}
+
+export function finalizeAnchorMarkup(
+  html: string,
+  allowedSourceUrls?: readonly string[],
+): string {
+  return html.replace(
+    /<a\b([^>]*?)href=(["'])([\s\S]*?)\2([^>]*)>([\s\S]*?)<\/a>/gi,
+    (full, _before, _quote, hrefValue: string, _after, inner: string) => {
+      const normalized = normalizeAnchorHrefValue(hrefValue, allowedSourceUrls);
+
+      if (normalized) {
+        return `<a href="${normalized}">${inner}</a>`;
+      }
+
+      const splitInner = inner.trim().match(
+        /^(https?:\/\/[^\s">]+)"?>([\s\S]*?)$/i,
+      );
+      if (splitInner) {
+        return buildRecoveredAnchorMarkup(
+          splitInner[1],
+          splitInner[2],
+          "",
+          allowedSourceUrls,
+        );
+      }
+
+      return inner;
+    },
+  );
+}
+
 export interface CanonicalizeRichContentOptions {
   allowedSourceUrls?: readonly string[];
 }
@@ -363,6 +415,7 @@ export function applyCanonicalHtmlRepairs(
   }
 
   let working = recoverEscapedHtmlMarkup(trimmed);
+  working = stripUnsupportedWrapperTags(working);
   working = repairMalformedOpeningAnchorTags(
     working,
     options?.allowedSourceUrls,
@@ -379,6 +432,9 @@ export function applyCanonicalHtmlRepairs(
     options?.allowedSourceUrls,
   );
   working = removeEmptyListItems(working);
+  working = finalizeAnchorMarkup(working, options?.allowedSourceUrls);
+  working = flattenNestedAnchorTags(working);
+  working = recoverEscapedHtmlMarkup(working);
 
   if (!looksLikeRichHtml(working) && MARKDOWN_LINK_PATTERN.test(working)) {
     working = repairMarkdownLinksInHtml(working, options?.allowedSourceUrls);

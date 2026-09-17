@@ -313,6 +313,33 @@ describe("canonical article body HTML", () => {
     assert.match(output, />Nested advisory</);
   });
 
+  it("flattens nested anchors separated by span markup", () => {
+    const input = `<p><a href="${CISA_URL}"><span><a href="${CISA_URL}">Source link</a></span></a></p>`;
+    const output = canonicalizeRichContentForStorage(input, {
+      allowedSourceUrls: [CISA_URL],
+    });
+    assert.equal(containsNestedAnchorTags(output), false);
+    assert.match(output, />Source link</);
+  });
+
+  it("strips article wrappers that sanitize-html would not preserve", () => {
+    const input = `<article><p>Body</p><h2>Sources</h2><p><a href="${CISA_URL}">CISA</a></p></article>`;
+    const output = canonicalizeRichContentForStorage(input, {
+      allowedSourceUrls: [CISA_URL],
+    });
+    assert.doesNotMatch(output, /<\/?article\b/i);
+    assert.match(output, />CISA</);
+  });
+
+  it("finalizes anchors with corrupted markdown href values", () => {
+    const input = `<p><a href="[${CISA_URL}](${CISA_URL})">Advisory</a></p>`;
+    const output = canonicalizeRichContentForStorage(input, {
+      allowedSourceUrls: [CISA_URL],
+    });
+    assert.equal(containsMarkdownHrefValues(output), false);
+    assert.match(output, />Advisory</);
+  });
+
   it("drops unrecoverable malformed anchors to safe text", () => {
     const input =
       `<p>Broken">${CISA_URL}](${CISA_URL})">Unsafe markdown href</p>`;
