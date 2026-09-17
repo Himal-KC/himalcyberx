@@ -48,6 +48,10 @@ export function recoverEscapedHtmlMarkup(content: string): string {
     next = decoded;
   }
 
+  if (/&(?:quot|gt|lt|amp|nbsp|#39);/i.test(next)) {
+    next = decodeBasicHtmlEntities(next);
+  }
+
   return next;
 }
 
@@ -125,32 +129,88 @@ export function removeEmptyListItems(html: string): string {
   return next;
 }
 
+function splitAttributionSuffix(value: string): { label: string; suffix: string } {
+  const match = value.match(/^([\s\S]+?)(\s+[—–-]\s+[A-Za-z][\w\s.]*)$/);
+  if (!match) {
+    return { label: value.trim(), suffix: "" };
+  }
+
+  return { label: match[1].trim(), suffix: match[2] };
+}
+
+function buildRecoveredAnchorMarkup(
+  url: string,
+  label: string,
+  suffix: string,
+  allowedSourceUrls?: readonly string[],
+): string {
+  const normalized = normalizeAnchorHrefValue(url, allowedSourceUrls);
+  let linkLabel = label.trim();
+  let linkSuffix = suffix;
+  if (!linkSuffix) {
+    const split = splitAttributionSuffix(linkLabel);
+    linkLabel = split.label;
+    linkSuffix = split.suffix;
+  }
+
+  if (!normalized) {
+    return `${linkLabel}${linkSuffix}`;
+  }
+  return `<a href="${normalized}">${linkLabel}</a>${linkSuffix}`;
+}
+
+function repairMalformedOpeningAnchorTags(
+  html: string,
+  allowedSourceUrls?: readonly string[],
+): string {
+  return html.replace(
+    /<a\b[^>]*?href=(["'])([\s\S]*?)\1[^>]*>([\s\S]*?)<\/a>/gi,
+    (full, _quote, hrefValue: string, inner: string) => {
+      const normalizedHref = normalizeAnchorHrefValue(
+        hrefValue,
+        allowedSourceUrls,
+      );
+      if (normalizedHref) {
+        return full;
+      }
+
+      const splitInner = inner.trim().match(
+        /^(https?:\/\/[^\s">]+)"?>([\s\S]*?)$/i,
+      );
+      if (splitInner) {
+        return buildRecoveredAnchorMarkup(
+          splitInner[1],
+          splitInner[2],
+          "",
+          allowedSourceUrls,
+        );
+      }
+
+      return inner.trim();
+    },
+  );
+}
+
 export function repairLegacyBrokenAnchorFragments(
   html: string,
   allowedSourceUrls?: readonly string[],
 ): string {
   const withJunkPrefix = html.replace(
     /([A-Za-z0-9][A-Za-z0-9\s]{0,80})">(https?:\/\/[^\s">]+)"?>([^<]+?)(\s*[—–-][^<]*)?(?=\s*<|\s*$)/g,
-    (_match, _junk, url: string, label: string, suffix = "") => {
-      const normalized = normalizeAnchorHrefValue(url, allowedSourceUrls);
-      const trimmedLabel = label.trim();
-      if (!normalized) {
-        return `${trimmedLabel}${suffix}`;
-      }
-      return `<a href="${normalized}">${trimmedLabel}</a>${suffix}`;
-    },
+    (_match, _junk, url: string, label: string, suffix = "") =>
+      buildRecoveredAnchorMarkup(url, label, suffix, allowedSourceUrls),
   );
 
-  return withJunkPrefix.replace(
+  const withQuotedUrl = withJunkPrefix.replace(
     /(?<!=)">(https?:\/\/[^\s">]+)"?>([^<]+?)(\s*[—–-][^<]*)?(?=\s*<|\s*$)/g,
-    (_match, url: string, label: string, suffix = "") => {
-      const normalized = normalizeAnchorHrefValue(url, allowedSourceUrls);
-      const trimmedLabel = label.trim();
-      if (!normalized) {
-        return `${trimmedLabel}${suffix}`;
-      }
-      return `<a href="${normalized}">${trimmedLabel}</a>${suffix}`;
-    },
+    (_match, url: string, label: string, suffix = "") =>
+      buildRecoveredAnchorMarkup(url, label, suffix, allowedSourceUrls),
+  );
+
+  return withQuotedUrl.replace(
+    /(^|[^\w/"'=])((https?:\/\/[^\s"<]+)"?>([^<]+?)(\s*[—–-][^<]*)?)(?=\s*<|\s*$)/g,
+    (prefix, _fragment, url: string, label: string, suffix = "") =>
+      `${prefix}${buildRecoveredAnchorMarkup(url, label, suffix, allowedSourceUrls)}`,
   );
 }
 
@@ -224,6 +284,17 @@ function repairMarkdownLinksInHtml(
     (_full, _before, _quote, hrefValue, _after, inner) => {
       const normalized = normalizeAnchorHrefValue(hrefValue, allowedSourceUrls);
       if (!normalized) {
+        const splitInner = inner.trim().match(
+          /^(https?:\/\/[^\s">]+)"?>([\s\S]*?)$/i,
+        );
+        if (splitInner) {
+          return buildRecoveredAnchorMarkup(
+            splitInner[1],
+            splitInner[2],
+            "",
+            allowedSourceUrls,
+          );
+        }
         return inner;
       }
       return `<a href="${normalized}">${inner}</a>`;
@@ -292,6 +363,10 @@ export function applyCanonicalHtmlRepairs(
   }
 
   let working = recoverEscapedHtmlMarkup(trimmed);
+  working = repairMalformedOpeningAnchorTags(
+    working,
+    options?.allowedSourceUrls,
+  );
   working = repairLegacyBrokenAnchorFragments(
     working,
     options?.allowedSourceUrls,

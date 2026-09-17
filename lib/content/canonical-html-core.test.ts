@@ -287,6 +287,25 @@ describe("canonical article body HTML", () => {
     );
   });
 
+  it("repairs production split-anchor legacy shape with invalid href prefix", () => {
+    const input = `<h2>Sources</h2><p><a href="Ransomware">${CISA_URL}">Ransomware Awareness for Holidays and Weekends — CISA</a></p>`;
+    const output = canonicalizeRichContentForStorage(input);
+    assert.match(
+      output,
+      new RegExp(
+        `<a href="${CISA_URL.replace(/\//g, "\\/")}"[^>]*>Ransomware Awareness for Holidays and Weekends</a> — CISA`,
+      ),
+    );
+    assert.doesNotMatch(output, /Ransomware">https:\/\//);
+  });
+
+  it("repairs entity-encoded legacy broken anchor fragments", () => {
+    const input = `<p>Ransomware&quot;&gt;${CISA_URL}&quot;&gt;Ransomware Awareness for Holidays and Weekends — CISA</p>`;
+    const output = canonicalizeRichContentForStorage(input);
+    assert.match(output, /<a href="/);
+    assert.doesNotMatch(output, /&quot;&gt;/);
+  });
+
   it("repairs nested-anchor legacy shapes when URL is recoverable", () => {
     const input = `<p><a href="${CISA_URL}"><a href="${CISA_URL}">Nested advisory</a></a></p>`;
     const output = canonicalizeRichContentForStorage(input);
