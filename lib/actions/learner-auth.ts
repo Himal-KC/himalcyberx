@@ -11,9 +11,14 @@ import { getAuthCallbackUrl } from "@/lib/auth/callback";
 import { getSafeRedirectPath } from "@/lib/auth/redirects";
 import { sanitizeProfileText } from "@/lib/auth/profile-validation";
 import {
+  logLearnerAuthFailure,
+  safeRedirectOrigin,
+} from "@/lib/auth/signup-diagnostics";
+import {
   buildLearnerSignUpRequest,
   isLearnerPasswordLongEnough,
 } from "@/lib/auth/signup";
+import { getSiteUrl } from "@/lib/seo/site-url";
 import { isValidEmail, normalizeEmail } from "@/lib/form-validation";
 import { getClientIp } from "@/lib/rate-limit/client-ip";
 import {
@@ -89,16 +94,22 @@ export async function signUpLearner(
   }
 
   const supabase = await createClient();
+  const emailRedirectTo = getAuthCallbackUrl(nextPath);
   const request = buildLearnerSignUpRequest({
     email,
     password,
     displayName,
-    emailRedirectTo: getAuthCallbackUrl(nextPath),
+    emailRedirectTo,
   });
 
   const { data, error } = await supabase.auth.signUp(request);
 
   if (error) {
+    logLearnerAuthFailure("signUp", error, {
+      redirectOrigin: safeRedirectOrigin(emailRedirectTo),
+      siteUrlOrigin: safeRedirectOrigin(getSiteUrl()),
+      hasDisplayName: Boolean(displayName),
+    });
     return { success: false, message: GENERIC_SIGNUP_ERROR };
   }
 
