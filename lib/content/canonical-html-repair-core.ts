@@ -74,6 +74,86 @@ function isAllowedSourceUrl(
   return allowed.has(url.trim().toLowerCase());
 }
 
+function getListItemSemanticText(innerHtml: string): string {
+  return innerHtml
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stripRedundantBulletPrefixFromListItemInner(inner: string): string {
+  let next = inner.trim();
+  next = next.replace(/^(<p\b[^>]*>)\s*[-•*]\s+/i, "$1");
+  next = next.replace(/^\s*[-•*]\s+/i, "");
+  return next;
+}
+
+function processListItemMarkup(liMarkup: string): string {
+  const match = liMarkup.match(/^<li\b([^>]*)>([\s\S]*?)<\/li>$/i);
+  if (!match) {
+    return liMarkup;
+  }
+
+  const attrs = match[1] ?? "";
+  let inner = match[2] ?? "";
+  if (/^\s*(?:<p\b[^>]*>)?\s*[-•*]\s+/i.test(inner.trim())) {
+    inner = stripRedundantBulletPrefixFromListItemInner(inner);
+  }
+
+  if (getListItemSemanticText(inner) === "") {
+    return "";
+  }
+
+  return `<li${attrs}>${inner}</li>`;
+}
+
+export function removeEmptyListItems(html: string): string {
+  let next = html;
+  let guard = 0;
+
+  while (guard < 20) {
+    const updated = next.replace(/<li\b[^>]*>[\s\S]*?<\/li>/gi, processListItemMarkup);
+    if (updated === next) {
+      break;
+    }
+    next = updated;
+    guard += 1;
+  }
+
+  return next;
+}
+
+export function repairLegacyBrokenAnchorFragments(
+  html: string,
+  allowedSourceUrls?: readonly string[],
+): string {
+  const withJunkPrefix = html.replace(
+    /([A-Za-z0-9][A-Za-z0-9\s]{0,80})">(https?:\/\/[^\s">]+)"?>([^<]+?)(\s*[—–-][^<]*)?(?=\s*<|\s*$)/g,
+    (_match, _junk, url: string, label: string, suffix = "") => {
+      const normalized = normalizeAnchorHrefValue(url, allowedSourceUrls);
+      const trimmedLabel = label.trim();
+      if (!normalized) {
+        return `${trimmedLabel}${suffix}`;
+      }
+      return `<a href="${normalized}">${trimmedLabel}</a>${suffix}`;
+    },
+  );
+
+  return withJunkPrefix.replace(
+    /(?<!=)">(https?:\/\/[^\s">]+)"?>([^<]+?)(\s*[—–-][^<]*)?(?=\s*<|\s*$)/g,
+    (_match, url: string, label: string, suffix = "") => {
+      const normalized = normalizeAnchorHrefValue(url, allowedSourceUrls);
+      const trimmedLabel = label.trim();
+      if (!normalized) {
+        return `${trimmedLabel}${suffix}`;
+      }
+      return `<a href="${normalized}">${trimmedLabel}</a>${suffix}`;
+    },
+  );
+}
+
 export function normalizeAnchorHrefValue(
   href: string,
   allowedSourceUrls?: readonly string[],
@@ -212,9 +292,18 @@ export function applyCanonicalHtmlRepairs(
   }
 
   let working = recoverEscapedHtmlMarkup(trimmed);
+  working = repairLegacyBrokenAnchorFragments(
+    working,
+    options?.allowedSourceUrls,
+  );
   working = repairMarkdownLinksInHtml(working, options?.allowedSourceUrls);
   working = unwrapBlockElementsFromParagraphs(working);
   working = flattenNestedAnchorTags(working);
+  working = repairLegacyBrokenAnchorFragments(
+    working,
+    options?.allowedSourceUrls,
+  );
+  working = removeEmptyListItems(working);
 
   if (!looksLikeRichHtml(working) && MARKDOWN_LINK_PATTERN.test(working)) {
     working = repairMarkdownLinksInHtml(working, options?.allowedSourceUrls);

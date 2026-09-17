@@ -15,6 +15,8 @@ const {
   looksLikeRichHtml,
   normalizeAnchorHrefValue,
   recoverEscapedHtmlMarkup,
+  removeEmptyListItems,
+  repairLegacyBrokenAnchorFragments,
   unwrapBlockElementsFromParagraphs,
 } = (await import(
   pathToFileURL(join(testDir, "canonical-html-repair-core.ts")).href
@@ -206,5 +208,126 @@ describe("canonical article body HTML", () => {
       "utf8",
     );
     assert.match(source, /canonicalizeRichContentForStorage\(content\)/);
+  });
+
+  it("keeps valid UL list items unchanged", () => {
+    const input = "<ul><li>Alpha</li><li><strong>Beta</strong></li></ul>";
+    const output = canonicalizeRichContentForStorage(input);
+    assert.match(output, /<li>Alpha<\/li>/);
+    assert.match(output, /<strong>Beta<\/strong>/);
+  });
+
+  it("removes empty LI elements and redundant dash prefixes", () => {
+    const input =
+      "<ul><li></li><li><p></p></li><li><p>- Phishing: vectors</p></li><li></li><li><p>- Unsecured RDP: exposure</p></li></ul>";
+    const output = canonicalizeRichContentForStorage(input);
+    assert.doesNotMatch(output, /<li\b[^>]*>\s*<\/li>/i);
+    assert.match(output, /<li><p>Phishing: vectors<\/p><\/li>/);
+    assert.match(output, /<li><p>Unsecured RDP: exposure<\/p><\/li>/);
+    assert.equal((output.match(/<li\b/gi) ?? []).length, 2);
+  });
+
+  it("removes whitespace-only LI elements", () => {
+    const input = "<ul><li>   </li><li><p>&nbsp;</p></li><li>Keep me</li></ul>";
+    const output = removeEmptyListItems(input);
+    assert.equal((output.match(/<li\b/gi) ?? []).length, 1);
+    assert.match(output, />Keep me</);
+  });
+
+  it("preserves OL list numbering content", () => {
+    const input = "<ol><li>First</li><li></li><li>Second</li></ol>";
+    const output = canonicalizeRichContentForStorage(input);
+    assert.match(output, /<ol>/);
+    assert.match(output, />First</);
+    assert.match(output, />Second</);
+    assert.equal((output.match(/<li\b/gi) ?? []).length, 2);
+  });
+
+  it("keeps multiple independent lists intact", () => {
+    const input =
+      "<ul><li>A</li></ul><p>Between</p><ul><li></li><li>B</li></ul>";
+    const output = canonicalizeRichContentForStorage(input);
+    assert.match(output, /<ul><li>A<\/li><\/ul>/);
+    assert.match(output, /<ul><li>B<\/li><\/ul>/);
+  });
+
+  it("does not introduce empty bullets during canonicalization", () => {
+    const input = "<ul><li><p>One</p></li><li><p>Two</p></li></ul>";
+    const output = canonicalizeRichContentForStorage(input);
+    assert.doesNotMatch(output, /<li\b[^>]*>\s*<\/li>/i);
+  });
+
+  it("is idempotent across repeated canonicalization", () => {
+    const input =
+      '<ul><li></li><li><p>- Item</p></li></ul><p>Ransomware">https://example.com/advisory">Advisory Title — CISA</p>';
+    const once = canonicalizeRichContentForStorage(input);
+    const twice = canonicalizeRichContentForStorage(once);
+    assert.equal(once, twice);
+  });
+
+  it("leaves a valid anchor unchanged", () => {
+    const input = `<p><a href="${CISA_URL}">Advisory Title</a> — CISA</p>`;
+    const output = canonicalizeRichContentForStorage(input);
+    assert.match(
+      output,
+      new RegExp(
+        `<a href="${CISA_URL.replace(/\//g, "\\/")}"[^>]*>Advisory Title</a>`,
+      ),
+    );
+  });
+
+  it("repairs legacy malformed anchor fragments with bare https href", () => {
+    const input = `<p>Ransomware">${CISA_URL}">Ransomware Awareness for Holidays and Weekends — CISA</p>`;
+    const output = canonicalizeRichContentForStorage(input);
+    assert.match(
+      output,
+      new RegExp(
+        `<a href="${CISA_URL.replace(/\//g, "\\/")}"[^>]*>Ransomware Awareness for Holidays and Weekends</a> — CISA`,
+      ),
+    );
+  });
+
+  it("repairs nested-anchor legacy shapes when URL is recoverable", () => {
+    const input = `<p><a href="${CISA_URL}"><a href="${CISA_URL}">Nested advisory</a></a></p>`;
+    const output = canonicalizeRichContentForStorage(input);
+    assert.equal(containsNestedAnchorTags(output), false);
+    assert.match(output, />Nested advisory</);
+  });
+
+  it("drops unrecoverable malformed anchors to safe text", () => {
+    const input =
+      `<p>Broken">${CISA_URL}](${CISA_URL})">Unsafe markdown href</p>`;
+    const output = repairLegacyBrokenAnchorFragments(input, [
+      "https://example.com/allowed-only",
+    ]);
+    assert.doesNotMatch(output, /<a\b/i);
+    assert.match(output, /Unsafe markdown href/);
+  });
+
+  it("blocks javascript href values during sanitization", () => {
+    const output = canonicalizeRichContentForStorage(
+      '<p><a href="javascript:alert(1)">Bad</a></p>',
+    );
+    assert.doesNotMatch(output, /javascript:/i);
+  });
+
+  it("passes canonical list markup through public renderer entrypoint", () => {
+    const canonical = canonicalizeRichContentForStorage(
+      "<ul><li></li><li><p>- Visible item</p></li></ul>",
+    );
+    assert.doesNotMatch(canonical, /<li\b[^>]*>\s*<\/li>/i);
+  });
+
+  it("feeds Phase 5 bodyHtml from canonical draft content", () => {
+    const loadDraft = readFileSync(
+      join(testDir, "../agent/review/load-draft.ts"),
+      "utf8",
+    );
+    const buildContext = readFileSync(
+      join(testDir, "../agent/review/build-context-core.ts"),
+      "utf8",
+    );
+    assert.match(loadDraft, /canonicalizeArticleRow/);
+    assert.match(buildContext, /bodyHtml: resolveReviewBodyHtmlFromSnapshot/);
   });
 });

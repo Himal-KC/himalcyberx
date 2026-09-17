@@ -16,6 +16,8 @@ export {
   looksLikeRichHtml,
   normalizeAnchorHrefValue,
   recoverEscapedHtmlMarkup,
+  removeEmptyListItems,
+  repairLegacyBrokenAnchorFragments,
   unwrapBlockElementsFromParagraphs,
   type CanonicalizeRichContentOptions,
 } from "./canonical-html-repair-core";
