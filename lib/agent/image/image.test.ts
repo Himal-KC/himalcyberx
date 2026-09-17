@@ -33,6 +33,8 @@ const {
   summarizeResearchForImagePrompt,
   validateFeaturedImageMetadata,
   assertImageAttachPayloadSafe,
+  evaluateExistingFeaturedImageReuse,
+  validateSourceImageLandscape,
 } = (await import(pathToFileURL(join(testDir, "image-core.ts")).href)) as typeof import("./image-core");
 
 const { diagnosticsContainSecrets } = (await import(
@@ -58,6 +60,9 @@ function buildPromptContext() {
       "Phishing-resistant authentication reduces account takeover.",
     ]),
     reviewSummary: "Draft is grounded and ready for editorial review.",
+    categoryLabel: "Identity Security",
+    keyFindings: ["Passkeys bind credentials to devices."],
+    verifiedConcepts: ["Device-bound credentials reduce phishing success."],
   });
 }
 
@@ -212,15 +217,16 @@ describe("Agent featured image core", () => {
 
     assert.match(prompt, /Passkeys in Enterprise Identity/);
     assert.match(prompt, /device-bound authentication/i);
+    assert.match(prompt, /original wide editorial hero/i);
     assert.equal(promptIncludesSafetyInstructions(prompt), true);
     assert.equal(promptContainsSecretLikeContent(prompt), false);
     assert.equal(prompt.includes(VALID_RUN_ID), false);
   });
 
   it("builds reasonable alt text without starting with Image of", () => {
+    const context = buildPromptContext();
     const alt = buildFeaturedImageAltText({
-      visualConcept: "Device-bound authentication replacing passwords",
-      topic: "Passkeys for phishing-resistant authentication",
+      visualBrief: context.visualBrief,
     });
 
     assert.ok(alt.length >= 40);
@@ -233,6 +239,39 @@ describe("Agent featured image core", () => {
     assert.equal(resolveOpenAiImageSize("gpt-image-2"), "1536x864");
     assert.equal(isGptImage2Family("gpt-image-2.5-flare"), true);
     assert.equal(isGptImage2Family("gpt-image-1.5"), false);
+  });
+
+  it("reuses persisted agent images unless regenerate is forced", () => {
+    const path = `articles/agent-${VALID_RUN_ID}-1234567890.webp`;
+    assert.equal(
+      evaluateExistingFeaturedImageReuse({
+        featuredImageUrl: "https://example.com/a.webp",
+        storagePath: path,
+        agentRunId: VALID_RUN_ID,
+        forceRegenerate: false,
+      }),
+      true,
+    );
+    assert.equal(
+      evaluateExistingFeaturedImageReuse({
+        featuredImageUrl: "https://example.com/a.webp",
+        storagePath: path,
+        agentRunId: VALID_RUN_ID,
+        forceRegenerate: true,
+      }),
+      false,
+    );
+  });
+
+  it("requires landscape source dimensions before normalization", () => {
+    assert.equal(
+      validateSourceImageLandscape({ width: 1024, height: 1536 }).valid,
+      false,
+    );
+    assert.equal(
+      validateSourceImageLandscape({ width: 1536, height: 1024 }).valid,
+      true,
+    );
   });
 
   it("calculates center crop regions for landscape normalization", () => {
@@ -287,6 +326,8 @@ describe("Agent featured image engine boundaries", () => {
     assert.match(engineSource, /generateFeaturedImageWithOpenAi/);
     assert.match(engineSource, /uploadImageBuffer/);
     assert.match(engineSource, /processFeaturedImageBuffer/);
+    assert.match(engineSource, /evaluateExistingFeaturedImageReuse/);
+    assert.match(engineSource, /forceRegenerate/);
     assert.match(engineSource, /activeImageGenerations/);
     assert.equal(engineSource.includes("runAgentResearch"), false);
     assert.equal(engineSource.includes("runAgentGeneration"), false);

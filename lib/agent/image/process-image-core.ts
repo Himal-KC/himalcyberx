@@ -6,6 +6,7 @@ import {
 import {
   calculateCenterCropRegion,
   validateFeaturedImageMetadata,
+  validateSourceImageLandscape,
 } from "./image-core";
 import {
   FEATURED_IMAGE_HEIGHT,
@@ -27,6 +28,26 @@ export async function processFeaturedImageBuffer(
         ok: false,
         errorCode: "IMAGE_PROCESSING_ERROR",
         message: "Unable to read generated image dimensions.",
+      };
+    }
+
+    const landscape = validateSourceImageLandscape({
+      width: metadata.width,
+      height: metadata.height,
+    });
+    if (!landscape.valid) {
+      return {
+        ok: false,
+        errorCode: landscape.errorCode,
+        message: landscape.message,
+      };
+    }
+
+    if (inputBuffer.length === 0) {
+      return {
+        ok: false,
+        errorCode: "IMAGE_PROCESSING_ERROR",
+        message: "Generated image buffer is empty.",
       };
     }
 

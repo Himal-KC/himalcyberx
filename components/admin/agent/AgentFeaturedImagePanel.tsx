@@ -73,6 +73,9 @@ export function AgentFeaturedImagePanel({
         {canGenerate ? (
           <form action={formAction}>
             <input type="hidden" name="agentRunId" value={agentRunId} />
+            {image ? (
+              <input type="hidden" name="forceRegenerate" value="1" />
+            ) : null}
             <button
               type="submit"
               disabled={isPending}

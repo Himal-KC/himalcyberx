@@ -36,6 +36,7 @@ export interface GeneratedFeaturedImageResult {
   byteSize: number;
   model: string;
   regenerated: boolean;
+  reused?: boolean;
   editUrl: string;
   previewUrl: string | null;
 }

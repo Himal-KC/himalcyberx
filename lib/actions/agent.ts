@@ -361,10 +361,13 @@ export async function generateAgentFeaturedImage(
     return { error: "Invalid agent run ID." };
   }
 
+  const forceRegenerate = String(formData.get("forceRegenerate") ?? "") === "1";
+
   const outcome = await runAgentFeaturedImageGeneration({
     supabase: auth.supabase,
     agentRunId,
     adminUserId: auth.user.id,
+    forceRegenerate,
   });
 
   if (!outcome.ok) {

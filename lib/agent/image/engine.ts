@@ -18,7 +18,10 @@ import {
   buildFeaturedImageAltText,
   buildFeaturedImagePrompt,
   buildImagePromptContext,
+  evaluateExistingFeaturedImageReuse,
   evaluateImageGenerationEligibility,
+  FEATURED_IMAGE_HEIGHT,
+  FEATURED_IMAGE_WIDTH,
   isAgentGeneratedStoragePath,
   storageFolderForContentType,
   summarizeResearchForImagePrompt,
@@ -29,6 +32,7 @@ import {
   sanitizePromptForLogging,
 } from "@/lib/agent/image/image-log-core";
 import { processFeaturedImageBuffer } from "@/lib/agent/image/process-image-core";
+import { extractVerifiedConceptsForVisualBrief } from "@/lib/agent/image/image-core";
 import type { GeneratedFeaturedImageResult } from "@/lib/agent/image/types";
 import { loadReviewDraftSnapshot } from "@/lib/agent/review/load-draft";
 import type { ReviewDraftSnapshot } from "@/lib/agent/review/types";
@@ -55,6 +59,7 @@ export interface RunFeaturedImageInput {
   supabase: AdminSupabase;
   agentRunId: string;
   adminUserId: string;
+  forceRegenerate?: boolean;
 }
 
 export type RunFeaturedImageOutcome =
@@ -97,6 +102,68 @@ function extractPrimaryKeywordFromSnapshot(snapshot: ReviewDraftSnapshot): strin
 
 function extractContentAngleFromSnapshot(snapshot: ReviewDraftSnapshot): string {
   return snapshot.draft.generationPlan.contentAngle ?? "";
+}
+
+function extractCategoryLabelFromSnapshot(
+  snapshot: ReviewDraftSnapshot,
+  payload: NonNullable<ReturnType<typeof getResearchPayloadFromRun>>,
+): string {
+  if (snapshot.draft.contentType === "article") {
+    return (
+      snapshot.draft.categoryRecommendation ||
+      payload.categoryRecommendation ||
+      ""
+    );
+  }
+
+  if (
+    snapshot.draft.contentType === "tutorial" ||
+    snapshot.draft.contentType === "lab"
+  ) {
+    return snapshot.draft.category;
+  }
+
+  return "";
+}
+
+function extractSectionFocusFromSnapshot(snapshot: ReviewDraftSnapshot): string {
+  const sections = snapshot.draft.generationPlan.sectionPlan ?? [];
+  return sections.slice(0, 2).join("; ");
+}
+
+function parseLatestAgentImageMetadata(run: import("@/lib/supabase/types").AgentRun): {
+  storagePath: string;
+  publicUrl: string;
+  width?: number;
+  height?: number;
+  mimeType?: string;
+  byteSize?: number;
+} | null {
+  const metadata =
+    run.generation_metadata && typeof run.generation_metadata === "object"
+      ? (run.generation_metadata as Record<string, unknown>)
+      : null;
+  const latest = metadata?.latestFeaturedImage;
+  if (!latest || typeof latest !== "object") {
+    return null;
+  }
+
+  const record = latest as Record<string, unknown>;
+  if (
+    typeof record.storagePath !== "string" ||
+    typeof record.publicUrl !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    storagePath: record.storagePath,
+    publicUrl: record.publicUrl,
+    width: typeof record.width === "number" ? record.width : undefined,
+    height: typeof record.height === "number" ? record.height : undefined,
+    mimeType: typeof record.mimeType === "string" ? record.mimeType : undefined,
+    byteSize: typeof record.byteSize === "number" ? record.byteSize : undefined,
+  };
 }
 
 async function loadLinkedContentImageState(
@@ -221,11 +288,6 @@ async function runAgentFeaturedImageGenerationInternal(
     return { ok: false, error: eligibility.message };
   }
 
-  const allowed = await enforceRateLimit("agent-image-generation", adminUserId);
-  if (!allowed) {
-    return { ok: false, error: RATE_LIMIT_MESSAGES.agentImageGeneration };
-  }
-
   const payload = getResearchPayloadFromRun(run);
   if (!payload) {
     return { ok: false, error: "Research evidence is insufficient." };
@@ -239,6 +301,60 @@ async function runAgentFeaturedImageGenerationInternal(
     };
   }
 
+  const forceRegenerate = input.forceRegenerate === true;
+  const previousImageUrl = contentRow.featured_image;
+  const previousStoragePath = previousImageUrl
+    ? extractArticleImageStoragePath(previousImageUrl)
+    : null;
+
+  if (
+    evaluateExistingFeaturedImageReuse({
+      featuredImageUrl: previousImageUrl,
+      storagePath: previousStoragePath,
+      agentRunId: trimmedRunId,
+      forceRegenerate,
+    })
+  ) {
+    const latestImageMetadata = parseLatestAgentImageMetadata(run);
+    const urls = buildAdminUrls(run.content_type, linkedContentId);
+    logImageTrace("image_complete", {
+      agentRunId: trimmedRunId,
+      contentType: run.content_type,
+      model: "reused",
+      width: latestImageMetadata?.width ?? FEATURED_IMAGE_WIDTH,
+      height: latestImageMetadata?.height ?? FEATURED_IMAGE_HEIGHT,
+      mime: latestImageMetadata?.mimeType ?? "image/webp",
+      byteSize: latestImageMetadata?.byteSize,
+    });
+
+    return {
+      ok: true,
+      result: {
+        agentRunId: trimmedRunId,
+        contentType: run.content_type,
+        contentId: linkedContentId,
+        featuredImageUrl: previousImageUrl!,
+        featuredImageAlt: contentRow.featured_image_alt ?? "",
+        storagePath:
+          latestImageMetadata?.storagePath ?? previousStoragePath ?? "",
+        width: latestImageMetadata?.width ?? FEATURED_IMAGE_WIDTH,
+        height: latestImageMetadata?.height ?? FEATURED_IMAGE_HEIGHT,
+        mimeType: latestImageMetadata?.mimeType ?? "image/webp",
+        byteSize: latestImageMetadata?.byteSize ?? 0,
+        model: "reused",
+        regenerated: false,
+        reused: true,
+        editUrl: urls.editUrl,
+        previewUrl: urls.previewUrl,
+      },
+    };
+  }
+
+  const allowed = await enforceRateLimit("agent-image-generation", adminUserId);
+  if (!allowed) {
+    return { ok: false, error: RATE_LIMIT_MESSAGES.agentImageGeneration };
+  }
+
   const promptContext = buildImagePromptContext({
     contentType: run.content_type,
     topic: run.topic,
@@ -248,11 +364,14 @@ async function runAgentFeaturedImageGenerationInternal(
     primaryKeyword: extractPrimaryKeywordFromSnapshot(snapshotResult.snapshot),
     researchSummary: summarizeResearchForImagePrompt(payload.keyFindings),
     reviewSummary: latestReviewResult.data?.summary ?? "",
+    categoryLabel: extractCategoryLabelFromSnapshot(snapshotResult.snapshot, payload),
+    keyFindings: payload.keyFindings,
+    verifiedConcepts: extractVerifiedConceptsForVisualBrief(payload.verifiedClaims),
+    sectionFocus: extractSectionFocusFromSnapshot(snapshotResult.snapshot),
   });
   const prompt = buildFeaturedImagePrompt(promptContext);
   const altText = buildFeaturedImageAltText({
-    visualConcept: promptContext.visualConcept,
-    topic: run.topic,
+    visualBrief: promptContext.visualBrief,
   });
 
   logImageTrace("image_context_ready", {
@@ -265,11 +384,6 @@ async function runAgentFeaturedImageGenerationInternal(
     status: "running",
     error_message: null,
   });
-
-  const previousImageUrl = contentRow.featured_image;
-  const previousStoragePath = previousImageUrl
-    ? extractArticleImageStoragePath(previousImageUrl)
-    : null;
 
   logImageTrace("image_model_start", {
     agentRunId: trimmedRunId,
@@ -463,6 +577,10 @@ async function runAgentFeaturedImageGenerationInternal(
           : null,
       storagePath: uploaded.data.storagePath,
       publicUrl: uploaded.data.publicUrl,
+      width: processed.image.width,
+      height: processed.image.height,
+      mimeType: processed.image.mimeType,
+      byteSize: processed.image.byteSize,
     }),
   });
 
@@ -511,6 +629,7 @@ async function runAgentFeaturedImageGenerationInternal(
       byteSize: processed.image.byteSize,
       model: generated.result.model,
       regenerated: Boolean(previousImageUrl),
+      reused: false,
       editUrl: urls.editUrl,
       previewUrl: urls.previewUrl,
     },
