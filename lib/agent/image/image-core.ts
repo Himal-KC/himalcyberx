@@ -2,7 +2,7 @@ import type { AgentContentType } from "@/lib/supabase/types";
 import type { VerifiedClaim } from "@/lib/agent/types";
 import type { ReviewOverallStatus } from "../review/types";
 
-export const FEATURED_IMAGE_VISUAL_BRIEF_VERSION = "featured-image-v2";
+export const FEATURED_IMAGE_VISUAL_BRIEF_VERSION = "featured-image-v2.1";
 
 export interface FeaturedImageVisualBrief {
   version: typeof FEATURED_IMAGE_VISUAL_BRIEF_VERSION;
@@ -23,9 +23,31 @@ const GLOBAL_AVOID = [
   "generic floating shield surrounded by random cybersecurity icons",
   "decorative padlocks unless directly relevant",
   "gibberish or large AI-generated text in the image",
+  "prominent readable headlines, labels, or UI copy inside the image",
   "invented statistics or fake evidence presented as screenshots",
   "copying another publication's artwork",
 ];
+
+const ARTICLE_STOCK_PHOTO_AVOID = [
+  "stock-photo office worker as the main subject",
+  "single person sitting at desk as the main subject",
+  "person staring at a laptop or monitor as the dominant focal point",
+  "generic corporate office stock photography",
+  "close-up human portrait or smiling employee",
+  "generic hacker in a hoodie",
+  "giant floating shield or padlock hero object",
+  "random cybersecurity icon collage",
+  "generic blue 3D security illustration",
+];
+
+const ARTICLE_EDITORIAL_STYLE =
+  "cinematic cybersecurity editorial hero — realistic digital threat visualization with semi-realistic technology environments, multiple relevant visual layers, strong depth, dramatic professional lighting, high contrast, premium cyber-threat-report publication appearance";
+
+const ARTICLE_EDITORIAL_COMPOSITION =
+  "wide cinematic 16:9 hero composition with layered subject-relevant elements, strong depth, safe central focal area with subtle negative space for headline overlay, landscape orientation, no edge clipping of key subjects";
+
+const ARTICLE_HUMAN_GUIDANCE =
+  "humans may appear only when genuinely useful and must remain secondary—not the dominant subject";
 
 function normalizeBriefText(value: string, maxLength: number): string {
   const normalized = value.replace(/\s+/g, " ").trim();
@@ -84,97 +106,161 @@ function articleThemePack(theme: ArticleVisualTheme): Pick<
     case "ransomware":
       return {
         environment:
-          "realistic modern business server room or SOC with workstations under incident response",
+          "wide cinematic compromised enterprise technology environment—server room, endpoints, and backup or recovery infrastructure under incident response",
         importantElements: [
           "encrypted or locked systems implied without readable ransom notes",
-          "protected backup infrastructure",
-          "incident response atmosphere",
+          "protected backup and immutable recovery context",
+          "incident response and containment atmosphere across multiple visual layers",
         ],
-        mood: "urgent but controlled, dark editorial cybersecurity tone",
+        mood: "urgent cinematic threat-report tone—dark editorial cybersecurity, controlled professionalism",
         avoidElements: [
           "cartoon skulls or neon hacker stereotypes",
           "readable ransom demands",
+          ...ARTICLE_STOCK_PHOTO_AVOID,
           ...GLOBAL_AVOID,
         ],
       };
     case "phishing":
       return {
         environment:
-          "realistic office workstation and email workflow context, not a generic shield graphic",
+          "wide cinematic enterprise email and identity security environment—cloud mailbox, authentication, and monitoring layers rather than a desk portrait",
         importantElements: [
-          "inbox or messaging context suggested abstractly",
-          "user decision moment around suspicious communication",
+          "suspicious message or email delivery entering a corporate mailbox abstractly without readable body text",
+          "identity or account-access risk in a secure cloud or enterprise environment",
+          "subtle warning indicators with defensive detection or protection on the opposite side",
+          "realistic monitors, cloud or email infrastructure, and network or security visualization",
         ],
-        mood: "tense, realistic workplace security awareness",
+        mood: "professional cyber threat-intelligence publication aesthetic—dark enterprise technology, cinematic blue/cyan lighting with restrained warning-red accents",
         avoidElements: [
+          "person reading email as the dominant scene",
+          "fake Outlook or vendor mailbox screenshots with readable phishing text",
           "giant metal padlock icons",
-          "unrelated ransomware red/black styling",
+          "unrelated ransomware red/black styling only",
+          ...ARTICLE_STOCK_PHOTO_AVOID,
           ...GLOBAL_AVOID,
         ],
       };
     case "cloud_security":
       return {
         environment:
-          "realistic cloud infrastructure, data center, or security operations supporting cloud workloads",
+          "wide cinematic cloud workload and infrastructure environment with identity, access, and data-protection context",
         importantElements: [
-          "network and cloud architecture cues",
-          "identity and access control context",
+          "cloud architecture, workloads, and segmented network cues",
+          "identity and access control integrated into the scene—not a generic cloud icon",
+          "defensive monitoring or policy enforcement context when appropriate",
         ],
-        mood: "professional, modern, resilient infrastructure",
-        avoidElements: [...GLOBAL_AVOID],
+        mood: "professional, resilient, modern infrastructure with editorial depth",
+        avoidElements: [
+          "generic cloud shape with a floating padlock",
+          ...ARTICLE_STOCK_PHOTO_AVOID,
+          ...GLOBAL_AVOID,
+        ],
       };
     case "vulnerability":
       return {
         environment:
-          "realistic software engineering or infrastructure workspace exposing technical systems",
+          "wide cinematic view of affected software, infrastructure, or devices exposing a technical attack surface",
         importantElements: [
-          "servers, endpoints, or code-adjacent infrastructure relevant to exposure",
-          "patch or remediation context without fake CVE text",
+          "specific vulnerable systems or software stack implied without fake CVE text",
+          "exposed technical surface and defensive analysis or remediation context",
+          "patch, hardening, or segmentation context without invented scores",
         ],
-        mood: "technical, precise, serious",
+        mood: "technical, precise, serious threat-report editorial",
         avoidElements: [
           "invented CVE numbers or CVSS scores in the image",
+          "default warning triangle plus shield clipart",
+          ...ARTICLE_STOCK_PHOTO_AVOID,
           ...GLOBAL_AVOID,
         ],
       };
     case "threat_intelligence":
       return {
         environment:
-          "SOC or threat analysis workspace with maps, monitors, and analyst context",
+          "wide cinematic SOC or threat-analysis environment with infrastructure relationships and telemetry context",
         importantElements: [
-          "analysis displays with abstract data patterns only",
-          "collaborative security operations context",
+          "analysis displays with abstract data patterns only—no readable intel text",
+          "relationships between systems, campaigns, or indicators when supported by the topic",
+          "collaborative security operations depth—not a decorative world map unless the topic requires geography",
         ],
-        mood: "analytical, cinematic, high-stakes",
-        avoidElements: [...GLOBAL_AVOID],
+        mood: "analytical, cinematic, high-stakes editorial intelligence",
+        avoidElements: [
+          "generic decorative world map unless geographically relevant to the story",
+          ...ARTICLE_STOCK_PHOTO_AVOID,
+          ...GLOBAL_AVOID,
+        ],
       };
     case "ai_security":
       return {
         environment:
-          "realistic AI compute infrastructure combined with security operations context",
+          "wide cinematic AI compute and data-center infrastructure combined with the specific security issue from the article",
         importantElements: [
-          "GPU or data-center compute cues",
-          "security monitoring tied to AI systems",
+          "GPU or AI compute infrastructure cues tied to the story",
+          "security monitoring, governance, or abuse-prevention context for AI systems",
+          "the concrete risk described by the article—not a generic AI motif",
         ],
-        mood: "forward-looking, technical, editorial",
-        avoidElements: [...GLOBAL_AVOID],
+        mood: "forward-looking, technical, premium editorial cybersecurity",
+        avoidElements: [
+          "generic robot mascot or brain-plus-shield clipart",
+          ...ARTICLE_STOCK_PHOTO_AVOID,
+          ...GLOBAL_AVOID,
+        ],
       };
     default:
       return {
         environment:
-          "realistic technology environment that matches the specific story subject",
+          "wide cinematic technology environment that matches the specific story subject with layered editorial depth",
         importantElements: [
-          "subject-specific infrastructure or workplace context",
-          "professional publication hero focal point",
+          "subject-specific infrastructure, systems, or threat context as the hero focal point",
+          "defensive or investigative context when appropriate to the article",
+          "multiple relevant visual layers with strong depth",
         ],
-        mood: "cinematic editorial cybersecurity, sophisticated and clean",
+        mood: "cinematic editorial cybersecurity—sophisticated, clean, premium publication hero",
         avoidElements: [
           "generic isometric 3D cybersecurity clipart",
           "random binary code backgrounds",
+          ...ARTICLE_STOCK_PHOTO_AVOID,
           ...GLOBAL_AVOID,
         ],
       };
   }
+}
+
+function refineArticleThemePackForHaystack(
+  theme: ArticleVisualTheme,
+  haystack: string,
+  pack: Pick<
+    FeaturedImageVisualBrief,
+    "environment" | "importantElements" | "mood" | "avoidElements"
+  >,
+): Pick<
+  FeaturedImageVisualBrief,
+  "environment" | "importantElements" | "mood" | "avoidElements"
+> {
+  if (
+    theme === "phishing" &&
+    /microsoft 365|m365|office 365|entra|azure ad|exchange online|sharepoint online/.test(
+      haystack,
+    )
+  ) {
+    return {
+      ...pack,
+      environment:
+        "wide cinematic enterprise cloud email and identity environment representing a sophisticated business phishing threat against a cloud mailbox and account-access path",
+      importantElements: [
+        "suspicious email entering a corporate mailbox without readable body text",
+        "authentication or account-access risk in a secure cloud identity environment",
+        "subtle warning indicators with defensive monitoring or protection opposing the threat",
+        "realistic monitors and cloud or email infrastructure across layered depth—not a single employee at a desk",
+      ],
+      avoidElements: [
+        "Microsoft logo or fake Microsoft, Outlook, or M365 interface",
+        "readable phishing email body or fake statistics",
+        ...pack.avoidElements,
+      ],
+    };
+  }
+
+  return pack;
 }
 
 function labVisualPack(input: {
@@ -349,7 +435,11 @@ export function buildFeaturedImageVisualBrief(input: {
     pack = tutorialVisualPack({ haystack, title: subject });
   } else {
     const theme = detectArticleVisualTheme(haystack);
-    pack = articleThemePack(theme);
+    pack = refineArticleThemePackForHaystack(
+      theme,
+      haystack,
+      articleThemePack(theme),
+    );
     if (input.verifiedConcepts.length > 0) {
       pack.importantElements = [
         ...pack.importantElements,
@@ -371,8 +461,13 @@ export function buildFeaturedImageVisualBrief(input: {
     input.contentType === "lab"
       ? "photorealistic cinematic editorial image of a technical cyber lab environment"
       : input.contentType === "tutorial"
-        ? "photorealistic cinematic editorial image of a professional learning workspace"
-        : "photorealistic or cinematic editorial hero photography for a cybersecurity publication";
+        ? "photorealistic cinematic editorial image of a professional hands-on learning workspace"
+        : ARTICLE_EDITORIAL_STYLE;
+
+  const composition =
+    input.contentType === "article"
+      ? ARTICLE_EDITORIAL_COMPOSITION
+      : "wide 16:9 website hero composition with the main subject in a safe central area, subtle negative space for headline overlay, landscape orientation, no edge clipping of key subject";
 
   return {
     version: FEATURED_IMAGE_VISUAL_BRIEF_VERSION,
@@ -382,10 +477,9 @@ export function buildFeaturedImageVisualBrief(input: {
     environment: pack.environment,
     importantElements: pack.importantElements.slice(0, 5),
     mood: pack.mood,
-    composition:
-      "wide 16:9 website hero composition with the main subject in a safe central area, subtle negative space for headline overlay, landscape orientation, no edge clipping of key subject",
+    composition,
     style,
-    avoidElements: pack.avoidElements.slice(0, 10),
+    avoidElements: pack.avoidElements.slice(0, 12),
   };
 }
 
@@ -399,8 +493,20 @@ export function buildFeaturedImagePromptFromVisualBrief(
         ? "Tutorial"
         : "Article";
 
-  return [
+  const lines = [
     "Create an original wide editorial hero image for a professional cybersecurity publication (HimalCyberX).",
+  ];
+
+  if (brief.contentType === "article") {
+    lines.push(
+      "This is an editorial cybersecurity hero graphic, NOT corporate stock photography.",
+      "The primary visual subject must be the cybersecurity event, technology, system or threat described by the article—not a generic person.",
+      ARTICLE_HUMAN_GUIDANCE,
+      "Communicate the topic visually with layered technology and threat context; do not include prominent readable text, headlines, or UI copy inside the image.",
+    );
+  }
+
+  lines.push(
     `Content type: ${contentLabel}.`,
     `Primary subject: ${brief.subject}.`,
     `Visual concept: ${brief.visualConcept}.`,
@@ -416,7 +522,9 @@ export function buildFeaturedImagePromptFromVisualBrief(
     `Strictly avoid: ${brief.avoidElements.join("; ")}.`,
     "Do not use generic isometric 3D cybersecurity illustrations or decorative shield/icon collage unless the subject genuinely requires it.",
     "Generate original imagery only.",
-  ].join("\n");
+  );
+
+  return lines.join("\n");
 }
 
 export function buildFeaturedImageAltTextFromBrief(
@@ -448,8 +556,35 @@ export function promptDiscouragesGenericShieldLanguage(prompt: string): boolean 
   return (
     normalized.includes("generic floating shield") ||
     normalized.includes("decorative shield") ||
-    normalized.includes("do not use generic isometric")
+    normalized.includes("do not use generic isometric") ||
+    normalized.includes("icon collage")
   );
+}
+
+export function promptRequiresEditorialNotStockPhotography(prompt: string): boolean {
+  return prompt.toLowerCase().includes("not corporate stock photography");
+}
+
+export function promptRequiresCybersecuritySubjectPrimary(prompt: string): boolean {
+  const normalized = prompt.toLowerCase();
+  return (
+    normalized.includes("primary visual subject must be") &&
+    normalized.includes("not a generic person")
+  );
+}
+
+export function promptDiscouragesPersonAtDeskStockPhoto(prompt: string): boolean {
+  const normalized = prompt.toLowerCase();
+  return (
+    normalized.includes("single person sitting at desk") ||
+    normalized.includes("stock-photo office worker")
+  );
+}
+
+export function promptRequiresSecondaryHumanGuidanceForArticles(
+  prompt: string,
+): boolean {
+  return prompt.toLowerCase().includes("must remain secondary");
 }
 
 export function promptProhibitsFakeBranding(prompt: string): boolean {
