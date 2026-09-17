@@ -1,3 +1,4 @@
+import type { Phase5HumanAcceptanceUiState } from "../review/human-acceptance-core";
 import type { GenerateDraftResult, PersistedResearchPayload } from "../generation/types";
 import type { RunReviewResult } from "../review/types";
 import type { RunPublishResult } from "../publish/types";
@@ -47,6 +48,7 @@ export interface ResumedAgentRunResult {
   featuredImage: FeaturedImageState;
   latestReadiness: RunReadinessResult | null;
   latestPublish: RunPublishResult | null;
+  phase5HumanAcceptance: Phase5HumanAcceptanceUiState | null;
 }
 
 export interface AgentRunPageHydration {
@@ -279,6 +281,7 @@ export function buildResumedAgentRunResult(input: {
   featuredImage: FeaturedImageState;
   latestReadiness: RunReadinessResult | null;
   latestPublish?: RunPublishResult | null;
+  phase5HumanAcceptance?: Phase5HumanAcceptanceUiState | null;
 }): ResumedAgentRunResult {
   return {
     agentRunId: input.run.id,
@@ -291,5 +294,6 @@ export function buildResumedAgentRunResult(input: {
     featuredImage: input.featuredImage,
     latestReadiness: input.latestReadiness,
     latestPublish: input.latestPublish ?? null,
+    phase5HumanAcceptance: input.phase5HumanAcceptance ?? null,
   };
 }

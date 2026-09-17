@@ -142,6 +142,7 @@ export function AgentActiveRunWorkflow({
         initialFeaturedImage={resumed.featuredImage}
         initialReadiness={resumed.latestReadiness}
         initialPublish={resumed.latestPublish}
+        initialPhase5HumanAcceptance={resumed.phase5HumanAcceptance}
       />
     </section>
   );

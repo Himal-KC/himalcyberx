@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { GroundingAuditResult } from "../generation/types";
+import type { Phase5HumanReviewAcceptanceRecord } from "../review/human-acceptance-core";
 import type { AgentReviewRecord, ReviewDraftSnapshot, SolReviewOutput } from "../review/types";
 import type {
   PersistedReadinessResult,
@@ -38,6 +39,35 @@ function hasMaterialConflictingFinding(review: { findings: SolReviewOutput["find
       (CRITICAL_SEVERITIES.has(finding.severity) ||
         CRITICAL_CLAIM_TYPES.has(finding.claimType)),
   );
+}
+
+function isPhase5HumanAcceptanceCurrentlyValid(input: {
+  acceptance: Phase5HumanReviewAcceptanceRecord | null;
+  agentRunId: string;
+  review: AgentReviewRecord | null;
+  currentDraftFingerprint: string;
+}): boolean {
+  if (!input.acceptance || !input.review) {
+    return false;
+  }
+
+  if (input.acceptance.agentRunId !== input.agentRunId) {
+    return false;
+  }
+
+  if (input.acceptance.agentReviewId !== input.review.id) {
+    return false;
+  }
+
+  if (input.acceptance.draftFingerprint !== input.currentDraftFingerprint) {
+    return false;
+  }
+
+  if (input.review.draftFingerprint !== input.currentDraftFingerprint) {
+    return false;
+  }
+
+  return true;
 }
 
 function stableStringify(value: unknown): string {
@@ -232,6 +262,7 @@ export interface EvaluateReadinessGateInput {
   invalidInternalLinks: string[];
   latestFeaturedImage: ReadinessImageMetadata | null;
   categoriesAvailable: boolean;
+  phase5HumanAcceptance: Phase5HumanReviewAcceptanceRecord | null;
 }
 
 export interface EvaluateReadinessGateResult {
@@ -477,15 +508,24 @@ function checkReviewAndFactual(input: EvaluateReadinessGateInput): ReadinessIssu
   }
 
   if (input.review.status === "needs_review") {
-    issues.push(
-      issue(
-        "PHASE5_NEEDS_REVIEW",
-        "warning",
-        "review",
-        "The latest Phase 5 review still requires human review.",
-        "Review the Phase 5 findings and resolve outstanding issues before publishing.",
-      ),
-    );
+    const acceptanceValid = isPhase5HumanAcceptanceCurrentlyValid({
+      acceptance: input.phase5HumanAcceptance,
+      agentRunId: input.review.agentRunId,
+      review: input.review,
+      currentDraftFingerprint: input.currentDraftFingerprint,
+    });
+
+    if (!acceptanceValid) {
+      issues.push(
+        issue(
+          "PHASE5_NEEDS_REVIEW",
+          "warning",
+          "review",
+          "The latest Phase 5 review still requires human review.",
+          "Review the Phase 5 findings and resolve outstanding issues before publishing.",
+        ),
+      );
+    }
   }
 
   if (!input.groundingAudit.passed) {

@@ -32,6 +32,10 @@ const { diagnosticsContainSecrets } = (await import(
   pathToFileURL(join(testDir, "readiness-log-core.ts")).href
 )) as typeof import("./readiness-log-core");
 
+const { buildPhase5HumanReviewAcceptanceRecord } = (await import(
+  pathToFileURL(join(testDir, "../review/human-acceptance-core.ts")).href
+)) as typeof import("../review/human-acceptance-core");
+
 const VALID_RUN_ID = "00000000-0000-4000-8000-000000000001";
 const VALID_CONTENT_ID = "00000000-0000-4000-8000-000000000010";
 const FINGERPRINT_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -239,6 +243,7 @@ function evaluate(input: Partial<Parameters<typeof evaluateReadinessGate>[0]> & 
     invalidInternalLinks: [],
     latestFeaturedImage: validFeaturedImage(input.content),
     categoriesAvailable: true,
+    phase5HumanAcceptance: null,
     ...input,
   });
 }
@@ -858,6 +863,37 @@ describe("Phase 7 production stabilization regressions", () => {
       1,
     );
   });
+
+  it("satisfies PHASE5_NEEDS_REVIEW only with valid human acceptance", () => {
+    const review = buildReview({
+      status: "needs_review",
+      factCheckStatus: "needs_review",
+      qualityScore: 91,
+    });
+    const acceptance = buildPhase5HumanReviewAcceptanceRecord({
+      agentRunId: VALID_RUN_ID,
+      review,
+      currentDraftFingerprint: FINGERPRINT_A,
+      resolvedBy: "admin-user",
+    });
+
+    const withoutAcceptance = evaluate({
+      content: buildArticle(),
+      review,
+    });
+    assert.ok(
+      withoutAcceptance.issues.some((entry) => entry.code === "PHASE5_NEEDS_REVIEW"),
+    );
+
+    const withAcceptance = evaluate({
+      content: buildArticle(),
+      review,
+      phase5HumanAcceptance: acceptance,
+    });
+    assert.ok(
+      !withAcceptance.issues.some((entry) => entry.code === "PHASE5_NEEDS_REVIEW"),
+    );
+  });
 });
 
 describe("Phase 7 resume contract", () => {
@@ -878,6 +914,9 @@ describe("Phase 7 resume contract", () => {
       "utf8",
     );
     assert.match(reviewPanelSource, /AgentReadinessPanel/);
+    assert.match(reviewPanelSource, /Accept Review Findings/);
+    assert.match(reviewPanelSource, /accept them for[\s\S]*publication readiness\./);
+    assert.match(reviewPanelSource, /Human reviewed \/ Accepted/);
   });
 });
 
@@ -890,6 +929,8 @@ describe("Phase 7 action security contract", () => {
     assert.match(actionSource, /evaluateAgentReadiness/);
     assert.match(actionSource, /isValidAgentRunId/);
     assert.match(actionSource, /runAgentReadinessEvaluation/);
+    assert.match(actionSource, /acceptAgentReviewFindings/);
+    assert.match(actionSource, /acceptAgentReviewFindingsAction/);
     assert.doesNotMatch(actionSource, /publishArticle|notifySubscriber|Auto Publish|Schedule Publish/i);
   });
 });

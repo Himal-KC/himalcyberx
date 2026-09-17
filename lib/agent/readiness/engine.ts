@@ -11,14 +11,20 @@ import {
 import {
   buildAgentRunReadinessMetadataUpdate,
   buildPersistedReadinessResult,
+  calculateReadinessScore,
   evaluateReadinessGate,
   getCurrentDraftFingerprintFromSnapshot,
   parsePersistedReadinessResult,
+  resolveReadinessStatus,
   type ReadinessArticleContent,
   type ReadinessImageMetadata,
   type ReadinessLabContent,
   type ReadinessTutorialContent,
 } from "@/lib/agent/readiness/readiness-gate-core";
+import {
+  readPhase5HumanReviewAcceptanceFromMetadata,
+  reconcilePhase5NeedsReviewReadinessIssues,
+} from "@/lib/agent/review/human-acceptance-core";
 import {
   buildReadinessFingerprint,
   isPersistedReadinessStale,
@@ -363,6 +369,9 @@ async function runAgentReadinessEvaluationInternal(
     run.generation_metadata && typeof run.generation_metadata === "object"
       ? (run.generation_metadata as Record<string, unknown>)
       : null;
+  const phase5HumanAcceptance = readPhase5HumanReviewAcceptanceFromMetadata(
+    existingMetadata,
+  );
   const gate = evaluateReadinessGate({
     content,
     review: reviewRecord,
@@ -372,6 +381,7 @@ async function runAgentReadinessEvaluationInternal(
     invalidInternalLinks: groundingAudit.invalidInternalLinks,
     latestFeaturedImage: parseLatestFeaturedImageMetadata(existingMetadata),
     categoriesAvailable: await categoriesAvailable(supabase),
+    phase5HumanAcceptance,
   });
 
   logReadinessTrace("readiness_cms_checked", {
@@ -459,7 +469,13 @@ export function loadPersistedReadinessForRun(
     review?: {
       status: string;
       qualityScore: number;
+      id?: string;
+      draftFingerprint?: string | null;
+      agentRunId?: string;
     } | null;
+    currentDraftFingerprint?: string | null;
+    phase5HumanAcceptance?: import("@/lib/agent/review/human-acceptance-core").Phase5HumanReviewAcceptanceRecord | null;
+    reviewRecord?: import("@/lib/agent/review/types").AgentReviewRecord | null;
   },
 ): RunReadinessResult | null {
   const metadata =
@@ -477,29 +493,53 @@ export function loadPersistedReadinessForRun(
   }
 
   const urls = buildAdminUrls(run.content_type, contentId);
-  const blockingIssues = persisted.issues.filter(
-    (entry) => entry.severity === "blocking",
-  );
-  const warningIssues = persisted.issues.filter(
-    (entry) => entry.severity === "warning",
-  );
   const stale = isPersistedReadinessStale({
     persistedFingerprint: persisted.fingerprint,
     currentFingerprint,
   });
   const review = options?.review ?? null;
+  const acceptance =
+    options?.phase5HumanAcceptance ??
+    readPhase5HumanReviewAcceptanceFromMetadata(metadata);
+  const currentDraftFingerprint =
+    options?.currentDraftFingerprint?.trim() || null;
+  const reviewRecord = options?.reviewRecord ?? null;
+
+  let issues = persisted.issues;
+  let status = persisted.status;
+  let readinessScore = persisted.readinessScore;
+
+  if (reviewRecord && currentDraftFingerprint) {
+    const reconciled = reconcilePhase5NeedsReviewReadinessIssues({
+      issues: persisted.issues,
+      acceptance,
+      agentRunId: run.id,
+      review: reviewRecord,
+      currentDraftFingerprint,
+    });
+    issues = reconciled;
+    status = resolveReadinessStatus(reconciled);
+    readinessScore = calculateReadinessScore(reconciled);
+  }
+
+  const blockingIssues = issues.filter(
+    (entry) => entry.severity === "blocking",
+  );
+  const warningIssues = issues.filter(
+    (entry) => entry.severity === "warning",
+  );
 
   return {
     agentRunId: run.id,
     contentType: run.content_type,
     contentId,
-    status: persisted.status,
-    readinessScore: persisted.readinessScore,
+    status,
+    readinessScore,
     fingerprint: persisted.fingerprint,
     stale,
     phase5Status: review?.status ?? null,
     phase5QualityScore: review?.qualityScore ?? null,
-    issues: persisted.issues,
+    issues,
     blockingIssues,
     warningIssues,
     passedChecks: [],

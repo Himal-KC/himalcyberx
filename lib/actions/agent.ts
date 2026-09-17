@@ -10,7 +10,9 @@ import { applyRecommendedArticleCategoryToDraft } from "@/lib/agent/category/app
 import { runAgentGeneration } from "@/lib/agent/generation/engine";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
 import { runAgentReview } from "@/lib/agent/review/engine";
+import { acceptAgentReviewFindings } from "@/lib/agent/review/accept-review";
 import type { RunReviewResult } from "@/lib/agent/review/types";
+import type { Phase5HumanAcceptanceUiState } from "@/lib/agent/review/human-acceptance-core";
 import { resumePersistedAgentRun } from "@/lib/agent/resume/resume-run";
 import { runAgentFeaturedImageGeneration } from "@/lib/agent/image/engine";
 import type { GeneratedFeaturedImageResult } from "@/lib/agent/image/types";
@@ -134,6 +136,13 @@ export interface EvaluateAgentReadinessState {
   success?: boolean;
   error?: string;
   readiness?: RunReadinessResult;
+}
+
+export interface AcceptAgentReviewFindingsState {
+  success?: boolean;
+  error?: string;
+  readiness?: RunReadinessResult;
+  phase5HumanAcceptance?: Phase5HumanAcceptanceUiState;
 }
 
 export type { PublishAgentContentState };
@@ -395,6 +404,46 @@ export async function evaluateAgentReadiness(
   return {
     success: true,
     readiness: outcome.result,
+  };
+}
+
+export async function acceptAgentReviewFindingsAction(
+  _prevState: AcceptAgentReviewFindingsState,
+  formData: FormData,
+): Promise<AcceptAgentReviewFindingsState> {
+  const auth = await getAuthenticatedServerClient("acceptAgentReviewFindings");
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  const agentRunId = String(formData.get("agentRunId") ?? "").trim();
+  if (!isValidAgentRunId(agentRunId)) {
+    return { error: "Invalid agent run ID." };
+  }
+
+  const outcome = await acceptAgentReviewFindings({
+    supabase: auth.supabase,
+    agentRunId,
+    adminUserId: auth.user.id,
+  });
+
+  if (!outcome.ok) {
+    return { error: outcome.error };
+  }
+
+  return {
+    success: true,
+    readiness: outcome.readiness,
+    phase5HumanAcceptance: {
+      accepted: true,
+      valid: true,
+      resolvedAt: outcome.acceptance.resolvedAt,
+      resolvedBy: outcome.acceptance.resolvedBy,
+      canAccept: false,
+      acceptBlockedReason:
+        "Review findings are already accepted for the current draft.",
+    },
   };
 }
 

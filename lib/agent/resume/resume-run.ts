@@ -44,6 +44,11 @@ import {
   buildAgentRunAdminPresentationFromRun,
   buildSwitchRunCardLabel,
 } from "@/lib/agent/status/presentation-core";
+import { runDeterministicPreCheck } from "@/lib/agent/review/build-context-core";
+import {
+  buildPhase5HumanAcceptanceUiState,
+  readPhase5HumanReviewAcceptanceFromMetadata,
+} from "@/lib/agent/review/human-acceptance-core";
 import { getCurrentDraftFingerprintFromSnapshot } from "@/lib/agent/readiness/readiness-gate-core";
 import { loadPersistedReadinessForRun } from "@/lib/agent/readiness/engine";
 import { buildReadinessFingerprint } from "@/lib/agent/readiness/readiness-fingerprint-core";
@@ -224,11 +229,34 @@ async function hydratePersistedAgentRun(
         mapAgentReviewRowToRecord(latestReviewResult.data, false),
       )
     : null;
-
+  const latestReviewRecord = latestReview?.review ?? null;
   const featuredImage: FeaturedImageState = {
     url: content.featured_image ?? null,
     alt: content.featured_image_alt ?? null,
   };
+  const currentDraftFingerprint = reviewContext.snapshot
+    ? getCurrentDraftFingerprintFromSnapshot(reviewContext.snapshot)
+    : null;
+  const runMetadata =
+    run.generation_metadata && typeof run.generation_metadata === "object"
+      ? (run.generation_metadata as Record<string, unknown>)
+      : null;
+  const phase5HumanAcceptanceRecord =
+    readPhase5HumanReviewAcceptanceFromMetadata(runMetadata);
+  const groundingAudit =
+    reviewContext.snapshot && payload
+      ? runDeterministicPreCheck({
+          draftSnapshot: reviewContext.snapshot,
+          verifiedClaims: payload.verifiedClaims,
+          allowedSourceUrls: (sourcesResult.data ?? []).map((source) => source.url),
+          approvedInternalContent: payload.relatedHCXContent.map((item) => ({
+            id: item.id,
+            contentType: item.contentType,
+            title: item.title,
+            slug: item.slug,
+          })),
+        })
+      : null;
 
   const latestReadiness =
     reviewContext.snapshot
@@ -251,16 +279,29 @@ async function hydratePersistedAgentRun(
               ? {
                   status: latestReview.review.status,
                   qualityScore: latestReview.review.qualityScore,
+                  id: latestReview.review.id,
+                  draftFingerprint: latestReview.review.draftFingerprint,
+                  agentRunId: latestReview.review.agentRunId,
                 }
               : null,
+            currentDraftFingerprint,
+            phase5HumanAcceptance: phase5HumanAcceptanceRecord,
+            reviewRecord: latestReviewRecord,
           },
         )
       : null;
 
   const latestPublish = buildLatestPublishFromRun({ run, content });
-  const currentDraftFingerprint = reviewContext.snapshot
-    ? getCurrentDraftFingerprintFromSnapshot(reviewContext.snapshot)
-    : null;
+  const phase5HumanAcceptance =
+    latestReviewRecord && currentDraftFingerprint && groundingAudit
+      ? buildPhase5HumanAcceptanceUiState({
+          acceptance: phase5HumanAcceptanceRecord,
+          agentRunId: run.id,
+          review: latestReviewRecord,
+          currentDraftFingerprint,
+          groundingAudit,
+        })
+      : null;
   const resumed = buildResumedAgentRunResult({
     run,
     draft,
@@ -268,6 +309,7 @@ async function hydratePersistedAgentRun(
     featuredImage,
     latestReadiness,
     latestPublish,
+    phase5HumanAcceptance,
   });
 
   let applicableArticleCategory = null;

@@ -6,11 +6,14 @@ import { AgentFeaturedImagePanel } from "@/components/admin/agent/AgentFeaturedI
 import { AgentPublishPanel } from "@/components/admin/agent/AgentPublishPanel";
 import { AgentReadinessPanel } from "@/components/admin/agent/AgentReadinessPanel";
 import {
+  acceptAgentReviewFindingsAction,
   reviewAgentDraft,
+  type AcceptAgentReviewFindingsState,
   type ReviewAgentDraftState,
 } from "@/lib/actions/agent";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
 import type { RunPublishResult } from "@/lib/agent/publish/types";
+import type { Phase5HumanAcceptanceUiState } from "@/lib/agent/review/human-acceptance-core";
 import {
   formatFactCheckLabel,
 } from "@/lib/agent/status/presentation";
@@ -31,6 +34,8 @@ function statusBadgeClass(status: string): string {
   }
 }
 
+const initialAcceptState: AcceptAgentReviewFindingsState = {};
+
 export function AgentReviewPanel({
   agentRunId,
   draft,
@@ -38,6 +43,7 @@ export function AgentReviewPanel({
   initialFeaturedImage = { url: null, alt: null },
   initialReadiness = null,
   initialPublish = null,
+  initialPhase5HumanAcceptance = null,
 }: {
   agentRunId: string;
   draft: GenerateDraftResult;
@@ -45,14 +51,27 @@ export function AgentReviewPanel({
   initialFeaturedImage?: { url: string | null; alt: string | null };
   initialReadiness?: RunReadinessResult | null;
   initialPublish?: RunPublishResult | null;
+  initialPhase5HumanAcceptance?: Phase5HumanAcceptanceUiState | null;
 }) {
   const [state, formAction, isPending] = useActionState(
     reviewAgentDraft,
     initialReview ? { success: true, review: initialReview } : initialState,
   );
+  const [acceptState, acceptFormAction, acceptPending] = useActionState(
+    acceptAgentReviewFindingsAction,
+    initialPhase5HumanAcceptance?.valid
+      ? {
+          success: true,
+          phase5HumanAcceptance: initialPhase5HumanAcceptance,
+          readiness: initialReadiness ?? undefined,
+        }
+      : initialAcceptState,
+  );
 
   const review = state.review?.review ?? initialReview?.review;
-  const readiness = initialReadiness;
+  const phase5HumanAcceptance =
+    acceptState.phase5HumanAcceptance ?? initialPhase5HumanAcceptance;
+  const readiness = acceptState.readiness ?? initialReadiness;
 
   return (
     <div className="mt-8 rounded-xl border border-hcx-border bg-hcx-bg/40 p-5">
@@ -104,7 +123,48 @@ export function AgentReviewPanel({
                 qualityScore: review.qualityScore,
               })}
             </span>
+            {phase5HumanAcceptance?.valid ? (
+              <span className="inline-flex items-center rounded-full border border-hcx-green/40 bg-hcx-green/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-hcx-green">
+                Human reviewed / Accepted
+              </span>
+            ) : null}
           </div>
+
+          {review.status === "needs_review" && phase5HumanAcceptance?.canAccept ? (
+            <div className="rounded-lg border border-hcx-border bg-hcx-bg/60 p-4">
+              <p className="text-sm text-hcx-text-secondary">
+                I have reviewed the advisory findings and accept them for
+                publication readiness.
+              </p>
+              <form action={acceptFormAction} className="mt-4">
+                <input type="hidden" name="agentRunId" value={agentRunId} />
+                <button
+                  type="submit"
+                  disabled={acceptPending}
+                  className={`inline-flex items-center rounded-lg border border-hcx-green/40 bg-hcx-green/10 px-4 py-2 text-sm font-semibold text-hcx-green hover:bg-hcx-green/20 disabled:cursor-not-allowed disabled:opacity-70 ${focusRing}`}
+                >
+                  {acceptPending
+                    ? "Recording acceptance..."
+                    : "Accept Review Findings"}
+                </button>
+              </form>
+            </div>
+          ) : null}
+
+          {acceptState.error ? (
+            <div className="rounded-lg border border-hcx-red/30 bg-hcx-red/5 p-4 text-sm text-hcx-red">
+              {acceptState.error}
+            </div>
+          ) : null}
+
+          {phase5HumanAcceptance?.acceptBlockedReason &&
+          !phase5HumanAcceptance.canAccept &&
+          !phase5HumanAcceptance.valid &&
+          review.status === "needs_review" ? (
+            <p className="text-sm text-hcx-text-secondary">
+              {phase5HumanAcceptance.acceptBlockedReason}
+            </p>
+          ) : null}
 
           <div>
             <h3 className="text-sm font-semibold text-hcx-text">Review summary</h3>
@@ -205,9 +265,10 @@ export function AgentReviewPanel({
             initialImage={initialFeaturedImage}
           />
           <AgentReadinessPanel
+            key={`${readiness?.fingerprint ?? "none"}-${readiness?.readinessScore ?? 0}`}
             agentRunId={agentRunId}
             draft={draft}
-            initialReadiness={initialReadiness}
+            initialReadiness={readiness}
           />
           <AgentPublishPanel
             agentRunId={agentRunId}
