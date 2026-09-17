@@ -8,6 +8,7 @@ export type RateLimitScope =
   | "agent-research"
   | "agent-generation"
   | "agent-review"
+  | "agent-revision"
   | "agent-image-generation";
 
 export const LIMIT_CONFIG: Record<
@@ -20,6 +21,7 @@ export const LIMIT_CONFIG: Record<
   "agent-research": { requests: 10, window: "30 m" },
   "agent-generation": { requests: 5, window: "30 m" },
   "agent-review": { requests: 3, window: "30 m" },
+  "agent-revision": { requests: 2, window: "30 m" },
   "agent-image-generation": { requests: 3, window: "30 m" },
 };
 

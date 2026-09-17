@@ -143,6 +143,7 @@ export function AgentActiveRunWorkflow({
         initialReadiness={resumed.latestReadiness}
         initialPublish={resumed.latestPublish}
         initialPhase5HumanAcceptance={resumed.phase5HumanAcceptance}
+        initialPhase5AutomaticRevision={resumed.phase5AutomaticRevision}
       />
     </section>
   );

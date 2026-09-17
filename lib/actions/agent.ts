@@ -11,6 +11,8 @@ import { runAgentGeneration } from "@/lib/agent/generation/engine";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
 import { runAgentReview } from "@/lib/agent/review/engine";
 import { acceptAgentReviewFindings } from "@/lib/agent/review/accept-review";
+import { runPhase5AutomaticSafeRevision } from "@/lib/agent/review/automatic-revision-engine";
+import type { AutomaticRevisionUiState } from "@/lib/agent/review/automatic-revision-core";
 import type { RunReviewResult } from "@/lib/agent/review/types";
 import type { Phase5HumanAcceptanceUiState } from "@/lib/agent/review/human-acceptance-core";
 import { resumePersistedAgentRun } from "@/lib/agent/resume/resume-run";
@@ -143,6 +145,14 @@ export interface AcceptAgentReviewFindingsState {
   error?: string;
   readiness?: RunReadinessResult;
   phase5HumanAcceptance?: Phase5HumanAcceptanceUiState;
+}
+
+export interface ApplyPhase5AutomaticRevisionState {
+  success?: boolean;
+  error?: string;
+  review?: RunReviewResult;
+  changeSummary?: string[];
+  phase5AutomaticRevision?: AutomaticRevisionUiState;
 }
 
 export type { PublishAgentContentState };
@@ -446,6 +456,53 @@ export async function acceptAgentReviewFindingsAction(
       canAccept: false,
       acceptBlockedReason:
         "Review findings are already accepted for the current draft.",
+    },
+  };
+}
+
+export async function applyPhase5AutomaticSafeRevisionAction(
+  _prevState: ApplyPhase5AutomaticRevisionState,
+  formData: FormData,
+): Promise<ApplyPhase5AutomaticRevisionState> {
+  const auth = await getAuthenticatedServerClient("applyPhase5AutomaticSafeRevision");
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  if (!hasOpenAiApiKey()) {
+    return { error: "OpenAI is not configured." };
+  }
+
+  const agentRunId = String(formData.get("agentRunId") ?? "").trim();
+  if (!isValidAgentRunId(agentRunId)) {
+    return { error: "Invalid agent run ID." };
+  }
+
+  const outcome = await runPhase5AutomaticSafeRevision({
+    supabase: auth.supabase,
+    agentRunId,
+    adminUserId: auth.user.id,
+  });
+
+  if (!outcome.ok) {
+    return { error: outcome.error };
+  }
+
+  return {
+    success: true,
+    review: outcome.review,
+    changeSummary: outcome.changeSummary,
+    phase5AutomaticRevision: {
+      status: "not_needed",
+      reason: "Safe revisions were applied for the current review.",
+      canApply: false,
+      attempts: 1,
+      maxAttempts: 2,
+      changeSummaryPreview: outcome.changeSummary,
+      lastRevisedAt: new Date().toISOString(),
+      previousFingerprint: outcome.previousFingerprint,
+      revisedFingerprint: outcome.revisedFingerprint,
     },
   };
 }

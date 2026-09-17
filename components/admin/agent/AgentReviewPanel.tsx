@@ -7,12 +7,15 @@ import { AgentPublishPanel } from "@/components/admin/agent/AgentPublishPanel";
 import { AgentReadinessPanel } from "@/components/admin/agent/AgentReadinessPanel";
 import {
   acceptAgentReviewFindingsAction,
+  applyPhase5AutomaticSafeRevisionAction,
   reviewAgentDraft,
   type AcceptAgentReviewFindingsState,
+  type ApplyPhase5AutomaticRevisionState,
   type ReviewAgentDraftState,
 } from "@/lib/actions/agent";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
 import type { RunPublishResult } from "@/lib/agent/publish/types";
+import type { AutomaticRevisionUiState } from "@/lib/agent/review/automatic-revision-core";
 import type { Phase5HumanAcceptanceUiState } from "@/lib/agent/review/human-acceptance-core";
 import {
   formatFactCheckLabel,
@@ -35,6 +38,7 @@ function statusBadgeClass(status: string): string {
 }
 
 const initialAcceptState: AcceptAgentReviewFindingsState = {};
+const initialRevisionState: ApplyPhase5AutomaticRevisionState = {};
 
 export function AgentReviewPanel({
   agentRunId,
@@ -44,6 +48,7 @@ export function AgentReviewPanel({
   initialReadiness = null,
   initialPublish = null,
   initialPhase5HumanAcceptance = null,
+  initialPhase5AutomaticRevision = null,
 }: {
   agentRunId: string;
   draft: GenerateDraftResult;
@@ -52,6 +57,7 @@ export function AgentReviewPanel({
   initialReadiness?: RunReadinessResult | null;
   initialPublish?: RunPublishResult | null;
   initialPhase5HumanAcceptance?: Phase5HumanAcceptanceUiState | null;
+  initialPhase5AutomaticRevision?: AutomaticRevisionUiState | null;
 }) {
   const [state, formAction, isPending] = useActionState(
     reviewAgentDraft,
@@ -67,10 +73,16 @@ export function AgentReviewPanel({
         }
       : initialAcceptState,
   );
+  const [revisionState, revisionFormAction, revisionPending] = useActionState(
+    applyPhase5AutomaticSafeRevisionAction,
+    initialRevisionState,
+  );
 
-  const review = state.review?.review ?? initialReview?.review;
+  const review = revisionState.review?.review ?? state.review?.review ?? initialReview?.review;
   const phase5HumanAcceptance =
     acceptState.phase5HumanAcceptance ?? initialPhase5HumanAcceptance;
+  const phase5AutomaticRevision =
+    revisionState.phase5AutomaticRevision ?? initialPhase5AutomaticRevision;
   const readiness = acceptState.readiness ?? initialReadiness;
 
   return (
@@ -129,6 +141,67 @@ export function AgentReviewPanel({
               </span>
             ) : null}
           </div>
+
+          {phase5AutomaticRevision?.canApply ? (
+            <div className="rounded-lg border border-hcx-cyan/30 bg-hcx-cyan/5 p-4">
+              <p className="text-sm font-semibold text-hcx-cyan">
+                Safe revisions available
+              </p>
+              <p className="mt-2 text-sm text-hcx-text-secondary">
+                HCX can apply evidence-grounded editorial fixes from the latest
+                Phase 5 review, then run a new independent review.
+              </p>
+              {phase5AutomaticRevision.changeSummaryPreview.length > 0 ? (
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-hcx-text-secondary">
+                  {phase5AutomaticRevision.changeSummaryPreview.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <form action={revisionFormAction} className="mt-4">
+                <input type="hidden" name="agentRunId" value={agentRunId} />
+                <button
+                  type="submit"
+                  disabled={revisionPending}
+                  className={`inline-flex items-center rounded-lg border border-hcx-cyan/40 bg-hcx-cyan/10 px-4 py-2 text-sm font-semibold text-hcx-cyan hover:bg-hcx-cyan/20 disabled:cursor-not-allowed disabled:opacity-70 ${focusRing}`}
+                >
+                  {revisionPending
+                    ? "Applying safe revisions..."
+                    : "Apply Safe Revisions"}
+                </button>
+              </form>
+            </div>
+          ) : null}
+
+          {revisionState.success ? (
+            <div className="rounded-lg border border-hcx-green/30 bg-hcx-green/5 p-4 text-sm text-hcx-green">
+              <p className="font-semibold">Draft revised automatically</p>
+              <p className="mt-1">Phase 5 re-run completed.</p>
+              {revisionState.changeSummary && revisionState.changeSummary.length > 0 ? (
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-hcx-text-secondary">
+                  {revisionState.changeSummary.map((item) => (
+                    <li key={item} className="text-hcx-text-secondary">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
+          {revisionState.error ? (
+            <div className="rounded-lg border border-hcx-red/30 bg-hcx-red/5 p-4 text-sm text-hcx-red">
+              {revisionState.error}
+            </div>
+          ) : null}
+
+          {phase5AutomaticRevision &&
+          !phase5AutomaticRevision.canApply &&
+          phase5AutomaticRevision.status === "blocked" ? (
+            <p className="text-sm text-hcx-text-secondary">
+              Automatic revision unavailable: {phase5AutomaticRevision.reason}
+            </p>
+          ) : null}
 
           {review.status === "needs_review" && phase5HumanAcceptance?.canAccept ? (
             <div className="rounded-lg border border-hcx-border bg-hcx-bg/60 p-4">

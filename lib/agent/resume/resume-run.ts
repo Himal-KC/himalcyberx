@@ -49,6 +49,10 @@ import {
   buildPhase5HumanAcceptanceUiState,
   readPhase5HumanReviewAcceptanceFromMetadata,
 } from "@/lib/agent/review/human-acceptance-core";
+import {
+  assessAutomaticRevisionEligibility,
+  buildAutomaticRevisionUiState,
+} from "@/lib/agent/review/automatic-revision-core";
 import { getCurrentDraftFingerprintFromSnapshot } from "@/lib/agent/readiness/readiness-gate-core";
 import { loadPersistedReadinessForRun } from "@/lib/agent/readiness/engine";
 import { buildReadinessFingerprint } from "@/lib/agent/readiness/readiness-fingerprint-core";
@@ -302,6 +306,20 @@ async function hydratePersistedAgentRun(
           groundingAudit,
         })
       : null;
+  const phase5AutomaticRevision =
+    latestReviewRecord && currentDraftFingerprint && groundingAudit && reviewContext.snapshot
+      ? buildAutomaticRevisionUiState({
+          eligibility: assessAutomaticRevisionEligibility({
+            agentRunId: run.id,
+            review: latestReviewRecord,
+            currentDraftFingerprint,
+            groundingAudit,
+            metadata: runMetadata,
+            snapshot: reviewContext.snapshot,
+          }),
+          metadata: runMetadata,
+        })
+      : null;
   const resumed = buildResumedAgentRunResult({
     run,
     draft,
@@ -310,6 +328,7 @@ async function hydratePersistedAgentRun(
     latestReadiness,
     latestPublish,
     phase5HumanAcceptance,
+    phase5AutomaticRevision,
   });
 
   let applicableArticleCategory = null;
