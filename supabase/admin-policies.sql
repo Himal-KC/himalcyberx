@@ -1,95 +1,67 @@
 -- HimalCyberX admin RLS policies
 -- Run manually in the Supabase SQL editor. Do NOT disable RLS.
 --
--- REVIEW REQUIRED: Read each policy below before executing. These grant
--- authenticated Supabase users broad access to admin tables. Replace with
--- role-based policies (e.g. app_metadata.role = 'admin') before production.
+-- IMPORTANT: For production hardening, prefer the idempotent bundle:
+--   supabase/v2-admin-rls-foundation.sql
+-- (requires app_metadata.role = hcx_admin on admin users — see v2-admin-role-setup.sql)
 --
--- TODO: Replace broad authenticated-user access with role-based policies
--- (e.g. app_metadata.role = 'admin' or an admin_profiles table) before
--- allowing multiple user accounts into the admin portal.
+-- Fresh installs: run is_hcx_admin() creation from v2-admin-rls-foundation.sql FIRST,
+-- then apply the HCX admin policies below (or run the full v2 bundle).
 
 -- ---------------------------------------------------------------------------
--- Categories (admin CRUD for authenticated users at this stage)
+-- Categories (admin CRUD; public/learner SELECT via public-article-policies + v2 learner read)
 -- ---------------------------------------------------------------------------
 
-CREATE POLICY "Authenticated users can read categories"
+CREATE POLICY "HCX admin can read categories"
 ON public.categories
 FOR SELECT
 TO authenticated
-USING (true);
+USING (public.is_hcx_admin());
 
-CREATE POLICY "Authenticated users can insert categories"
+CREATE POLICY "HCX admin can insert categories"
 ON public.categories
 FOR INSERT
 TO authenticated
-WITH CHECK (true);
+WITH CHECK (public.is_hcx_admin());
 
-CREATE POLICY "Authenticated users can update categories"
+CREATE POLICY "HCX admin can update categories"
 ON public.categories
 FOR UPDATE
 TO authenticated
-USING (true)
-WITH CHECK (true);
+USING (public.is_hcx_admin())
+WITH CHECK (public.is_hcx_admin());
 
-CREATE POLICY "Authenticated users can delete categories"
+CREATE POLICY "HCX admin can delete categories"
 ON public.categories
 FOR DELETE
 TO authenticated
-USING (true);
+USING (public.is_hcx_admin());
 
 -- ---------------------------------------------------------------------------
--- Articles (full admin CRUD for authenticated users at this stage)
+-- Articles (admin CRUD — public anon read in public-article-policies.sql)
 -- ---------------------------------------------------------------------------
 
-CREATE POLICY "Authenticated users can read all articles"
+CREATE POLICY "HCX admin can read all articles"
 ON public.articles
 FOR SELECT
 TO authenticated
-USING (true);
+USING (public.is_hcx_admin());
 
-CREATE POLICY "Authenticated users can insert articles"
+CREATE POLICY "HCX admin can insert articles"
 ON public.articles
 FOR INSERT
 TO authenticated
-WITH CHECK (true);
+WITH CHECK (public.is_hcx_admin());
 
-CREATE POLICY "Authenticated users can update articles"
+CREATE POLICY "HCX admin can update articles"
 ON public.articles
 FOR UPDATE
 TO authenticated
-USING (true)
-WITH CHECK (true);
+USING (public.is_hcx_admin())
+WITH CHECK (public.is_hcx_admin());
 
-CREATE POLICY "Authenticated users can delete articles"
+CREATE POLICY "HCX admin can delete articles"
 ON public.articles
 FOR DELETE
 TO authenticated
-USING (true);
-
--- ---------------------------------------------------------------------------
--- Public read access (published articles only)
--- Apply when the public site reads from Supabase instead of local data.
--- ---------------------------------------------------------------------------
-
--- CREATE POLICY "Public can read published articles"
--- ON public.articles
--- FOR SELECT
--- TO anon
--- USING (status = 'published');
-
--- ---------------------------------------------------------------------------
--- Required columns (if not already present)
--- ---------------------------------------------------------------------------
-
--- ALTER TABLE public.articles
---   ADD COLUMN IF NOT EXISTS content text,
---   ADD COLUMN IF NOT EXISTS featured_image text;
-
--- Ensure status supports archived values:
--- ALTER TABLE public.articles
---   DROP CONSTRAINT IF EXISTS articles_status_check;
---
--- ALTER TABLE public.articles
---   ADD CONSTRAINT articles_status_check
---   CHECK (status IN ('draft', 'published', 'archived'));
+USING (public.is_hcx_admin());

@@ -48,7 +48,10 @@ export async function signIn(
   if (!isAllowedAdminUser(user ?? {})) {
     await supabase.auth.signOut();
     await recordRateLimitedFailure("admin-login", clientIp);
-    return { error: "You are not authorized to access HCX Admin." };
+    return {
+      error:
+        "You are not authorized to access HCX Admin. An hcx_admin role is required on your account.",
+    };
   }
 
   redirect("/admin");

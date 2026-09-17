@@ -1,0 +1,29 @@
+-- HimalCyberX V2 — ONE-TIME admin role assignment (run BEFORE v2-admin-rls-foundation.sql)
+-- =============================================================================
+-- Replace placeholders with your production admin user's UUID and email.
+-- Never run bulk updates against unknown users.
+--
+-- Option A — Supabase Dashboard (recommended):
+--   Authentication → Users → select admin user → User Metadata → App Metadata
+--   Set JSON: { "role": "hcx_admin" }
+--   Save, then ask the admin to sign out and sign in again (refresh JWT).
+--
+-- Option B — SQL (service role / SQL editor with auth admin access only):
+--   Look up the user id first:
+--     SELECT id, email FROM auth.users WHERE email = 'admin@yourdomain.com';
+--   Then update metadata (requires privileges on auth.users):
+--     UPDATE auth.users
+--     SET raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
+--         || '{"role":"hcx_admin"}'::jsonb
+--     WHERE id = '00000000-0000-0000-0000-000000000000';
+--
+-- Verify JWT after re-login (SQL editor as that user is not possible; use Admin app):
+--   App layer rejects users without app_metadata.role = hcx_admin.
+--
+-- After role assignment, run: supabase/v2-admin-rls-foundation.sql
+-- =============================================================================
+
+-- Example verification query (run after assignment):
+-- SELECT id, email, raw_app_meta_data ->> 'role' AS role
+-- FROM auth.users
+-- WHERE email = 'admin@yourdomain.com';

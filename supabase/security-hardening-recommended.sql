@@ -1,22 +1,10 @@
 -- HimalCyberX Security Hardening — RECOMMENDED RLS CHANGES
 -- =============================================================================
+-- IMPLEMENTED BUNDLE: supabase/v2-admin-rls-foundation.sql
+-- ONE-TIME ROLE SETUP: supabase/v2-admin-role-setup.sql
+--
 -- DO NOT RUN AUTOMATICALLY. Review and apply manually in the Supabase SQL editor.
--- This file does NOT disable RLS. It tightens admin policies for a single-admin CMS.
---
--- Current risk:
---   Any Supabase user with the "authenticated" role can read/update/delete
---   articles, categories, labs, tutorials, subscribers, messages, site_settings,
---   and upload/delete storage objects — not only the HCX administrator.
---
--- Recommended approach (pick one):
---   A) app_metadata.role = 'hcx_admin' on the single admin user (preferred)
---   B) auth.jwt() ->> 'email' matches your admin email (simpler, less flexible)
---
--- Before applying:
---   1. In Supabase Auth, set app_metadata on your admin user:
---        { "role": "hcx_admin" }
---   2. Set HCX_ADMIN_EMAIL in Vercel/hosting env (application layer, already supported)
---   3. Replace broad "Authenticated users can ..." policies below
+-- This file documents the approach; use v2-admin-rls-foundation.sql for deployment.
 -- =============================================================================
 
 -- Helper: true when JWT carries hcx_admin role

@@ -13,23 +13,37 @@ export async function getAuthClaims() {
   return data.claims;
 }
 
-export async function requireAdminAuth() {
-  const claims = await getAuthClaims();
+export async function getAuthenticatedUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-  if (!claims) {
+  if (error || !user) {
+    return null;
+  }
+
+  return user;
+}
+
+export async function requireAdminAuth() {
+  const user = await getAuthenticatedUser();
+
+  if (!user) {
     redirect("/admin/login");
   }
 
-  if (!isAllowedAdminUser({ email: claims.email as string | undefined })) {
+  if (!isAllowedAdminUser(user)) {
     redirect("/admin/login?error=unauthorized");
   }
 
-  return claims;
+  return user;
 }
 
 export async function getAdminSessionEmail(): Promise<string | null> {
-  const claims = await getAuthClaims();
-  const email = claims?.email;
+  const user = await getAuthenticatedUser();
+  const email = user?.email;
 
   if (typeof email !== "string" || !email) {
     return null;

@@ -53,7 +53,7 @@ function revalidateArticlePaths(slug?: string) {
 }
 
 function articleInsertRlsMessage(): string {
-  return 'Insert blocked by Row Level Security. Apply the policy in supabase/admin-policies.sql: "Authenticated users can insert articles" on public.articles for the authenticated role.';
+  return 'Insert blocked by Row Level Security. Ensure v2-admin-rls-foundation.sql is applied and your user has app_metadata.role = hcx_admin.';
 }
 
 export async function createArticle(
