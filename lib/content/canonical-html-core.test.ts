@@ -106,6 +106,29 @@ describe("canonical article body HTML", () => {
     assert.match(output, />Nested</);
   });
 
+  it("does not flag multiple sibling source links as nested anchors (Phase 4 regression)", () => {
+    const microsoftUrl = "https://www.microsoft.com/security/blog/";
+    const learnUrl = "https://learn.microsoft.com/en-us/security/";
+    const cisaUrl = "https://www.cisa.gov/phishing";
+    const input = [
+      "<p>Phishing attacks target Microsoft 365 credentials.</p>",
+      "<h2>Sources</h2>",
+      "<ul>",
+      `<li><a href="${microsoftUrl}">Microsoft Security Blog</a></li>`,
+      `<li><a href="${learnUrl}">Microsoft Learn security guidance</a></li>`,
+      `<li><a href="${cisaUrl}">CISA phishing resources</a></li>`,
+      "</ul>",
+    ].join("");
+
+    const output = canonicalizeRichContentForStorage(input, {
+      allowedSourceUrls: [microsoftUrl, learnUrl, cisaUrl],
+    });
+
+    assert.equal(containsNestedAnchorTags(output), false);
+    assert.match(output, /Microsoft Security Blog/);
+    assert.match(output, /CISA phishing resources/);
+  });
+
   it("recovers backslash-escaped HTML before persistence", () => {
     const escaped = String.raw`\<p>Recovered paragraph.\</p>`;
     assert.equal(containsBackslashEscapedHtmlTags(escaped), true);

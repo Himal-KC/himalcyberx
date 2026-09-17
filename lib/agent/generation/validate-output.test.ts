@@ -95,6 +95,26 @@ describe("Phase 4 generated draft HTML validation pipeline", () => {
     );
   });
 
+  it("passes Microsoft 365 phishing article with multiple catalog source links", () => {
+    const microsoftUrl = "https://www.microsoft.com/security/blog/";
+    const learnUrl = "https://learn.microsoft.com/en-us/security/";
+    const cisaUrl = "https://www.cisa.gov/phishing";
+    assertArticleContentValid(
+      [
+        "<p>Credential phishing against Microsoft 365 remains a top risk.</p>",
+        "<h2>Reduce the risk</h2>",
+        "<ul><li>Enable phishing-resistant MFA.</li><li>Review sign-in risk policies.</li></ul>",
+        "<h2>Sources</h2>",
+        "<ul>",
+        `<li><a href="${microsoftUrl}">Microsoft Security Blog</a></li>`,
+        `<li><a href="${learnUrl}">Microsoft Learn</a></li>`,
+        `<li><a href="${cisaUrl}">CISA phishing guidance</a></li>`,
+        "</ul>",
+      ].join(""),
+      [microsoftUrl, learnUrl, cisaUrl],
+    );
+  });
+
   it("strips stray article wrappers before validation", () => {
     const canonical = canonicalizeRichContentForStorage(
       `<article><p>Body</p><h2>Sources</h2><p><a href="${CISA_URL}">CISA</a></p></article>`,

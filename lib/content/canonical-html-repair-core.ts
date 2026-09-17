@@ -347,7 +347,32 @@ export function flattenNestedAnchorTags(html: string): string {
 }
 
 export function containsNestedAnchorTags(html: string): boolean {
-  return /<a\b[^>]*>[\s\S]*<a\b/i.test(html);
+  let anchorDepth = 0;
+  let index = 0;
+
+  while (index < html.length) {
+    const rest = html.slice(index);
+    const openMatch = rest.match(/^<a\b[^>]*>/i);
+    if (openMatch) {
+      if (anchorDepth > 0) {
+        return true;
+      }
+      anchorDepth += 1;
+      index += openMatch[0].length;
+      continue;
+    }
+
+    const closeMatch = rest.match(/^<\/a>/i);
+    if (closeMatch) {
+      anchorDepth = Math.max(0, anchorDepth - 1);
+      index += closeMatch[0].length;
+      continue;
+    }
+
+    index += 1;
+  }
+
+  return false;
 }
 
 export function containsMarkdownHrefValues(html: string): boolean {

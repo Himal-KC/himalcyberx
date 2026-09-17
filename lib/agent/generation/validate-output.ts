@@ -151,6 +151,183 @@ export function diagnoseRichFieldHtmlIssue(field: string): RichFieldHtmlIssue | 
   return null;
 }
 
+const HTML_ISSUE_EXCERPT_MAX = 180;
+
+function sliceMarkupExcerpt(content: string, start: number, end: number): string {
+  const padding = 40;
+  const from = Math.max(0, start - padding);
+  const to = Math.min(content.length, end + padding);
+  return content.slice(from, to).replace(/\s+/g, " ").trim();
+}
+
+export function buildRichFieldHtmlIssueExcerpt(
+  field: string,
+  issue: RichFieldHtmlIssue,
+): string {
+  if (!field.trim()) {
+    return "";
+  }
+
+  if (issue === "markdown_href") {
+    const match =
+      field.match(/href=(["'])[^"']*\[[^\]]+\]\([^)]+\)[^"']*\1/i) ??
+      field.match(/href=(["'])[^"']*\]\(https?:\/\//i);
+    if (match?.index !== undefined) {
+      return sliceMarkupExcerpt(
+        field,
+        match.index,
+        match.index + match[0].length,
+      ).slice(0, HTML_ISSUE_EXCERPT_MAX);
+    }
+  }
+
+  if (issue === "nested_anchor") {
+    let anchorDepth = 0;
+    let index = 0;
+    while (index < field.length) {
+      const rest = field.slice(index);
+      const openMatch = rest.match(/^<a\b[^>]*>/i);
+      if (openMatch) {
+        if (anchorDepth > 0) {
+          return sliceMarkupExcerpt(
+            field,
+            index,
+            index + openMatch[0].length,
+          ).slice(0, HTML_ISSUE_EXCERPT_MAX);
+        }
+        anchorDepth += 1;
+        index += openMatch[0].length;
+        continue;
+      }
+
+      const closeMatch = rest.match(/^<\/a>/i);
+      if (closeMatch) {
+        anchorDepth = Math.max(0, anchorDepth - 1);
+        index += closeMatch[0].length;
+        continue;
+      }
+
+      index += 1;
+    }
+  }
+
+  if (issue === "backslash_escaped_tag") {
+    const match = field.match(/\\<\/?[a-z][^\\]*?\\>/i);
+    if (match?.index !== undefined) {
+      return sliceMarkupExcerpt(
+        field,
+        match.index,
+        match.index + match[0].length,
+      ).slice(0, HTML_ISSUE_EXCERPT_MAX);
+    }
+  }
+
+  if (issue === "entity_escaped_tag") {
+    const match = field.match(/&lt;\/?[a-z][^&]*?&gt;/i);
+    if (match?.index !== undefined) {
+      return sliceMarkupExcerpt(
+        field,
+        match.index,
+        match.index + match[0].length,
+      ).slice(0, HTML_ISSUE_EXCERPT_MAX);
+    }
+  }
+
+  if (issue === "prohibited_html") {
+    const match = field.match(
+      /<script\b|<iframe\b|<object\b|<embed\b|\bon\w+\s*=|javascript:/i,
+    );
+    if (match?.index !== undefined) {
+      return sliceMarkupExcerpt(
+        field,
+        match.index,
+        match.index + match[0].length,
+      ).slice(0, HTML_ISSUE_EXCERPT_MAX);
+    }
+  }
+
+  return field.replace(/\s+/g, " ").trim().slice(0, HTML_ISSUE_EXCERPT_MAX);
+}
+
+export type StructureHtmlValidationPhase =
+  | "post_sanitize_only"
+  | "post_canonical_replay"
+  | "validator_false_reject";
+
+export function analyzeStructureHtmlValidationFailure(
+  draft: GeneratedDraft,
+  allowedSourceUrls?: readonly string[],
+): {
+  field: string;
+  issue: RichFieldHtmlIssue;
+  message: string;
+  htmlValidationPhase: StructureHtmlValidationPhase;
+  postSanitizeIssue: RichFieldHtmlIssue | null;
+  postCanonicalIssue: RichFieldHtmlIssue | null;
+  excerpt: string;
+} | null {
+  const failure = validateGeneratedDraftStructureDetailed(
+    draft,
+    draft.contentType,
+    allowedSourceUrls,
+  );
+
+  if (
+    !failure ||
+    failure.issue === "content_type_mismatch" ||
+    failure.issue === "invalid_slug" ||
+    failure.issue === "title_too_short"
+  ) {
+    return null;
+  }
+
+  const fieldNames = richFieldNamesForDraft(draft);
+  const richFieldValues =
+    draft.contentType === "article"
+      ? [draft.content]
+      : draft.contentType === "tutorial"
+        ? [
+            draft.requirements,
+            draft.introduction,
+            draft.instructions,
+            draft.keyTakeaways,
+            draft.securityNotes,
+          ]
+        : [
+            draft.learningObjectives,
+            draft.requirementsTools,
+            draft.introduction,
+            draft.instructions,
+            draft.expectedResult,
+            draft.securityNotes,
+          ];
+
+  const fieldIndex = fieldNames.findIndex(
+    (name) => failure.field === `${draft.contentType}.${name}`,
+  );
+  const sanitizedOnce =
+    fieldIndex >= 0 ? (richFieldValues[fieldIndex] ?? "") : "";
+  const postSanitizeIssue = diagnoseRichFieldHtmlIssue(sanitizedOnce);
+  const postCanonicalIssue = failure.issue as RichFieldHtmlIssue;
+
+  let htmlValidationPhase: StructureHtmlValidationPhase = "post_canonical_replay";
+  if (postSanitizeIssue === null && postCanonicalIssue !== null) {
+    htmlValidationPhase = "validator_false_reject";
+  } else if (postSanitizeIssue !== null && postSanitizeIssue === postCanonicalIssue) {
+    htmlValidationPhase = "post_sanitize_only";
+  }
+
+  return {
+    field: failure.field,
+    issue: postCanonicalIssue,
+    message: failure.message,
+    htmlValidationPhase,
+    postSanitizeIssue,
+    postCanonicalIssue,
+    excerpt: buildRichFieldHtmlIssueExcerpt(sanitizedOnce, postCanonicalIssue),
+  };
+}
+
 function richFieldNamesForDraft(draft: GeneratedDraft): string[] {
   if (draft.contentType === "article") {
     return ["content"];

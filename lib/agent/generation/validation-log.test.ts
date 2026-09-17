@@ -78,7 +78,27 @@ describe("Phase 4 validation diagnostics logging", () => {
   it("sanitizes validation reasons to short safe strings", () => {
     assert.equal(
       validationLog.sanitizeValidationReason("  too   long   reason   ".repeat(20).trim()).length,
-      120,
+      240,
     );
+  });
+
+  it("includes structure HTML diagnostic fields in validation logs", () => {
+    const log = validationLog.buildValidationFailureLog({
+      agentRunId: "run-phishing-365",
+      contentType: "article",
+      validationStage: "structure_validation",
+      issueCodes: ["INVALID_HTML"],
+      reason:
+        "Generated output contained malformed HTML markup in article.content (nested_anchor).",
+      failingField: "article.content",
+      htmlIssue: "nested_anchor",
+      htmlValidationPhase: "post_sanitize_only",
+      markupExcerpt: '<li><a href="https://www.cisa.gov/phishing">CISA</a></li>',
+    });
+
+    assert.equal(log.failingField, "article.content");
+    assert.equal(log.htmlIssue, "nested_anchor");
+    assert.equal(log.htmlValidationPhase, "post_sanitize_only");
+    assert.ok(log.markupExcerpt?.includes("cisa.gov"));
   });
 });

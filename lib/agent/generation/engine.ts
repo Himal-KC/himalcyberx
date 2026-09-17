@@ -33,6 +33,7 @@ import {
   validateDraftReferencesDetailed,
   validateGeneratedDraftStructure,
   validateGeneratedDraftStructureDetailed,
+  analyzeStructureHtmlValidationFailure,
 } from "@/lib/agent/generation/validate-output";
 import {
   buildGroundingValidationLog,
@@ -261,6 +262,10 @@ export async function runAgentGeneration(
       run.content_type,
       context.allowedSourceUrls,
     );
+    const htmlFailure = analyzeStructureHtmlValidationFailure(
+      draft,
+      context.allowedSourceUrls,
+    );
     logGenerationValidationFailure(
       buildValidationFailureLog({
         agentRunId,
@@ -270,6 +275,10 @@ export async function runAgentGeneration(
         reason:
           structureDetails?.message ??
           structureError,
+        failingField: htmlFailure?.field ?? structureDetails?.field ?? null,
+        htmlIssue: htmlFailure?.issue ?? structureDetails?.issue ?? null,
+        htmlValidationPhase: htmlFailure?.htmlValidationPhase ?? null,
+        markupExcerpt: htmlFailure?.excerpt ?? null,
       }),
     );
 

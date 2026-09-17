@@ -42,6 +42,10 @@ export interface GenerationValidationLog {
   invalidSourceCount: number;
   invalidInternalLinkCount: number;
   reason: string | null;
+  failingField?: string | null;
+  htmlIssue?: string | null;
+  htmlValidationPhase?: string | null;
+  markupExcerpt?: string | null;
 }
 
 const CVE_PATTERN = /\bCVE-\d{4}-\d{4,}\b/i;
@@ -50,7 +54,11 @@ const KEV_PATTERN = /\b(known exploited vulnerabilities|CISA KEV|KEV catalog)\b/
 const PATCH_PATTERN = /\bKB\d{5,7}\b/i;
 
 export function sanitizeValidationReason(reason: string): string {
-  return reason.replace(/\s+/g, " ").trim().slice(0, 120);
+  return reason.replace(/\s+/g, " ").trim().slice(0, 240);
+}
+
+export function sanitizeMarkupExcerpt(excerpt: string): string {
+  return excerpt.replace(/\s+/g, " ").trim().slice(0, 180);
 }
 
 export function logGenerationValidationFailure(
@@ -67,6 +75,10 @@ export function logGenerationValidationFailure(
     invalidSourceCount: log.invalidSourceCount,
     invalidInternalLinkCount: log.invalidInternalLinkCount,
     reason: log.reason,
+    failingField: log.failingField ?? null,
+    htmlIssue: log.htmlIssue ?? null,
+    htmlValidationPhase: log.htmlValidationPhase ?? null,
+    markupExcerpt: log.markupExcerpt ?? null,
   });
 }
 
@@ -228,6 +240,10 @@ export function buildValidationFailureLog(input: {
   unsupportedClaimTypes?: string[];
   invalidSourceCount?: number;
   invalidInternalLinkCount?: number;
+  failingField?: string | null;
+  htmlIssue?: string | null;
+  htmlValidationPhase?: string | null;
+  markupExcerpt?: string | null;
 }): GenerationValidationLog {
   const issueCodes = [...new Set(input.issueCodes)];
 
@@ -242,5 +258,11 @@ export function buildValidationFailureLog(input: {
     invalidSourceCount: input.invalidSourceCount ?? 0,
     invalidInternalLinkCount: input.invalidInternalLinkCount ?? 0,
     reason: sanitizeValidationReason(input.reason),
+    failingField: input.failingField ?? null,
+    htmlIssue: input.htmlIssue ?? null,
+    htmlValidationPhase: input.htmlValidationPhase ?? null,
+    markupExcerpt: input.markupExcerpt
+      ? sanitizeMarkupExcerpt(input.markupExcerpt)
+      : null,
   };
 }
