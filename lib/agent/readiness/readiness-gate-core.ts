@@ -1,4 +1,9 @@
 import { createHash } from "node:crypto";
+import { countKeyTakeawaysSections } from "../content/draft-structure-core.ts";
+import {
+  evaluateFeaturedImageAltQuality,
+  type FeaturedImageAltQualityCode,
+} from "../content/featured-image-alt-core.ts";
 import type { GroundingAuditResult } from "../generation/types";
 import type { Phase5HumanReviewAcceptanceRecord } from "../review/human-acceptance-core";
 import type { AgentReviewRecord, ReviewDraftSnapshot, SolReviewOutput } from "../review/types";
@@ -337,6 +342,61 @@ export function resolveReadinessStatus(issues: ReadinessIssue[]): ReadinessStatu
   return "READY_TO_PUBLISH";
 }
 
+const FEATURED_IMAGE_ALT_ISSUE_COPY: Record<
+  FeaturedImageAltQualityCode,
+  Pick<ReadinessIssue, "severity" | "message" | "recommendedAction">
+> = {
+  ALT_TEXT_MISSING: {
+    severity: "blocking",
+    message: "Featured image alt text is missing.",
+    recommendedAction: "Add descriptive alt text for the featured image.",
+  },
+  ALT_TEXT_PREFIX_IMAGE_OF: {
+    severity: "warning",
+    message: "Alt text starts with “Image of”.",
+    recommendedAction: "Rewrite the alt text as a direct description without the prefix.",
+  },
+  ALT_TEXT_FILENAME: {
+    severity: "warning",
+    message: "Alt text appears to contain a filename or storage path.",
+    recommendedAction: "Replace it with a meaningful description of the artwork.",
+  },
+  ALT_TEXT_RAW_SLUG: {
+    severity: "warning",
+    message: "Alt text appears to reuse the raw slug.",
+    recommendedAction:
+      "Describe what is visually represented instead of repeating the slug.",
+  },
+  ALT_TEXT_DUPLICATES_TITLE: {
+    severity: "warning",
+    message: "Alt text repeats or mirrors the article title.",
+    recommendedAction:
+      "Describe the featured artwork visually instead of repeating the headline.",
+  },
+  ALT_TEXT_TRUNCATED: {
+    severity: "warning",
+    message: "Alt text appears truncated.",
+    recommendedAction:
+      "Rewrite the alt text as a complete phrase within about 80–160 characters.",
+  },
+  ALT_TEXT_TOO_SHORT: {
+    severity: "warning",
+    message: "Alt text is very short.",
+    recommendedAction:
+      "Expand the alt text so it meaningfully describes the featured artwork.",
+  },
+  ALT_TEXT_TOO_LONG: {
+    severity: "warning",
+    message: "Alt text is longer than recommended.",
+    recommendedAction: "Shorten the alt text to a concise 80–160 character description.",
+  },
+  ALT_TEXT_KEYWORD_STUFFING: {
+    severity: "warning",
+    message: "Alt text repeats keywords unnaturally.",
+    recommendedAction: "Use natural language instead of repeating the same keyword.",
+  },
+};
+
 export function evaluateAltTextQuality(input: {
   altText: string | null;
   title: string;
@@ -347,112 +407,10 @@ export function evaluateAltTextQuality(input: {
     return [];
   }
 
-  const alt = input.altText?.trim() ?? "";
-  const issues: ReadinessIssue[] = [];
-
-  if (!alt) {
-    issues.push(
-      issue(
-        "ALT_TEXT_MISSING",
-        "blocking",
-        "alt_text",
-        "Featured image alt text is missing.",
-        "Add descriptive alt text for the featured image.",
-      ),
-    );
-    return issues;
-  }
-
-  if (/^image of/i.test(alt)) {
-    issues.push(
-      issue(
-        "ALT_TEXT_PREFIX_IMAGE_OF",
-        "warning",
-        "alt_text",
-        "Alt text starts with “Image of”.",
-        "Rewrite the alt text as a direct description without the prefix.",
-      ),
-    );
-  }
-
-  if (/\.webp$|\.jpg$|\.png$/i.test(alt) || alt.includes("/storage/")) {
-    issues.push(
-      issue(
-        "ALT_TEXT_FILENAME",
-        "warning",
-        "alt_text",
-        "Alt text appears to contain a filename or storage path.",
-        "Replace it with a meaningful description of the artwork.",
-      ),
-    );
-  }
-
-  const normalizedSlug = input.slug.replace(/-/g, " ").toLowerCase();
-  if (normalizedSlug.length >= 8 && alt.toLowerCase().includes(normalizedSlug)) {
-    issues.push(
-      issue(
-        "ALT_TEXT_RAW_SLUG",
-        "warning",
-        "alt_text",
-        "Alt text appears to reuse the raw slug.",
-        "Describe what is visually represented instead of repeating the slug.",
-      ),
-    );
-  }
-
-  if (alt.endsWith("…") || alt.endsWith("...")) {
-    issues.push(
-      issue(
-        "ALT_TEXT_TRUNCATED",
-        "warning",
-        "alt_text",
-        "Alt text appears truncated.",
-        "Rewrite the alt text as a complete phrase within about 80–160 characters.",
-      ),
-    );
-  }
-
-  if (alt.length < 40) {
-    issues.push(
-      issue(
-        "ALT_TEXT_TOO_SHORT",
-        "warning",
-        "alt_text",
-        "Alt text is very short.",
-        "Expand the alt text so it meaningfully describes the featured artwork.",
-      ),
-    );
-  }
-
-  if (alt.length > 180) {
-    issues.push(
-      issue(
-        "ALT_TEXT_TOO_LONG",
-        "warning",
-        "alt_text",
-        "Alt text is longer than recommended.",
-        "Shorten the alt text to a concise 80–160 character description.",
-      ),
-    );
-  }
-
-  const words = alt.toLowerCase().split(/\s+/);
-  const repeated = words.find(
-    (word, index) => word.length > 4 && words.indexOf(word) !== index,
-  );
-  if (repeated) {
-    issues.push(
-      issue(
-        "ALT_TEXT_KEYWORD_STUFFING",
-        "warning",
-        "alt_text",
-        "Alt text repeats keywords unnaturally.",
-        "Use natural language instead of repeating the same keyword.",
-      ),
-    );
-  }
-
-  return issues;
+  return evaluateFeaturedImageAltQuality(input).map((code) => {
+    const copy = FEATURED_IMAGE_ALT_ISSUE_COPY[code];
+    return issue(code, copy.severity, "alt_text", copy.message, copy.recommendedAction);
+  });
 }
 
 function checkReviewAndFactual(input: EvaluateReadinessGateInput): ReadinessIssue[] {
@@ -908,9 +866,7 @@ function checkStructure(input: EvaluateReadinessGateInput): ReadinessIssue[] {
       );
     }
 
-    const duplicateHeadingMatches =
-      input.content.content.match(/<h2[^>]*>\s*Key Takeaways\s*<\/h2>/gi) ?? [];
-    if (duplicateHeadingMatches.length > 1) {
+    if (countKeyTakeawaysSections(input.content.content) > 1) {
       issues.push(
         issue(
           "STRUCTURE_KEY_TAKEAWAYS_ORPHANED",

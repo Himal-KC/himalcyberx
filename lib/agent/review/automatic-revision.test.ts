@@ -232,19 +232,35 @@ describe("Phase 5 automatic safe revision eligibility", () => {
 });
 
 describe("Phase 5 automatic revision helpers", () => {
-  it("repairs duplicated featured image alt text", () => {
+  it("repairs duplicated featured image alt text", async () => {
+    const altCore = (await import(
+      pathToFileURL(join(testDir, "../content/featured-image-alt-core.ts")).href
+    )) as typeof import("../content/featured-image-alt-core");
     const title =
       "How Organizations Can Reduce Microsoft 365 Phishing and Account Compromise Risk";
-    const alt = revisionCore.repairFeaturedImageAltText({
+    const slug =
+      "how-organizations-can-reduce-microsoft-365-phishing-and-account-compromise-risk";
+    const alt = altCore.repairFeaturedImageAltText({
       title,
+      slug,
       currentAlt: `${title}: ${title}`,
       visualConcept: "Enterprise cloud email security environment",
+      hasFeaturedImage: true,
     });
 
     assert.ok(alt);
     assert.ok(alt.length >= 80);
     assert.ok(alt.length <= 160);
     assert.doesNotMatch(alt, new RegExp(`${title}: ${title}`));
+    assert.equal(
+      altCore.featuredImageAltPassesPhase7Quality({
+        altText: alt,
+        title,
+        slug,
+        hasFeaturedImage: true,
+      }),
+      true,
+    );
   });
 
   it("preserves slug and source mappings when merging revised draft", () => {

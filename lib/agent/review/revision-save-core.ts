@@ -1,4 +1,5 @@
 import { appendArticleKeyTakeawaysToContent } from "@/lib/articles/db-schema";
+import { dedupeKeyTakeawaysSections } from "@/lib/agent/content/draft-structure-core";
 import { prepareRichContentForSave } from "@/lib/content/sanitize-on-save";
 import type { GeneratedDraft } from "@/lib/agent/generation/types";
 import type { AgentContentType, Article, Lab, Tutorial } from "@/lib/supabase/types";
@@ -84,8 +85,9 @@ export function buildLabRevisionUpdatePayload(input: {
 export function prepareArticleRevisionContent(
   draft: Extract<GeneratedDraft, { contentType: "article" }>,
 ): string {
+  const dedupedContent = dedupeKeyTakeawaysSections(draft.content);
   return prepareRichContentForSave(
-    appendArticleKeyTakeawaysToContent(draft.content, draft.keyTakeaways),
+    appendArticleKeyTakeawaysToContent(dedupedContent, draft.keyTakeaways),
   );
 }
 

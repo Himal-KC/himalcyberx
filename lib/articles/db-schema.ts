@@ -140,15 +140,20 @@ export function appendArticleKeyTakeawaysToContent(
   keyTakeaways: string[],
 ): string {
   const items = keyTakeaways.map((item) => item.trim()).filter(Boolean);
+  const trimmedContent = content.trim();
+
   if (items.length === 0) {
-    return content;
+    return trimmedContent;
+  }
+
+  if (/<h2[^>]*>\s*Key Takeaways\s*<\/h2>/i.test(trimmedContent)) {
+    return trimmedContent;
   }
 
   const listItems = items
     .map((item) => `<li>${escapePlainTextForHtml(item)}</li>`)
     .join("");
   const section = `<h2>Key Takeaways</h2><ul>${listItems}</ul>`;
-  const trimmedContent = content.trim();
 
   return trimmedContent ? `${trimmedContent}\n${section}` : section;
 }

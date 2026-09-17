@@ -1,6 +1,10 @@
 import "server-only";
 
 import { unstable_noStore as noStore } from "next/cache";
+import {
+  applyArticleDeterministicCleanup,
+  resolveVisualConceptForAltRepair,
+} from "@/lib/agent/content/deterministic-cleanup-core";
 import { getResearchPayloadFromRun } from "@/lib/agent/generation/research-payload";
 import { hasOpenAiApiKey } from "@/lib/agent/openai/env";
 import { runDeterministicPreCheck, buildReviewContextPayload } from "@/lib/agent/review/build-context-core";
@@ -11,7 +15,6 @@ import {
   buildRevisionIdempotencyKey,
   countAutomaticRevisionAttempts,
   mergeRevisedDraftWithSnapshot,
-  repairFeaturedImageAltText,
   revisionAlreadyCompletedForReview,
   type Phase5AutomaticRevisionRecord,
 } from "@/lib/agent/review/automatic-revision-core";
@@ -375,22 +378,26 @@ async function saveRevisedDraftToCms(input: {
       return "Unable to load article draft for revision save.";
     }
 
-    const visualConcept =
-      typeof input.existingMetadata?.latestReview === "object"
-        ? null
-        : (input.existingMetadata?.visualConcept as string | undefined);
+    const visualConcept = resolveVisualConceptForAltRepair({
+      metadata: input.existingMetadata,
+      recommendedAngle: input.run.recommended_angle,
+      topic: input.run.topic,
+    });
 
-    const repairedAlt = repairFeaturedImageAltText({
-      title: input.draft.title,
-      currentAlt: data.featured_image_alt,
-      visualConcept: visualConcept ?? input.run.recommended_angle,
+    const cleanup = applyArticleDeterministicCleanup({
+      draft: input.draft,
+      slug: data.slug,
+      featuredImage: data.featured_image,
+      featuredImageAlt: data.featured_image_alt,
+      visualConcept,
+      topic: input.run.topic,
     });
 
     const updatePayload = buildArticleRevisionUpdatePayload({
-      draft: input.draft,
+      draft: cleanup.draft,
       existingRow: data,
-      preparedContent: prepareArticleRevisionContent(input.draft),
-      featuredImageAlt: repairedAlt,
+      preparedContent: prepareArticleRevisionContent(cleanup.draft),
+      featuredImageAlt: cleanup.featuredImageAlt,
     });
 
     const updated = await input.supabase

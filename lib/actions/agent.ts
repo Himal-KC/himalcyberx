@@ -12,7 +12,9 @@ import type { GenerateDraftResult } from "@/lib/agent/generation/types";
 import { runAgentReview } from "@/lib/agent/review/engine";
 import { acceptAgentReviewFindings } from "@/lib/agent/review/accept-review";
 import { runPhase5AutomaticSafeRevision } from "@/lib/agent/review/automatic-revision-engine";
+import { runDeterministicAgentDraftCleanup } from "@/lib/agent/content/deterministic-cleanup-engine";
 import type { AutomaticRevisionUiState } from "@/lib/agent/review/automatic-revision-core";
+import type { DeterministicCleanupUiState } from "@/lib/agent/content/deterministic-cleanup-core";
 import type { RunReviewResult } from "@/lib/agent/review/types";
 import type { Phase5HumanAcceptanceUiState } from "@/lib/agent/review/human-acceptance-core";
 import { resumePersistedAgentRun } from "@/lib/agent/resume/resume-run";
@@ -153,6 +155,14 @@ export interface ApplyPhase5AutomaticRevisionState {
   review?: RunReviewResult;
   changeSummary?: string[];
   phase5AutomaticRevision?: AutomaticRevisionUiState;
+}
+
+export interface ApplyDeterministicCleanupState {
+  success?: boolean;
+  error?: string;
+  review?: RunReviewResult;
+  changeSummary?: string[];
+  phase5DeterministicCleanup?: DeterministicCleanupUiState;
 }
 
 export type { PublishAgentContentState };
@@ -503,6 +513,43 @@ export async function applyPhase5AutomaticSafeRevisionAction(
       lastRevisedAt: new Date().toISOString(),
       previousFingerprint: outcome.previousFingerprint,
       revisedFingerprint: outcome.revisedFingerprint,
+    },
+  };
+}
+
+export async function applyDeterministicAgentDraftCleanupAction(
+  _prevState: ApplyDeterministicCleanupState,
+  formData: FormData,
+): Promise<ApplyDeterministicCleanupState> {
+  const auth = await getAuthenticatedServerClient("applyDeterministicAgentDraftCleanup");
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  const agentRunId = String(formData.get("agentRunId") ?? "").trim();
+  if (!isValidAgentRunId(agentRunId)) {
+    return { error: "Invalid agent run ID." };
+  }
+
+  const outcome = await runDeterministicAgentDraftCleanup({
+    supabase: auth.supabase,
+    agentRunId,
+    adminUserId: auth.user.id,
+  });
+
+  if (!outcome.ok) {
+    return { error: outcome.error };
+  }
+
+  return {
+    success: true,
+    review: outcome.review,
+    changeSummary: outcome.changeSummary,
+    phase5DeterministicCleanup: {
+      canApply: false,
+      reason: "Deterministic cleanup was applied for the current draft.",
+      previewSummary: [],
     },
   };
 }

@@ -7,13 +7,16 @@ import { AgentPublishPanel } from "@/components/admin/agent/AgentPublishPanel";
 import { AgentReadinessPanel } from "@/components/admin/agent/AgentReadinessPanel";
 import {
   acceptAgentReviewFindingsAction,
+  applyDeterministicAgentDraftCleanupAction,
   applyPhase5AutomaticSafeRevisionAction,
   reviewAgentDraft,
   type AcceptAgentReviewFindingsState,
+  type ApplyDeterministicCleanupState,
   type ApplyPhase5AutomaticRevisionState,
   type ReviewAgentDraftState,
 } from "@/lib/actions/agent";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
+import type { DeterministicCleanupUiState } from "@/lib/agent/content/deterministic-cleanup-core";
 import type { RunPublishResult } from "@/lib/agent/publish/types";
 import type { AutomaticRevisionUiState } from "@/lib/agent/review/automatic-revision-core";
 import type { Phase5HumanAcceptanceUiState } from "@/lib/agent/review/human-acceptance-core";
@@ -39,6 +42,7 @@ function statusBadgeClass(status: string): string {
 
 const initialAcceptState: AcceptAgentReviewFindingsState = {};
 const initialRevisionState: ApplyPhase5AutomaticRevisionState = {};
+const initialCleanupState: ApplyDeterministicCleanupState = {};
 
 export function AgentReviewPanel({
   agentRunId,
@@ -49,6 +53,7 @@ export function AgentReviewPanel({
   initialPublish = null,
   initialPhase5HumanAcceptance = null,
   initialPhase5AutomaticRevision = null,
+  initialPhase5DeterministicCleanup = null,
 }: {
   agentRunId: string;
   draft: GenerateDraftResult;
@@ -58,6 +63,7 @@ export function AgentReviewPanel({
   initialPublish?: RunPublishResult | null;
   initialPhase5HumanAcceptance?: Phase5HumanAcceptanceUiState | null;
   initialPhase5AutomaticRevision?: AutomaticRevisionUiState | null;
+  initialPhase5DeterministicCleanup?: DeterministicCleanupUiState | null;
 }) {
   const [state, formAction, isPending] = useActionState(
     reviewAgentDraft,
@@ -77,12 +83,22 @@ export function AgentReviewPanel({
     applyPhase5AutomaticSafeRevisionAction,
     initialRevisionState,
   );
+  const [cleanupState, cleanupFormAction, cleanupPending] = useActionState(
+    applyDeterministicAgentDraftCleanupAction,
+    initialCleanupState,
+  );
 
-  const review = revisionState.review?.review ?? state.review?.review ?? initialReview?.review;
+  const review =
+    cleanupState.review?.review ??
+    revisionState.review?.review ??
+    state.review?.review ??
+    initialReview?.review;
   const phase5HumanAcceptance =
     acceptState.phase5HumanAcceptance ?? initialPhase5HumanAcceptance;
   const phase5AutomaticRevision =
     revisionState.phase5AutomaticRevision ?? initialPhase5AutomaticRevision;
+  const phase5DeterministicCleanup =
+    cleanupState.phase5DeterministicCleanup ?? initialPhase5DeterministicCleanup;
   const readiness = acceptState.readiness ?? initialReadiness;
 
   return (
@@ -170,6 +186,60 @@ export function AgentReviewPanel({
                     : "Apply Safe Revisions"}
                 </button>
               </form>
+            </div>
+          ) : null}
+
+          {phase5DeterministicCleanup?.canApply ? (
+            <div className="rounded-lg border border-hcx-orange/30 bg-hcx-orange/5 p-4">
+              <p className="text-sm font-semibold text-hcx-orange">
+                Deterministic cleanup available
+              </p>
+              <p className="mt-2 text-sm text-hcx-text-secondary">
+                Fix duplicate Key Takeaways and featured-image alt text without
+                another paid revision pass. Phase 5 will re-run afterward because
+                the draft fingerprint changes.
+              </p>
+              {phase5DeterministicCleanup.previewSummary.length > 0 ? (
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-hcx-text-secondary">
+                  {phase5DeterministicCleanup.previewSummary.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <form action={cleanupFormAction} className="mt-4">
+                <input type="hidden" name="agentRunId" value={agentRunId} />
+                <button
+                  type="submit"
+                  disabled={cleanupPending}
+                  className={`inline-flex items-center rounded-lg border border-hcx-orange/40 bg-hcx-orange/10 px-4 py-2 text-sm font-semibold text-hcx-orange hover:bg-hcx-orange/20 disabled:cursor-not-allowed disabled:opacity-70 ${focusRing}`}
+                >
+                  {cleanupPending
+                    ? "Applying deterministic cleanup..."
+                    : "Apply Deterministic Cleanup"}
+                </button>
+              </form>
+            </div>
+          ) : null}
+
+          {cleanupState.success ? (
+            <div className="rounded-lg border border-hcx-green/30 bg-hcx-green/5 p-4 text-sm text-hcx-green">
+              <p className="font-semibold">Deterministic cleanup applied</p>
+              <p className="mt-1">Phase 5 re-run completed.</p>
+              {cleanupState.changeSummary && cleanupState.changeSummary.length > 0 ? (
+                <ul className="mt-3 list-disc space-y-1 pl-5 text-hcx-text-secondary">
+                  {cleanupState.changeSummary.map((item) => (
+                    <li key={item} className="text-hcx-text-secondary">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+
+          {cleanupState.error ? (
+            <div className="rounded-lg border border-hcx-red/30 bg-hcx-red/5 p-4 text-sm text-hcx-red">
+              {cleanupState.error}
             </div>
           ) : null}
 

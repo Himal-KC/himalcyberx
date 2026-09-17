@@ -1,4 +1,5 @@
 import type { AutomaticRevisionUiState } from "../review/automatic-revision-core";
+import type { DeterministicCleanupUiState } from "../content/deterministic-cleanup-core";
 import type { Phase5HumanAcceptanceUiState } from "../review/human-acceptance-core";
 import type { GenerateDraftResult, PersistedResearchPayload } from "../generation/types";
 import type { RunReviewResult } from "../review/types";
@@ -51,6 +52,7 @@ export interface ResumedAgentRunResult {
   latestPublish: RunPublishResult | null;
   phase5HumanAcceptance: Phase5HumanAcceptanceUiState | null;
   phase5AutomaticRevision: AutomaticRevisionUiState | null;
+  phase5DeterministicCleanup: DeterministicCleanupUiState | null;
 }
 
 export interface AgentRunPageHydration {
@@ -285,6 +287,7 @@ export function buildResumedAgentRunResult(input: {
   latestPublish?: RunPublishResult | null;
   phase5HumanAcceptance?: Phase5HumanAcceptanceUiState | null;
   phase5AutomaticRevision?: AutomaticRevisionUiState | null;
+  phase5DeterministicCleanup?: DeterministicCleanupUiState | null;
 }): ResumedAgentRunResult {
   return {
     agentRunId: input.run.id,
@@ -299,5 +302,6 @@ export function buildResumedAgentRunResult(input: {
     latestPublish: input.latestPublish ?? null,
     phase5HumanAcceptance: input.phase5HumanAcceptance ?? null,
     phase5AutomaticRevision: input.phase5AutomaticRevision ?? null,
+    phase5DeterministicCleanup: input.phase5DeterministicCleanup ?? null,
   };
 }

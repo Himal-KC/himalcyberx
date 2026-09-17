@@ -50,6 +50,9 @@ import {
   readPhase5HumanReviewAcceptanceFromMetadata,
 } from "@/lib/agent/review/human-acceptance-core";
 import {
+  buildDeterministicCleanupUiState,
+} from "@/lib/agent/content/deterministic-cleanup-core";
+import {
   assessAutomaticRevisionEligibility,
   buildAutomaticRevisionUiState,
 } from "@/lib/agent/review/automatic-revision-core";
@@ -320,6 +323,16 @@ async function hydratePersistedAgentRun(
           metadata: runMetadata,
         })
       : null;
+  const phase5DeterministicCleanup =
+    run.content_type === "article" &&
+    reviewContext.snapshot?.draft.contentType === "article"
+      ? buildDeterministicCleanupUiState({
+          draft: reviewContext.snapshot.draft,
+          slug: content.slug,
+          featuredImage: content.featured_image ?? null,
+          featuredImageAlt: content.featured_image_alt ?? null,
+        })
+      : null;
   const resumed = buildResumedAgentRunResult({
     run,
     draft,
@@ -329,6 +342,7 @@ async function hydratePersistedAgentRun(
     latestPublish,
     phase5HumanAcceptance,
     phase5AutomaticRevision,
+    phase5DeterministicCleanup,
   });
 
   let applicableArticleCategory = null;

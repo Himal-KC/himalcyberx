@@ -485,51 +485,7 @@ export function buildRevisionChangeSummary(
   return [...summaries];
 }
 
-export function repairFeaturedImageAltText(input: {
-  title: string;
-  currentAlt: string | null;
-  visualConcept?: string | null;
-}): string | null {
-  const title = input.title.replace(/\s+/g, " ").trim();
-  let alt = (input.currentAlt ?? "").replace(/\s+/g, " ").trim();
-
-  if (!title) {
-    return alt || null;
-  }
-
-  const duplicateTitlePattern = new RegExp(
-    `^${escapeRegExp(title)}[:\\-–—]?\\s*${escapeRegExp(title)}`,
-    "i",
-  );
-  if (duplicateTitlePattern.test(alt)) {
-    alt = alt.replace(duplicateTitlePattern, title);
-  }
-
-  alt = alt.replace(/^image of\s+/i, "Wide hero showing ");
-  alt = alt.replace(new RegExp(`(${escapeRegExp(title)})\\s*[:\\-–—]\\s*\\1`, "gi"), "$1");
-
-  if (!alt || alt.length < 20 || alt.toLowerCase() === title.toLowerCase()) {
-    const concept = input.visualConcept?.replace(/\s+/g, " ").trim();
-    alt = concept
-      ? `${title}: ${concept}`
-      : `Wide editorial cybersecurity hero for ${title}`;
-  }
-
-  if (alt.length > 160) {
-    alt = `${alt.slice(0, 157).trimEnd()}…`;
-  }
-
-  if (alt.length < 80 && input.visualConcept) {
-    const padded = `${alt} ${input.visualConcept}`.replace(/\s+/g, " ").trim();
-    alt = padded.length > 160 ? `${padded.slice(0, 157).trimEnd()}…` : padded;
-  }
-
-  return alt.length >= 40 ? alt : null;
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+export { repairFeaturedImageAltText } from "../content/featured-image-alt-core.ts";
 
 export function mergeRevisedDraftWithSnapshot(input: {
   snapshot: ReviewDraftSnapshot;

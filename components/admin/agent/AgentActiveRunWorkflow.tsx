@@ -144,6 +144,7 @@ export function AgentActiveRunWorkflow({
         initialPublish={resumed.latestPublish}
         initialPhase5HumanAcceptance={resumed.phase5HumanAcceptance}
         initialPhase5AutomaticRevision={resumed.phase5AutomaticRevision}
+        initialPhase5DeterministicCleanup={resumed.phase5DeterministicCleanup}
       />
     </section>
   );
