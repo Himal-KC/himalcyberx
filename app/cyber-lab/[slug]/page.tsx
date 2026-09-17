@@ -6,6 +6,7 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { DifficultyBadge } from "@/components/cyber-lab/DifficultyBadge";
 import { RichContentRenderer } from "@/components/content/RichContentRenderer";
+import { SaveContentButton } from "@/components/bookmarks/SaveContentButton";
 import { RelatedContentSection } from "@/components/related/RelatedContentSection";
 import { JsonLd } from "@/components/seo/JsonLd";
 import {
@@ -15,6 +16,7 @@ import {
 import { buildTechArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
 import { getLabBySlug, labPath } from "@/lib/supabase/public-labs";
 import { getRelatedContent } from "@/lib/supabase/public-related-content";
+import { LearningProgressControls } from "@/components/learning/LearningProgressControls";
 import { focusRing } from "@/lib/page-data";
 
 export const revalidate = 60;
@@ -129,33 +131,46 @@ export default async function LabDetailPage({ params }: LabPageProps) {
               {lab.description}
             </p>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3 border-b border-hcx-border pb-6">
-              <DifficultyBadge label={lab.difficulty} level={difficultyLevel} />
-              {lab.estimated_time && (
-                <>
-                  <span aria-hidden="true" className="text-hcx-text-secondary">
-                    •
-                  </span>
-                  <span className="text-sm text-hcx-text-secondary">
-                    {lab.estimated_time}
-                  </span>
-                </>
-              )}
-              {lab.publishedAtFormatted && (
-                <>
-                  <span aria-hidden="true" className="text-hcx-text-secondary">
-                    •
-                  </span>
-                  <time
-                    dateTime={lab.published_at ?? undefined}
-                    className="text-sm text-hcx-text-secondary"
-                  >
-                    {lab.publishedAtFormatted}
-                  </time>
-                </>
-              )}
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-hcx-border pb-6">
+              <div className="flex flex-wrap items-center gap-3">
+                <DifficultyBadge label={lab.difficulty} level={difficultyLevel} />
+                {lab.estimated_time && (
+                  <>
+                    <span aria-hidden="true" className="text-hcx-text-secondary">
+                      •
+                    </span>
+                    <span className="text-sm text-hcx-text-secondary">
+                      {lab.estimated_time}
+                    </span>
+                  </>
+                )}
+                {lab.publishedAtFormatted && (
+                  <>
+                    <span aria-hidden="true" className="text-hcx-text-secondary">
+                      •
+                    </span>
+                    <time
+                      dateTime={lab.published_at ?? undefined}
+                      className="text-sm text-hcx-text-secondary"
+                    >
+                      {lab.publishedAtFormatted}
+                    </time>
+                  </>
+                )}
+              </div>
+              <SaveContentButton
+                contentType="lab"
+                contentId={lab.id}
+                returnTo={labPath(lab.slug)}
+              />
             </div>
           </header>
+
+          <LearningProgressControls
+            contentType="lab"
+            contentId={lab.id}
+            returnTo={labPath(lab.slug)}
+          />
 
           <div className="mt-8 overflow-hidden rounded-xl border border-hcx-border">
             <ArticleFeaturedVisual

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { SubscribeButton } from "@/components/subscribe/SubscribeButton";
+import { HeaderAuthNav } from "@/components/auth/HeaderAuthNav";
 import { navLinks } from "@/lib/sample-data";
 import { CloseIcon, HCXLogoIcon, MenuIcon, SearchIcon } from "@/components/icons";
 import { focusRing, iconButtonClass } from "@/lib/page-data";
@@ -92,6 +93,8 @@ export function Header() {
               <SearchIcon />
             </button>
 
+            <HeaderAuthNav variant="desktop" />
+
             <SubscribeButton
               className={`hidden rounded-md bg-hcx-cyan px-3.5 py-1.5 text-sm font-semibold text-hcx-bg transition-all hover:bg-hcx-cyan/90 hover:shadow-[0_0_16px_rgba(0,217,255,0.2)] sm:inline-flex ${focusRing}`}
             >
@@ -146,6 +149,10 @@ export function Header() {
                   Search
                 </Link>
               </li>
+              <HeaderAuthNav
+                variant="mobile"
+                onNavigate={() => setMobileOpen(false)}
+              />
               <li className="pt-2 sm:hidden">
                 <SubscribeButton
                   className={`block w-full rounded-md bg-hcx-cyan px-4 py-2.5 text-center text-sm font-semibold text-hcx-bg ${focusRing}`}

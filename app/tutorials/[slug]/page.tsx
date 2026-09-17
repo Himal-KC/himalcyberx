@@ -6,6 +6,7 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { DifficultyBadge } from "@/components/cyber-lab/DifficultyBadge";
 import { RichContentRenderer } from "@/components/content/RichContentRenderer";
+import { SaveContentButton } from "@/components/bookmarks/SaveContentButton";
 import { RelatedContentSection } from "@/components/related/RelatedContentSection";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildTechArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
@@ -15,6 +16,7 @@ import {
 } from "@/lib/seo/tutorial-structured-data";
 import { getTutorialBySlug, tutorialPath } from "@/lib/supabase/public-tutorials";
 import { getRelatedContent } from "@/lib/supabase/public-related-content";
+import { LearningProgressControls } from "@/components/learning/LearningProgressControls";
 import { focusRing } from "@/lib/page-data";
 
 export const revalidate = 60;
@@ -142,36 +144,49 @@ export default async function TutorialDetailPage({ params }: TutorialPageProps) 
               {tutorial.description}
             </p>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3 border-b border-hcx-border pb-6">
-              <DifficultyBadge
-                label={tutorial.difficulty}
-                level={difficultyLevel}
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-hcx-border pb-6">
+              <div className="flex flex-wrap items-center gap-3">
+                <DifficultyBadge
+                  label={tutorial.difficulty}
+                  level={difficultyLevel}
+                />
+                {tutorial.estimated_time && (
+                  <>
+                    <span aria-hidden="true" className="text-hcx-text-secondary">
+                      •
+                    </span>
+                    <span className="text-sm text-hcx-text-secondary">
+                      {tutorial.estimated_time}
+                    </span>
+                  </>
+                )}
+                {tutorial.publishedAtFormatted && (
+                  <>
+                    <span aria-hidden="true" className="text-hcx-text-secondary">
+                      •
+                    </span>
+                    <time
+                      dateTime={tutorial.published_at ?? undefined}
+                      className="text-sm text-hcx-text-secondary"
+                    >
+                      {tutorial.publishedAtFormatted}
+                    </time>
+                  </>
+                )}
+              </div>
+              <SaveContentButton
+                contentType="tutorial"
+                contentId={tutorial.id}
+                returnTo={tutorialPath(tutorial.slug)}
               />
-              {tutorial.estimated_time && (
-                <>
-                  <span aria-hidden="true" className="text-hcx-text-secondary">
-                    •
-                  </span>
-                  <span className="text-sm text-hcx-text-secondary">
-                    {tutorial.estimated_time}
-                  </span>
-                </>
-              )}
-              {tutorial.publishedAtFormatted && (
-                <>
-                  <span aria-hidden="true" className="text-hcx-text-secondary">
-                    •
-                  </span>
-                  <time
-                    dateTime={tutorial.published_at ?? undefined}
-                    className="text-sm text-hcx-text-secondary"
-                  >
-                    {tutorial.publishedAtFormatted}
-                  </time>
-                </>
-              )}
             </div>
           </header>
+
+          <LearningProgressControls
+            contentType="tutorial"
+            contentId={tutorial.id}
+            returnTo={tutorialPath(tutorial.slug)}
+          />
 
           <div className="mt-8 overflow-hidden rounded-xl border border-hcx-border">
             <ArticleFeaturedVisual

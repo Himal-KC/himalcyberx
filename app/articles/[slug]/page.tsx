@@ -6,6 +6,7 @@ import { Breadcrumb } from "@/components/layout/Breadcrumb";
 import { ArticleFeaturedVisual } from "@/components/articles/ArticleFeaturedVisual";
 import { ArticleContentRenderer } from "@/components/articles/ArticleContentRenderer";
 import { ArticleShare } from "@/components/articles/ArticleShare";
+import { SaveContentButton } from "@/components/bookmarks/SaveContentButton";
 import { RelatedContentSection } from "@/components/related/RelatedContentSection";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildArticleMetadata, buildPageMetadata } from "@/lib/seo/metadata";
@@ -116,16 +117,23 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               {article.excerpt}
             </p>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3 border-b border-hcx-border pb-6 text-sm text-hcx-text-secondary">
-              <span className="font-medium text-hcx-text/90">
-                {article.author}
-              </span>
-              <span aria-hidden="true">•</span>
-              <time dateTime={article.publishedAtIso}>
-                {article.publishedAtFormatted}
-              </time>
-              <span aria-hidden="true">•</span>
-              <span>{article.readTime}</span>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-hcx-border pb-6 text-sm text-hcx-text-secondary">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="font-medium text-hcx-text/90">
+                  {article.author}
+                </span>
+                <span aria-hidden="true">•</span>
+                <time dateTime={article.publishedAtIso}>
+                  {article.publishedAtFormatted}
+                </time>
+                <span aria-hidden="true">•</span>
+                <span>{article.readTime}</span>
+              </div>
+              <SaveContentButton
+                contentType="article"
+                contentId={article.id}
+                returnTo={articlePath(article.slug)}
+              />
             </div>
           </header>
 

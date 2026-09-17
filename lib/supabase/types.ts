@@ -584,6 +584,96 @@ export type SiteSettingsInsert = {
 
 export type SiteSettingsUpdate = Partial<SiteSettingsInsert>;
 
+export interface Profile {
+  user_id: string;
+  display_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProfileInsert = {
+  user_id: string;
+  display_name?: string | null;
+  username?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ProfileUpdate = {
+  display_name?: string | null;
+  username?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
+  updated_at?: string;
+};
+
+export type LearningProgressStatus = "not_started" | "in_progress" | "completed";
+
+export type LearningProgressContentType = "tutorial" | "lab";
+
+export interface LearningProgress {
+  id: string;
+  user_id: string;
+  tutorial_id: string | null;
+  lab_id: string | null;
+  content_type: LearningProgressContentType;
+  status: LearningProgressStatus;
+  progress_percent: number;
+  started_at: string;
+  last_activity_at: string;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type LearningProgressInsert = {
+  user_id?: string;
+  tutorial_id?: string | null;
+  lab_id?: string | null;
+  status?: Exclude<LearningProgressStatus, "not_started">;
+  progress_percent?: number;
+  started_at?: string;
+  last_activity_at?: string;
+  completed_at?: string | null;
+  id?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type LearningProgressUpdate = {
+  status?: Exclude<LearningProgressStatus, "not_started">;
+  progress_percent?: number;
+  last_activity_at?: string;
+  completed_at?: string | null;
+  started_at?: string;
+  updated_at?: string;
+};
+
+export interface SavedContent {
+  id: string;
+  user_id: string;
+  article_id: string | null;
+  tutorial_id: string | null;
+  lab_id: string | null;
+  created_at: string;
+}
+
+export type SavedContentInsert = {
+  user_id?: string;
+  article_id?: string | null;
+  tutorial_id?: string | null;
+  lab_id?: string | null;
+  id?: string;
+  created_at?: string;
+};
+
+export type SavedContentUpdate = Partial<SavedContentInsert>;
+
 export type TableRelationship = {
   foreignKeyName: string;
   columns: string[];
@@ -697,6 +787,24 @@ export interface Database {
         Row: SiteSettings;
         Insert: SiteSettingsInsert;
         Update: SiteSettingsUpdate;
+        Relationships: TableRelationship[];
+      };
+      profiles: {
+        Row: Profile;
+        Insert: ProfileInsert;
+        Update: ProfileUpdate;
+        Relationships: TableRelationship[];
+      };
+      saved_content: {
+        Row: SavedContent;
+        Insert: SavedContentInsert;
+        Update: SavedContentUpdate;
+        Relationships: TableRelationship[];
+      };
+      learning_progress: {
+        Row: LearningProgress;
+        Insert: LearningProgressInsert;
+        Update: LearningProgressUpdate;
         Relationships: TableRelationship[];
       };
     };

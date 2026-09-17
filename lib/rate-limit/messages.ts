@@ -5,6 +5,12 @@ export const RATE_LIMIT_MESSAGES = {
     "Too many messages were sent recently. Please try again in a few minutes.",
   adminLogin:
     "Too many sign-in attempts. Please wait a few minutes and try again.",
+  learnerLogin:
+    "Too many sign-in attempts. Please wait a few minutes and try again.",
+  learnerSignup:
+    "Too many account creation attempts. Please wait a few minutes and try again.",
+  learnerPasswordReset:
+    "Too many password reset requests. Please wait a few minutes and try again.",
   agentResearch:
     "Too many research runs were started recently. Please wait before trying again.",
   agentGeneration:

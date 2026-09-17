@@ -5,6 +5,9 @@ export type RateLimitScope =
   | "newsletter"
   | "contact"
   | "admin-login"
+  | "learner-login"
+  | "learner-signup"
+  | "learner-password-reset"
   | "agent-research"
   | "agent-generation"
   | "agent-review"
@@ -18,6 +21,9 @@ export const LIMIT_CONFIG: Record<
   newsletter: { requests: 5, window: "10 m" },
   contact: { requests: 3, window: "10 m" },
   "admin-login": { requests: 5, window: "15 m" },
+  "learner-login": { requests: 8, window: "15 m" },
+  "learner-signup": { requests: 5, window: "30 m" },
+  "learner-password-reset": { requests: 5, window: "30 m" },
   "agent-research": { requests: 10, window: "30 m" },
   "agent-generation": { requests: 5, window: "30 m" },
   "agent-review": { requests: 3, window: "30 m" },
@@ -106,7 +112,7 @@ export async function isCurrentlyRateLimited(
 }
 
 export async function recordRateLimitedFailure(
-  scope: "admin-login",
+  scope: "admin-login" | "learner-login",
   identifier: string,
 ): Promise<void> {
   const limiter = getLimiter(scope);

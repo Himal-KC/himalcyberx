@@ -30,6 +30,7 @@ export interface PublicTutorialCard {
 }
 
 export interface PublicTutorialDetail extends PublicTutorialCard {
+  id: string;
   updated_at: string | null;
   requirements: string | null;
   introduction: string | null;
@@ -58,6 +59,7 @@ function mapPublicTutorialCard(row: Tutorial): PublicTutorialCard {
 function mapPublicTutorialDetail(row: Tutorial): PublicTutorialDetail {
   return {
     ...mapPublicTutorialCard(row),
+    id: row.id,
     updated_at: row.updated_at ?? null,
     requirements: row.requirements,
     introduction: row.introduction,

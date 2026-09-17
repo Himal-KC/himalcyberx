@@ -30,6 +30,7 @@ export interface PublicLabCard {
 }
 
 export interface PublicLabDetail extends PublicLabCard {
+  id: string;
   updated_at: string | null;
   learning_objectives: string | null;
   requirements_tools: string | null;
@@ -59,6 +60,7 @@ function mapPublicLabCard(row: Lab): PublicLabCard {
 function mapPublicLabDetail(row: Lab): PublicLabDetail {
   return {
     ...mapPublicLabCard(row),
+    id: row.id,
     updated_at: row.updated_at ?? null,
     learning_objectives: row.learning_objectives,
     requirements_tools: row.requirements_tools,
