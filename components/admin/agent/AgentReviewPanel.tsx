@@ -94,9 +94,13 @@ export function AgentReviewPanel({
     state.review?.review ??
     initialReview?.review;
   const phase5HumanAcceptance =
-    acceptState.phase5HumanAcceptance ?? initialPhase5HumanAcceptance;
+    acceptState.phase5HumanAcceptance ??
+    state.phase5HumanAcceptance ??
+    initialPhase5HumanAcceptance;
   const phase5AutomaticRevision =
-    revisionState.phase5AutomaticRevision ?? initialPhase5AutomaticRevision;
+    revisionState.phase5AutomaticRevision ??
+    state.phase5AutomaticRevision ??
+    initialPhase5AutomaticRevision;
   const phase5DeterministicCleanup =
     cleanupState.phase5DeterministicCleanup ?? initialPhase5DeterministicCleanup;
   const readiness = acceptState.readiness ?? initialReadiness;

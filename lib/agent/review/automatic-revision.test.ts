@@ -368,7 +368,7 @@ describe("Phase 5 automatic revision engine boundaries", () => {
       join(testDir, "../resume/resume-run.ts"),
       "utf8",
     );
-    assert.match(resumeSource, /buildAutomaticRevisionUiState/);
+    assert.match(resumeSource, /buildPhase5WorkflowUiState/);
     assert.doesNotMatch(resumeSource, /reviseDraftWithOpenAi/);
     assert.doesNotMatch(resumeSource, /runPhase5AutomaticSafeRevision/);
   });

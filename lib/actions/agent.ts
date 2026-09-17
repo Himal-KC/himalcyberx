@@ -8,8 +8,14 @@ import {
 import { loadSiteContentInventory } from "@/lib/agent/content-inventory";
 import { applyRecommendedArticleCategoryToDraft } from "@/lib/agent/category/apply-article-category";
 import { runAgentGeneration } from "@/lib/agent/generation/engine";
+import { getResearchPayloadFromRun } from "@/lib/agent/generation/research-payload";
 import type { GenerateDraftResult } from "@/lib/agent/generation/types";
 import { runAgentReview } from "@/lib/agent/review/engine";
+import { loadReviewDraftSnapshot } from "@/lib/agent/review/load-draft";
+import { runDeterministicPreCheck } from "@/lib/agent/review/build-context-core";
+import { buildPhase5WorkflowUiState } from "@/lib/agent/review/phase5-workflow-ui-core";
+import { getCurrentDraftFingerprintFromSnapshot } from "@/lib/agent/review/fingerprint-core";
+import { getAgentRun, getAgentSources } from "@/lib/supabase/admin-agent";
 import { acceptAgentReviewFindings } from "@/lib/agent/review/accept-review";
 import { runPhase5AutomaticSafeRevision } from "@/lib/agent/review/automatic-revision-engine";
 import { runDeterministicAgentDraftCleanup } from "@/lib/agent/content/deterministic-cleanup-engine";
@@ -115,6 +121,8 @@ export interface ReviewAgentDraftState {
   success?: boolean;
   error?: string;
   review?: RunReviewResult;
+  phase5HumanAcceptance?: Phase5HumanAcceptanceUiState;
+  phase5AutomaticRevision?: AutomaticRevisionUiState;
 }
 
 export interface ApplyRecommendedArticleCategoryState {
@@ -299,9 +307,61 @@ export async function reviewAgentDraft(
     return { error: outcome.error };
   }
 
+  const loadedRun = await getAgentRun(auth.supabase, agentRunId);
+  if (!loadedRun.data) {
+    return { error: "Unable to reload run after review." };
+  }
+
+  const payload = getResearchPayloadFromRun(loadedRun.data);
+  if (!payload) {
+    return { error: "Research evidence is insufficient." };
+  }
+
+  const snapshotResult = await loadReviewDraftSnapshot(auth.supabase, loadedRun.data);
+  if (!snapshotResult.snapshot) {
+    return { error: snapshotResult.error ?? "Unable to reload draft after review." };
+  }
+
+  const sourcesResult = await getAgentSources(auth.supabase, agentRunId);
+  if (sourcesResult.error) {
+    return { error: sourcesResult.error };
+  }
+
+  const currentDraftFingerprint = getCurrentDraftFingerprintFromSnapshot(
+    snapshotResult.snapshot,
+  );
+  const groundingAudit = runDeterministicPreCheck({
+    draftSnapshot: snapshotResult.snapshot,
+    verifiedClaims: payload.verifiedClaims,
+    allowedSourceUrls: sourcesResult.data.map((source) => source.url),
+    approvedInternalContent: payload.relatedHCXContent.map((item) => ({
+      id: item.id,
+      contentType: item.contentType,
+      title: item.title,
+      slug: item.slug,
+    })),
+  });
+
+  const runMetadata =
+    loadedRun.data.generation_metadata &&
+    typeof loadedRun.data.generation_metadata === "object"
+      ? (loadedRun.data.generation_metadata as Record<string, unknown>)
+      : null;
+
+  const workflow = buildPhase5WorkflowUiState({
+    agentRunId,
+    review: outcome.result.review,
+    currentDraftFingerprint,
+    groundingAudit,
+    metadata: runMetadata,
+    snapshot: snapshotResult.snapshot,
+  });
+
   return {
     success: true,
     review: outcome.result,
+    phase5HumanAcceptance: workflow.phase5HumanAcceptance ?? undefined,
+    phase5AutomaticRevision: workflow.phase5AutomaticRevision ?? undefined,
   };
 }
 

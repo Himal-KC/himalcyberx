@@ -46,16 +46,12 @@ import {
 } from "@/lib/agent/status/presentation-core";
 import { runDeterministicPreCheck } from "@/lib/agent/review/build-context-core";
 import {
-  buildPhase5HumanAcceptanceUiState,
   readPhase5HumanReviewAcceptanceFromMetadata,
 } from "@/lib/agent/review/human-acceptance-core";
 import {
   buildDeterministicCleanupUiState,
 } from "@/lib/agent/content/deterministic-cleanup-core";
-import {
-  assessAutomaticRevisionEligibility,
-  buildAutomaticRevisionUiState,
-} from "@/lib/agent/review/automatic-revision-core";
+import { buildPhase5WorkflowUiState } from "@/lib/agent/review/phase5-workflow-ui-core";
 import { getCurrentDraftFingerprintFromSnapshot } from "@/lib/agent/readiness/readiness-gate-core";
 import { loadPersistedReadinessForRun } from "@/lib/agent/readiness/engine";
 import { buildReadinessFingerprint } from "@/lib/agent/readiness/readiness-fingerprint-core";
@@ -299,30 +295,19 @@ async function hydratePersistedAgentRun(
       : null;
 
   const latestPublish = buildLatestPublishFromRun({ run, content });
-  const phase5HumanAcceptance =
-    latestReviewRecord && currentDraftFingerprint && groundingAudit
-      ? buildPhase5HumanAcceptanceUiState({
-          acceptance: phase5HumanAcceptanceRecord,
+  const phase5Workflow =
+    latestReviewRecord && currentDraftFingerprint && groundingAudit && reviewContext.snapshot
+      ? buildPhase5WorkflowUiState({
           agentRunId: run.id,
           review: latestReviewRecord,
           currentDraftFingerprint,
           groundingAudit,
-        })
-      : null;
-  const phase5AutomaticRevision =
-    latestReviewRecord && currentDraftFingerprint && groundingAudit && reviewContext.snapshot
-      ? buildAutomaticRevisionUiState({
-          eligibility: assessAutomaticRevisionEligibility({
-            agentRunId: run.id,
-            review: latestReviewRecord,
-            currentDraftFingerprint,
-            groundingAudit,
-            metadata: runMetadata,
-            snapshot: reviewContext.snapshot,
-          }),
           metadata: runMetadata,
+          snapshot: reviewContext.snapshot,
         })
       : null;
+  const phase5HumanAcceptance = phase5Workflow?.phase5HumanAcceptance ?? null;
+  const phase5AutomaticRevision = phase5Workflow?.phase5AutomaticRevision ?? null;
   const phase5DeterministicCleanup =
     run.content_type === "article" &&
     reviewContext.snapshot?.draft.contentType === "article"

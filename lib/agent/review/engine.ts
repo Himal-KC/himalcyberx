@@ -396,13 +396,23 @@ export async function runAgentReview(
     return { ok: false, error: "No draft exists for this research run." };
   }
 
+  const snapshotForSave = await loadReviewDraftSnapshot(supabase, run);
+  if (!snapshotForSave.snapshot || snapshotForSave.error) {
+    return {
+      ok: false,
+      error: snapshotForSave.error ?? "Unable to reload draft before saving review.",
+    };
+  }
+
+  const draftFingerprintForSave = buildDraftFingerprint(snapshotForSave.snapshot);
+
   const saved = await insertAgentReview(
     supabase,
     buildReviewInsertPayload({
       agentRunId,
       contentType: run.content_type,
       contentId,
-      draftFingerprint: fingerprint,
+      draftFingerprint: draftFingerprintForSave,
       reviewModel: reviewed.model,
       review: reviewed.review,
       gate,
@@ -437,12 +447,13 @@ export async function runAgentReview(
       reviewMetadata: {
         latestReviewId: saved.data.id,
         latestReviewStatus: gate.overallStatus,
-        draftFingerprint: fingerprint,
+        draftFingerprint: draftFingerprintForSave,
       },
     }) as never,
   );
 
   const reviewRecord = mapAgentReviewRowToRecord(saved.data, false);
+  reviewRecord.draftFingerprint = draftFingerprintForSave;
 
   logReviewTrace("save_success", {
     agentRunId,
