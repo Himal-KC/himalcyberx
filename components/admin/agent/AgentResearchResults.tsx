@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { AgentGenerateDraft } from "@/components/admin/agent/AgentGenerateDraft";
+import {
+  AgentResearchSufficiencyPanel,
+} from "@/components/admin/agent/AgentResearchSufficiencyPanel";
 import type { ResearchResult, VerifiedClaimType } from "@/lib/agent/types";
 import {
   formatResearchAssessmentLabel,
@@ -103,12 +107,17 @@ function buildAdminHref(contentType: AgentContentType, id: string): string {
 }
 
 export function AgentResearchResults({
-  research,
+  research: initialResearch,
   showGenerateDraft = true,
 }: {
   research: ResearchResult;
   showGenerateDraft?: boolean;
 }) {
+  const [improvedResearch, setImprovedResearch] = useState<ResearchResult | null>(
+    null,
+  );
+  const research = improvedResearch ?? initialResearch;
+
   return (
     <section className="rounded-xl border border-hcx-border bg-hcx-card p-6 sm:p-8">
       <div className="flex flex-wrap items-center gap-3">
@@ -178,7 +187,24 @@ export function AgentResearchResults({
         </p>
       </div>
 
-      {research.researchQuality === "needs_review" ? (
+      <AgentResearchSufficiencyPanel
+        research={research}
+        onResearchUpdated={(updated) => setImprovedResearch(updated)}
+      />
+
+      {research.researchQuality === "needs_review" && !research.canGenerateDraft ? (
+        <div className="mt-4 rounded-lg border border-hcx-orange/30 bg-hcx-orange/5 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-hcx-orange">
+            Research Needs Review
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-hcx-text-secondary">
+            Authoritative sources were found, but verified evidence is not yet
+            strong enough for draft generation.
+          </p>
+        </div>
+      ) : null}
+
+      {research.researchQuality === "needs_review" && research.canGenerateDraft ? (
         <div className="mt-4 rounded-lg border border-hcx-orange/30 bg-hcx-orange/5 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-hcx-orange">
             Research Needs Review

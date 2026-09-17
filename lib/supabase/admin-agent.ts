@@ -108,6 +108,23 @@ export async function listResumableAgentRuns(
   return { data: (data ?? []) as AgentRun[], error: null };
 }
 
+export async function deleteAgentSourcesForRun(
+  supabase: AdminSupabase,
+  runId: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from("agent_sources")
+    .delete()
+    .eq("agent_run_id", runId);
+
+  if (error) {
+    logQueryError("deleteAgentSourcesForRun", error);
+    return { error: "Unable to replace research sources." };
+  }
+
+  return { error: null };
+}
+
 export async function insertAgentSources(
   supabase: AdminSupabase,
   sources: AgentSourceInsert[],

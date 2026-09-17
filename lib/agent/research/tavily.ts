@@ -184,6 +184,12 @@ async function runTavilyQuery(query: string): Promise<ResearchSource[]> {
 export async function searchAuthoritativeSources(
   topic: string,
 ): Promise<TavilySearchOutcome> {
+  return searchAuthoritativeSourcesForQueries(buildResearchSearchQueries(topic));
+}
+
+export async function searchAuthoritativeSourcesForQueries(
+  queries: string[],
+): Promise<TavilySearchOutcome> {
   if (!hasTavilyApiKey()) {
     return {
       ok: false,
@@ -192,11 +198,19 @@ export async function searchAuthoritativeSources(
     };
   }
 
-  const queries = buildResearchSearchQueries(topic);
+  const uniqueQueries = [...new Set(queries.map((query) => query.trim()).filter(Boolean))];
+  if (uniqueQueries.length === 0) {
+    return {
+      ok: false,
+      sources: [],
+      error: "No research queries were provided.",
+    };
+  }
+
   let queryCount = 0;
   let collected: ResearchSource[] = [];
 
-  for (const query of queries) {
+  for (const query of uniqueQueries) {
     const batch = await runTavilyQuery(query);
     queryCount += 1;
     collected = deduplicateSources([...collected, ...batch]);
@@ -223,6 +237,7 @@ export async function searchAuthoritativeSources(
     .map((source) => source.url);
 
   if (focusedHtmlCount < MIN_FOCUSED_HTML_SOURCES && queryCount < 3) {
+    const topic = uniqueQueries[0] ?? "";
     const fallbackQueries = buildPdfHtmlFallbackQueries(topic, pdfUrls).slice(
       0,
       3 - queryCount,

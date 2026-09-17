@@ -29,8 +29,11 @@ export function AgentGenerateDraft({ research }: { research: ResearchResult }) {
   const [stageIndex, setStageIndex] = useState(0);
   const activeStageIndex = isPending ? stageIndex : 0;
 
-  const canGenerate =
-    research.canGenerateDraft && research.researchQuality !== "failed";
+  const canGenerate = research.canGenerateDraft;
+
+  const blockedByResearch =
+    !canGenerate &&
+    research.researchSufficiency?.status === "needs_more_research";
 
   useEffect(() => {
     if (!isPending) {
@@ -109,8 +112,9 @@ export function AgentGenerateDraft({ research }: { research: ResearchResult }) {
         </p>
       ) : !canGenerate ? (
         <p className="mt-2 text-sm text-hcx-text-secondary">
-          Draft generation is unavailable because research did not meet the
-          minimum evidence threshold.
+          {blockedByResearch
+            ? "More research is needed. The verified evidence does not yet support a well-grounded draft."
+            : "Draft generation is unavailable because research did not meet the minimum evidence threshold."}
         </p>
       ) : (
         <p className="mt-2 text-sm text-hcx-text-secondary">

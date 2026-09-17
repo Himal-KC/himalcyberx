@@ -76,6 +76,41 @@ export function buildPublisherHtmlFallbackQuery(
   return `site:${publisherDomain} ${topic} ${suffix}`;
 }
 
+export function buildGapTargetedResearchQueries(
+  topic: string,
+  missingIntentAreas: string[],
+): string[] {
+  const trimmedTopic = topic.trim();
+  if (!trimmedTopic || missingIntentAreas.length === 0) {
+    return [];
+  }
+
+  const queries: string[] = [];
+  const missing = missingIntentAreas.join(" ").toLowerCase();
+
+  if (missing.includes("explanatory") || missing.includes("subject")) {
+    queries.push(`${trimmedTopic} official guidance details measures components`);
+  }
+
+  if (missing.includes("small business") || missing.includes("audience")) {
+    queries.push(`${trimmedTopic} small business implementation recommendations`);
+  }
+
+  if (
+    missing.includes("instructional") ||
+    missing.includes("practical") ||
+    missing.includes("defensive")
+  ) {
+    queries.push(`${trimmedTopic} step-by-step mitigation best practices`);
+  }
+
+  if (queries.length === 0) {
+    queries.push(buildIntentExpandedQuery(trimmedTopic));
+  }
+
+  return uniqueQueries(queries).slice(0, 2);
+}
+
 export function buildResearchSearchQueries(topic: string): string[] {
   return uniqueQueries([
     buildPrimaryResearchQuery(topic),

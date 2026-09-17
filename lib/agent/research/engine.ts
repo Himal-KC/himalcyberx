@@ -2,26 +2,9 @@ import "server-only";
 
 import { analyzeContentAwareness } from "@/lib/agent/content-awareness";
 import { loadSiteContentInventory } from "@/lib/agent/content-inventory";
-import { lookupKevEntry } from "@/lib/agent/research/cisa-kev";
-import {
-  attachDiscoveryContext,
-  buildDiscoveryContexts,
-} from "@/lib/agent/research/discovery-context";
 import { buildPersistedResearchPayload } from "@/lib/agent/generation/research-payload";
-import { deriveCanGenerateDraft } from "@/lib/agent/research/derive-can-generate";
-import {
-  applyClaimLabelsToSources,
-  extractClaims,
-  rankSourcesByTopicRelevance,
-} from "@/lib/agent/research/extract-claims";
-import { extractCveIds, verifyCvesInTopic } from "@/lib/agent/research/cve";
 import { hasTavilyApiKey } from "@/lib/agent/research/env";
-import { fetchAuthoritativeSourcePages } from "@/lib/agent/research/fetch-source";
-import { evaluateResearchQuality } from "@/lib/agent/research/quality";
-import {
-  deriveResearchConfidence,
-  synthesizeResearchBrief,
-} from "@/lib/agent/research/synthesis";
+import { finalizeResearchEvidence } from "@/lib/agent/research/research-finalize-core";
 import { searchAuthoritativeSources } from "@/lib/agent/research/tavily";
 import type {
   ContentAwarenessResult,
@@ -142,113 +125,29 @@ export async function runAgentResearch(
 
   onStage?.("verifying_evidence");
 
-  const cveIds = extractCveIds(topic);
-  const cveResults = await verifyCvesInTopic(topic);
-  const kevLookups = await Promise.all(
-    cveIds.map(async (cveId) => ({
-      cveId,
-      result: await lookupKevEntry(cveId),
-    })),
-  );
-
-  const definitiveCveMiss = cveResults.some(
-    (result) => result.status === "not_found",
-  );
-  if (definitiveCveMiss) {
-    const missing = cveResults
-      .filter((result) => result.status === "not_found")
-      .map((result) => result.cveId)
-      .join(", ");
-
-    await failRun(
-      supabase,
-      runId,
-      `${missing} could not be verified in NVD.`,
-    );
-
-    return {
-      ok: false,
-      error: `${missing} could not be verified in NVD.`,
-      agentRunId: runId,
-    };
-  }
-
   onStage?.("building_brief");
 
-  const sourcesWithDiscovery = rankSourcesByTopicRelevance(
-    topic,
-    attachDiscoveryContext(tavily.sources),
-  );
-  const fetchedPages = await fetchAuthoritativeSourcePages(sourcesWithDiscovery);
-
-  const claimExtraction = extractClaims({
-    topic,
-    sources: sourcesWithDiscovery,
-    fetchedPages,
-    cveResults,
-    kevLookups,
-  });
-
-  const sourcesWithClaims = applyClaimLabelsToSources(
-    sourcesWithDiscovery,
-    claimExtraction.sourceClaimMap,
-  );
-
-  const researchConfidence = deriveResearchConfidence({
-    sources: sourcesWithClaims,
-    verifiedClaims: claimExtraction.verifiedClaims,
-    uncertainClaims: claimExtraction.uncertainClaims,
-    unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
-    pageBackedClaimCount: claimExtraction.pageBackedClaimCount,
-    highRelevanceClaimCount: claimExtraction.highRelevanceClaimCount,
-  });
-
-  const researchQuality = evaluateResearchQuality({
-    sources: sourcesWithClaims,
-    verifiedClaims: claimExtraction.verifiedClaims,
-    uncertainClaims: claimExtraction.uncertainClaims,
-    cveResults,
-    researchConfidence,
-    unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
-    pageBackedClaimCount: claimExtraction.pageBackedClaimCount,
-    highRelevanceClaimCount: claimExtraction.highRelevanceClaimCount,
-    successfulPageFetchCount: claimExtraction.successfulPageFetchCount,
-    failedPageFetchCount: claimExtraction.failedPageFetchCount,
-    topicHasCve: cveIds.length > 0,
-  });
-
-  const finalSynthesis = synthesizeResearchBrief({
+  const finalized = await finalizeResearchEvidence({
+    runId,
     topic,
     contentType,
-    sources: sourcesWithClaims,
-    verifiedClaims: claimExtraction.verifiedClaims,
-    uncertainClaims: claimExtraction.uncertainClaims,
     awareness,
-    unpromotedDiscoveryCount: claimExtraction.unpromotedDiscoveryCount,
-    pageBackedClaimCount: claimExtraction.pageBackedClaimCount,
-    highRelevanceClaimCount: claimExtraction.highRelevanceClaimCount,
-    researchQuality,
+    discoveredSources: tavily.sources,
+    researchImprovementCount: 0,
   });
 
-  const canGenerateDraft = deriveCanGenerateDraft(
-    researchQuality,
-    sourcesWithClaims,
-  );
-
-  if (researchQuality === "failed") {
-    await failRun(
-      supabase,
-      runId,
-      finalSynthesis.summary,
-    );
+  if (!finalized.ok) {
+    await failRun(supabase, runId, finalized.error);
     return {
       ok: false,
-      error: finalSynthesis.summary,
+      error: finalized.error,
       agentRunId: runId,
     };
   }
 
-  const sourceInserts = sourcesWithClaims.map((source, index) => ({
+  const result = finalized.result;
+
+  const sourceInserts = result.sources.map((source, index) => ({
     agent_run_id: runId,
     title: source.title,
     url: source.url,
@@ -270,38 +169,16 @@ export async function runAgentResearch(
     };
   }
 
-  const relatedHCXContent = [
-    ...awareness.similarContent,
-    ...awareness.relatedContent,
-  ];
-
-  const result: ResearchResult = {
-    agentRunId: runId,
-    topic,
-    contentType,
-    summary: finalSynthesis.summary,
-    recommendedAngle: finalSynthesis.recommendedAngle,
-    primaryKeyword: finalSynthesis.primaryKeyword,
-    secondaryKeywords: finalSynthesis.secondaryKeywords,
-    keyFindings: finalSynthesis.keyFindings,
-    verifiedClaims: claimExtraction.verifiedClaims,
-    uncertainClaims: claimExtraction.uncertainClaims,
-    discoveryContexts: buildDiscoveryContexts(sourcesWithClaims),
-    sources: sourcesWithClaims,
-    relatedHCXContent,
-    researchConfidence: finalSynthesis.researchConfidence,
-    researchQuality,
-    canGenerateDraft,
-    extractionStats: claimExtraction.extractionStats,
-  };
-
-  const researchPayload = buildPersistedResearchPayload(result, awareness);
+  const researchPayload = buildPersistedResearchPayload(result, awareness, {
+    researchSufficiency: result.researchSufficiency ?? null,
+    researchImprovementCount: result.researchImprovementCount ?? 0,
+  });
 
   const updated = await updateAgentRun(supabase, runId, {
-    research_summary: finalSynthesis.summary,
-    recommended_angle: finalSynthesis.recommendedAngle,
-    primary_keyword: finalSynthesis.primaryKeyword,
-    secondary_keywords: finalSynthesis.secondaryKeywords,
+    research_summary: result.summary,
+    recommended_angle: result.recommendedAngle,
+    primary_keyword: result.primaryKeyword,
+    secondary_keywords: result.secondaryKeywords,
     research_payload: researchPayload as unknown as Record<string, unknown>,
     stage: "planning",
     status: "ready",
@@ -317,8 +194,8 @@ export async function runAgentResearch(
     };
   }
 
-  if (process.env.NODE_ENV === "development") {
-    console.info("[agent-research] extraction stats", claimExtraction.extractionStats);
+  if (process.env.NODE_ENV === "development" && result.extractionStats) {
+    console.info("[agent-research] extraction stats", result.extractionStats);
   }
 
   return { ok: true, result };

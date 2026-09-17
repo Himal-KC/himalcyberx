@@ -2,6 +2,7 @@ import { matchAuthoritativeDomain } from "@/lib/agent/research/authoritative-dom
 import { buildPublisherHtmlFallbackQuery } from "@/lib/agent/research/search-queries-core";
 
 export {
+  buildGapTargetedResearchQueries,
   buildIntentExpandedQuery,
   buildPrimaryResearchQuery,
   buildPublisherHtmlFallbackQuery,

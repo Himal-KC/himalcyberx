@@ -9,6 +9,12 @@ export const CONTACT_ACKNOWLEDGEMENT_SUBJECT =
 
 export const WELCOME_EMAIL_SUBJECT = "Welcome to HimalCyberX";
 
+export const ADMIN_SUBSCRIBER_NOTIFICATION_SUBJECT =
+  "New HimalCyberX Subscriber";
+
+export const ADMIN_CONTACT_NOTIFICATION_SUBJECT_PREFIX =
+  "New HimalCyberX Contact Message";
+
 export const HIMALCYBERX_SITE_URL = "https://himalcyberx.com";
 
 /** Conservative pacing for broadcast sends (~7 req/s at 140ms). */

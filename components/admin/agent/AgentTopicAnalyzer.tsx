@@ -402,7 +402,10 @@ export function AgentTopicAnalyzer({
       ) : null}
 
       {researchState.success && researchState.research ? (
-        <AgentResearchResults research={researchState.research} />
+        <AgentResearchResults
+          key={researchState.research.agentRunId}
+          research={researchState.research}
+        />
       ) : null}
         </>
       ) : null}

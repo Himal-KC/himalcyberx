@@ -36,6 +36,7 @@ import {
 } from "@/lib/agent/resume/resume-core";
 import { hasOpenAiApiKey } from "@/lib/agent/openai/env";
 import { runAgentResearch } from "@/lib/agent/research/engine";
+import { runAgentResearchImprovement } from "@/lib/agent/research/improve-research-engine";
 import type {
   ContentDuplicateRisk,
   ContentSimilarityMatch,
@@ -106,6 +107,12 @@ function enrichMatch(
 }
 
 export interface ResearchAgentTopicState {
+  success?: boolean;
+  error?: string;
+  research?: ResearchResult;
+}
+
+export interface ImproveAgentResearchState {
   success?: boolean;
   error?: string;
   research?: ResearchResult;
@@ -227,6 +234,41 @@ export async function researchAgentTopic(
     supabase: auth.supabase,
     contentType,
     topic,
+  });
+
+  if (!outcome.ok) {
+    return { error: outcome.error };
+  }
+
+  return {
+    success: true,
+    research: outcome.result,
+  };
+}
+
+export async function improveAgentResearch(
+  _prevState: ImproveAgentResearchState,
+  formData: FormData,
+): Promise<ImproveAgentResearchState> {
+  const auth = await getAuthenticatedServerClient("improveAgentResearch");
+
+  if (!auth.ok) {
+    return { error: auth.error };
+  }
+
+  const allowed = await enforceRateLimit("agent-research", auth.user.id);
+  if (!allowed) {
+    return { error: RATE_LIMIT_MESSAGES.agentResearch };
+  }
+
+  const agentRunId = String(formData.get("agentRunId") ?? "").trim();
+  if (!agentRunId) {
+    return { error: "A research run is required before improving research." };
+  }
+
+  const outcome = await runAgentResearchImprovement({
+    supabase: auth.supabase,
+    agentRunId,
   });
 
   if (!outcome.ok) {

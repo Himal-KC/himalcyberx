@@ -1,3 +1,5 @@
+import { buildAdminContactNotificationEmail } from "@/lib/email/templates/admin-contact-notification";
+import { buildAdminSubscriberNotificationEmail } from "@/lib/email/templates/admin-subscriber-notification";
 import { buildContactAcknowledgementEmail } from "@/lib/email/templates/contact-acknowledgement";
 import { buildContactReplyEmail } from "@/lib/email/templates/contact-reply";
 import { buildContentNotificationEmail } from "@/lib/email/templates/content-notification";
@@ -61,6 +63,19 @@ export function getEmailPreviewItems(): EmailPreviewItem[] {
     "Re: Your message to HimalCyberX",
     "Thanks for reaching out.\n\nWe have reviewed your message and will follow up shortly with more detail.\n\nRegards,\nHimalCyberX",
   );
+  const adminSubscriber = buildAdminSubscriberNotificationEmail({
+    subscriberEmail: "preview@example.com",
+    source: "website",
+    subscribedAt: "2026-09-17T06:15:00.000Z",
+  });
+  const adminContact = buildAdminContactNotificationEmail({
+    visitorName: "John Smith",
+    visitorEmail: "john@example.com",
+    subject: "Collaboration",
+    message:
+      "I would like to discuss a research collaboration with HimalCyberX.",
+    receivedAt: "2026-09-17T06:15:00.000Z",
+  });
 
   return [
     { id: "welcome", label: "Welcome", subject: welcome.subject, html: welcome.html },
@@ -93,6 +108,18 @@ export function getEmailPreviewItems(): EmailPreviewItem[] {
       label: "Contact Reply",
       subject: reply.subject,
       html: reply.html,
+    },
+    {
+      id: "admin-subscriber",
+      label: "Admin Subscriber Notification",
+      subject: adminSubscriber.subject,
+      html: adminSubscriber.html,
+    },
+    {
+      id: "admin-contact",
+      label: "Admin Contact Notification",
+      subject: adminContact.subject,
+      html: adminContact.html,
     },
   ];
 }

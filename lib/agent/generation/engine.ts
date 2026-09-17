@@ -44,7 +44,7 @@ import {
   logGenerationValidationFailure,
 } from "@/lib/agent/generation/validation-log";
 import { hasOpenAiApiKey } from "@/lib/agent/openai/env";
-import { deriveCanGenerateDraft } from "@/lib/agent/research/derive-can-generate";
+import { resolveResearchGenerationEligibility } from "@/lib/agent/research/research-generation-eligibility-core";
 import {
   getAgentRun,
   getAgentSources,
@@ -128,20 +128,26 @@ export async function runAgentGeneration(
     return { ok: false, error: sourcesResult.error };
   }
 
-  const canGenerate = deriveCanGenerateDraft(
-    payload.researchQuality,
-    sourcesResult.data.map((source) => ({
+  const eligibility = resolveResearchGenerationEligibility({
+    topic: run.topic,
+    contentType: run.content_type,
+    recommendedAngle: run.recommended_angle,
+    payload,
+    sources: sourcesResult.data.map((source) => ({
       title: source.title,
       url: source.url,
       publisher: source.publisher,
       sourceType: source.source_type,
     })),
-  );
+  });
 
-  if (!canGenerate || payload.researchQuality === "failed") {
+  if (!eligibility.canGenerateDraft) {
     return {
       ok: false,
-      error: "Research evidence is insufficient.",
+      error:
+        eligibility.researchSufficiency.status === "needs_more_research"
+          ? "More research is needed before a grounded draft can be generated."
+          : "Research evidence is insufficient.",
     };
   }
 

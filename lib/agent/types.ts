@@ -9,6 +9,7 @@ import type {
   TutorialDifficulty,
   TutorialStatus,
 } from "@/lib/supabase/types";
+import type { ResearchSufficiencyAssessment } from "@/lib/agent/research/research-sufficiency-core";
 
 export type AgentPublishMode = "draft" | "publish";
 
@@ -130,6 +131,8 @@ export interface ResearchResult {
   researchConfidence: ResearchConfidence;
   researchQuality: ResearchQuality;
   canGenerateDraft: boolean;
+  researchSufficiency?: ResearchSufficiencyAssessment;
+  researchImprovementCount?: number;
   extractionStats?: ResearchExtractionStats;
 }
 

@@ -14,6 +14,7 @@ export interface ResendEmailPayload {
   html: string;
   text: string;
   headers?: Record<string, string>;
+  replyTo?: string;
 }
 
 interface ResendErrorShape {

@@ -1,6 +1,12 @@
 "use server";
 
 import type { FormActionState } from "@/lib/form-types";
+import {
+  buildPublicSubscriberInsert,
+  sendSecondaryAdminNotification,
+} from "@/lib/email/admin-notification-core";
+import { logEmailFailure } from "@/lib/email/client";
+import { sendAdminSubscriberNotification } from "@/lib/email/send-admin-subscriber-notification";
 import { sendWelcomeEmail } from "@/lib/email/resend";
 import {
   HONEYPOT_FIELD_NAME,
@@ -79,12 +85,11 @@ export async function subscribeNewsletter(
   }
 
   try {
+    const source = resolveSource(formData);
     const supabase = createPublicServerClient();
-    const { error } = await supabase.from("subscribers").insert({
-      email,
-      status: "active",
-      source: resolveSource(formData),
-    });
+    const { error } = await supabase
+      .from("subscribers")
+      .insert(buildPublicSubscriberInsert(email, source));
 
     if (error) {
       if (isUniqueViolation(error)) {
@@ -111,6 +116,13 @@ export async function subscribeNewsletter(
     }
 
     await sendWelcomeEmail(email);
+
+    await sendSecondaryAdminNotification(
+      () => sendAdminSubscriberNotification({ email, source }),
+      (error) => {
+        logEmailFailure("subscribeNewsletter:adminNotification", error);
+      },
+    );
 
     return {
       success: true,

@@ -133,6 +133,26 @@ export interface OpenAiUsageMetadata {
   totalTokens: number | null;
 }
 
+export interface PersistedContentIntentProfile {
+  areas: Array<{ id: string; label: string }>;
+  topicAnchors: string[];
+  topicPhrases: string[];
+  audienceLabels: string[];
+  expectsExplanation: boolean;
+  expectsDefensiveGuidance: boolean;
+}
+
+export interface PersistedResearchSufficiencyAssessment {
+  status: "sufficient" | "needs_more_research" | "blocked";
+  score: number;
+  reasons: string[];
+  supportedIntentAreas: string[];
+  missingIntentAreas: string[];
+  verifiedClaimCount: number;
+  authoritativeSourceCount: number;
+  topicRelevantClaimCount: number;
+}
+
 export interface PersistedResearchPayload {
   keyFindings: string[];
   verifiedClaims: VerifiedClaim[];
@@ -146,6 +166,9 @@ export interface PersistedResearchPayload {
   categoryRecommendation?: string | null;
   categoryId?: string | null;
   difficulty?: string | null;
+  contentIntentProfile?: PersistedContentIntentProfile | null;
+  researchSufficiency?: PersistedResearchSufficiencyAssessment | null;
+  researchImprovementCount?: number;
 }
 
 export interface GenerationMetadata {

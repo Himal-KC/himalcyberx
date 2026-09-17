@@ -2,6 +2,7 @@ import type { AutomaticRevisionUiState } from "../review/automatic-revision-core
 import type { DeterministicCleanupUiState } from "../content/deterministic-cleanup-core";
 import type { Phase5HumanAcceptanceUiState } from "../review/human-acceptance-core";
 import type { GenerateDraftResult, PersistedResearchPayload } from "../generation/types";
+import { resolveResearchGenerationEligibility } from "../research/research-generation-eligibility-core.ts";
 import type { RunReviewResult } from "../review/types";
 import type { RunPublishResult } from "../publish/types";
 import type { RunReadinessResult } from "../readiness/types";
@@ -133,6 +134,14 @@ export function buildResearchResultFromPersistedRun(input: {
   payload: PersistedResearchPayload;
   sources: ResearchSource[];
 }): ResearchResult {
+  const eligibility = resolveResearchGenerationEligibility({
+    topic: input.run.topic,
+    contentType: input.run.content_type,
+    recommendedAngle: input.run.recommended_angle,
+    payload: input.payload,
+    sources: input.sources,
+  });
+
   return {
     agentRunId: input.run.id,
     topic: input.run.topic,
@@ -149,7 +158,9 @@ export function buildResearchResultFromPersistedRun(input: {
     relatedHCXContent: input.payload.relatedHCXContent,
     researchConfidence: input.payload.researchConfidence,
     researchQuality: input.payload.researchQuality,
-    canGenerateDraft: input.payload.canGenerateDraft,
+    canGenerateDraft: eligibility.canGenerateDraft,
+    researchSufficiency: eligibility.researchSufficiency,
+    researchImprovementCount: input.payload.researchImprovementCount ?? 0,
   };
 }
 

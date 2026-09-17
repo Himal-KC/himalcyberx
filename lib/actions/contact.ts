@@ -17,6 +17,12 @@ import {
 } from "@/lib/form-validation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createPublicServerClient } from "@/lib/supabase/public-server";
+import {
+  buildPublicContactInsert,
+  sendSecondaryAdminNotification,
+} from "@/lib/email/admin-notification-core";
+import { logEmailFailure } from "@/lib/email/client";
+import { sendAdminContactNotification } from "@/lib/email/send-admin-contact-notification";
 import { sendContactAcknowledgementEmail } from "@/lib/email/send-contact-acknowledgement";
 import { getClientIp } from "@/lib/rate-limit/client-ip";
 import { enforceRateLimit } from "@/lib/rate-limit";
@@ -107,13 +113,9 @@ export async function submitContactForm(
     await logPublicContactDiagnostics("submitContactForm");
 
     const supabase = createPublicServerClient();
-    const { error } = await supabase.from("messages").insert({
-      name,
-      email,
-      subject,
-      message,
-      status: "new",
-    });
+    const { error } = await supabase
+      .from("messages")
+      .insert(buildPublicContactInsert({ name, email, subject, message }));
 
     if (error) {
       if (isDevelopment()) {
@@ -138,6 +140,13 @@ export async function submitContactForm(
         console.error("[submitContactForm:acknowledgement]", ackError);
       }
     }
+
+    await sendSecondaryAdminNotification(
+      () => sendAdminContactNotification({ name, email, subject, message }),
+      (error) => {
+        logEmailFailure("submitContactForm:adminNotification", error);
+      },
+    );
 
     return {
       success: true,

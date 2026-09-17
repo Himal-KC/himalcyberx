@@ -32,10 +32,30 @@ const RESEARCH_PAYLOAD = {
   verifiedClaims: [
     {
       id: "claim-1",
-      type: "general",
-      statement: "Verified statement.",
-      sources: [{ url: "https://example.com", title: "Example" }],
+      type: "mitigation",
+      statement:
+        "CVE-2024-21412 guidance recommends patching affected Microsoft Windows systems promptly.",
+      sources: [{ url: "https://www.cisa.gov/advisory", title: "CISA Advisory" }],
       confidence: "high",
+      relevanceLevel: "high",
+    },
+    {
+      id: "claim-2",
+      type: "guidance",
+      statement:
+        "Network defenders should monitor for exploitation activity related to CVE-2024-21412 guidance.",
+      sources: [{ url: "https://www.cisa.gov/advisory", title: "CISA Advisory" }],
+      confidence: "high",
+      relevanceLevel: "high",
+    },
+    {
+      id: "claim-3",
+      type: "patch_information",
+      statement:
+        "Official CVE-2024-21412 guidance documents affected product versions and available updates.",
+      sources: [{ url: "https://www.cisa.gov/advisory", title: "CISA Advisory" }],
+      confidence: "high",
+      relevanceLevel: "high",
     },
   ],
   uncertainClaims: [],
@@ -412,9 +432,10 @@ describe("Agent run refresh restore", () => {
       payload: RESEARCH_PAYLOAD as import("../generation/types").PersistedResearchPayload,
       sources: [
         {
-          title: "Example",
-          url: "https://example.com",
-          publisher: "Example",
+          title: "CISA Advisory",
+          url: "https://www.cisa.gov/advisory",
+          publisher: "CISA",
+          sourceType: "official",
         },
       ],
     });
