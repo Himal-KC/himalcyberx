@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  LEARNER_DASHBOARD_PATH,
   LEARNER_FORGOT_PASSWORD_PATH,
   LEARNER_LOGIN_PATH,
   LEARNER_PROFILE_PATH,
@@ -19,7 +20,10 @@ function isLearnerAuthPage(pathname: string): boolean {
 
 function isLearnerProtectedPath(pathname: string): boolean {
   return (
-    pathname === LEARNER_PROFILE_PATH || pathname.startsWith(`${LEARNER_PROFILE_PATH}/`)
+    pathname === LEARNER_PROFILE_PATH ||
+    pathname.startsWith(`${LEARNER_PROFILE_PATH}/`) ||
+    pathname === LEARNER_DASHBOARD_PATH ||
+    pathname.startsWith(`${LEARNER_DASHBOARD_PATH}/`)
   );
 }
 

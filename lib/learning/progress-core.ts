@@ -1,4 +1,5 @@
 import type {
+  CompletedLearningItem,
   ContinueLearningItem,
   ContinueLearningRow,
   LearningContentColumn,
@@ -22,6 +23,8 @@ const UUID_PATTERN =
 
 export const DEFAULT_CONTINUE_LEARNING_LIMIT = 12;
 export const MAX_CONTINUE_LEARNING_LIMIT = 50;
+export const DEFAULT_COMPLETED_LEARNING_LIMIT = 6;
+export const MAX_COMPLETED_LEARNING_LIMIT = 50;
 
 export function isLearningContentType(
   value: unknown,
@@ -87,6 +90,25 @@ export function parseContinueLearningLimit(value: unknown): number {
   }
 
   return Math.min(parsed, MAX_CONTINUE_LEARNING_LIMIT);
+}
+
+export function parseCompletedLearningLimit(value: unknown): number {
+  if (value === undefined || value === null) {
+    return DEFAULT_COMPLETED_LEARNING_LIMIT;
+  }
+
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseInt(value, 10)
+        : Number.NaN;
+
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return DEFAULT_COMPLETED_LEARNING_LIMIT;
+  }
+
+  return Math.min(parsed, MAX_COMPLETED_LEARNING_LIMIT);
 }
 
 export function contentColumnForType(
@@ -333,6 +355,81 @@ export function selectContinueLearningItems(
     .sort((a, b) => {
       const delta =
         new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime();
+      return delta;
+    });
+}
+
+export function resolveCompletedLearningItem(
+  row: ContinueLearningRow,
+  now: Date = new Date(),
+): CompletedLearningItem | null {
+  if (row.status !== "completed" || !row.completed_at) {
+    return null;
+  }
+
+  const exclusiveCount =
+    Number(row.tutorial_id != null) + Number(row.lab_id != null);
+  if (exclusiveCount !== 1) {
+    return null;
+  }
+
+  if (row.tutorial_id) {
+    const content = embedRecord(row.tutorials);
+    if (!content || !isPublishedLearningContent(content, now)) {
+      return null;
+    }
+    const slug = content.slug.trim();
+    if (!slug) {
+      return null;
+    }
+    return {
+      progressId: row.id,
+      contentType: "tutorial",
+      contentId: row.tutorial_id,
+      completedAt: row.completed_at,
+      title: content.title,
+      slug,
+      href: learningContentHref("tutorial", slug),
+      difficulty: content.difficulty,
+      category: content.category,
+    };
+  }
+
+  if (row.lab_id) {
+    const content = embedRecord(row.labs);
+    if (!content || !isPublishedLearningContent(content, now)) {
+      return null;
+    }
+    const slug = content.slug.trim();
+    if (!slug) {
+      return null;
+    }
+    return {
+      progressId: row.id,
+      contentType: "lab",
+      contentId: row.lab_id,
+      completedAt: row.completed_at,
+      title: content.title,
+      slug,
+      href: learningContentHref("lab", slug),
+      difficulty: content.difficulty,
+      category: content.category,
+    };
+  }
+
+  return null;
+}
+
+export function selectCompletedLearningItems(
+  rows: ContinueLearningRow[],
+  now: Date = new Date(),
+): CompletedLearningItem[] {
+  return rows
+    .map((row) => resolveCompletedLearningItem(row, now))
+    .filter((item): item is CompletedLearningItem => item !== null)
+    .sort((a, b) => {
+      const delta =
+        new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime();
       return delta;
     });
 }

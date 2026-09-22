@@ -7,13 +7,16 @@ import {
   mapWriteError,
   notStartedView,
   parseContinueLearningLimit,
+  parseCompletedLearningLimit,
   parseLearningTarget,
   parseProgressPercent,
   planProgressMutation,
+  selectCompletedLearningItems,
   selectContinueLearningItems,
   viewFromRecord,
 } from "./progress-core.ts";
 import type {
+  CompletedLearningItem,
   ContinueLearningItem,
   ContinueLearningRow,
   LearningContentColumn,
@@ -61,6 +64,14 @@ export type LearningProgressStore = {
     userId: string,
     limit: number,
   ) => Promise<{ data: ContinueLearningRow[] | null; error: LearningDbError | null }>;
+  listOwnCompletedWithContent: (
+    userId: string,
+    limit: number,
+  ) => Promise<{ data: ContinueLearningRow[] | null; error: LearningDbError | null }>;
+  countOwnProgressByStatus: (
+    userId: string,
+    status: "in_progress" | "completed",
+  ) => Promise<{ count: number; error: LearningDbError | null }>;
 };
 
 function invalidTarget(): LearningProgressOpResult<never> {
@@ -314,6 +325,66 @@ export async function getContinueLearningItems(
   return {
     ok: true,
     data: selectContinueLearningItems(data ?? [], store.now()),
+  };
+}
+
+export async function getCompletedLearningItems(
+  store: LearningProgressStore,
+  limit?: unknown,
+): Promise<LearningProgressOpResult<CompletedLearningItem[]>> {
+  const user = await store.getSessionUser();
+  if (!user) {
+    return unauthenticated();
+  }
+
+  const parsedLimit = parseCompletedLearningLimit(limit);
+  const { data, error } = await store.listOwnCompletedWithContent(
+    user.id,
+    parsedLimit,
+  );
+
+  const fetchError = mapFetchError(error);
+  if (fetchError) {
+    return fetchError;
+  }
+
+  return {
+    ok: true,
+    data: selectCompletedLearningItems(data ?? [], store.now()),
+  };
+}
+
+export async function getLearningProgressStatusCounts(
+  store: LearningProgressStore,
+): Promise<
+  LearningProgressOpResult<{ inProgress: number; completed: number }>
+> {
+  const user = await store.getSessionUser();
+  if (!user) {
+    return unauthenticated();
+  }
+
+  const [inProgressResult, completedResult] = await Promise.all([
+    store.countOwnProgressByStatus(user.id, "in_progress"),
+    store.countOwnProgressByStatus(user.id, "completed"),
+  ]);
+
+  const inProgressError = mapFetchError(inProgressResult.error);
+  if (inProgressError) {
+    return inProgressError;
+  }
+
+  const completedError = mapFetchError(completedResult.error);
+  if (completedError) {
+    return completedError;
+  }
+
+  return {
+    ok: true,
+    data: {
+      inProgress: inProgressResult.count,
+      completed: completedResult.count,
+    },
   };
 }
 

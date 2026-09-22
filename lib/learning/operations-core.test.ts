@@ -219,6 +219,40 @@ function createMemoryStore(options: {
 
       return { data, error: null };
     },
+    listOwnCompletedWithContent: async (userId, limit) => {
+      const denied = requireOwn(userId);
+      if (denied) {
+        return { data: null, error: denied.error };
+      }
+
+      const data: ContinueLearningRow[] = rows
+        .filter((row) => row.user_id === userId && row.status === "completed")
+        .sort(
+          (a, b) =>
+            new Date(b.completed_at ?? 0).getTime() -
+            new Date(a.completed_at ?? 0).getTime(),
+        )
+        .slice(0, limit)
+        .map((row) => ({
+          ...row,
+          tutorials: row.tutorial_id
+            ? publishedContent(row.tutorial_id, "tutorial")
+            : null,
+          labs: row.lab_id ? publishedContent(row.lab_id, "lab") : null,
+        }));
+
+      return { data, error: null };
+    },
+    countOwnProgressByStatus: async (userId, status) => {
+      const denied = requireOwn(userId);
+      if (denied) {
+        return { count: 0, error: denied.error };
+      }
+      const count = rows.filter(
+        (row) => row.user_id === userId && row.status === status,
+      ).length;
+      return { count, error: null };
+    },
   };
 
   return Object.assign(store, {

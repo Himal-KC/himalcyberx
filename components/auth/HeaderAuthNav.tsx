@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { LearnerSignOutButton } from "@/components/auth/LearnerSignOutButton";
 import { UserIcon } from "@/components/icons";
 import {
+  LEARNER_DASHBOARD_PATH,
   LEARNER_LOGIN_PATH,
   LEARNER_PROFILE_PATH,
   LEARNER_SIGNUP_PATH,
@@ -171,12 +172,21 @@ export function HeaderAuthNav({ variant, onNavigate }: HeaderAuthNavProps) {
       <>
         <li className="pt-2">
           <Link
+            href={LEARNER_DASHBOARD_PATH}
+            className={`block min-h-11 rounded-md px-3 py-2.5 text-sm font-semibold text-hcx-cyan transition-colors hover:bg-hcx-card ${focusRing}`}
+            onClick={onNavigate}
+          >
+            Dashboard
+          </Link>
+        </li>
+        <li>
+          <Link
             href={LEARNER_PROFILE_PATH}
             className={`flex min-h-11 items-center gap-2 rounded-md px-3 py-2.5 text-sm text-hcx-text-secondary transition-colors hover:bg-hcx-card hover:text-hcx-cyan ${focusRing}`}
             onClick={onNavigate}
           >
             <UserIcon className="h-4 w-4" />
-            Account
+            Profile
           </Link>
         </li>
         <li>
@@ -189,13 +199,19 @@ export function HeaderAuthNav({ variant, onNavigate }: HeaderAuthNavProps) {
   return (
     <div className="flex items-center gap-1">
       <Link
+        href={LEARNER_DASHBOARD_PATH}
+        className={`hidden rounded-md px-2 py-1.5 text-sm font-semibold text-hcx-text/85 transition-colors hover:text-hcx-cyan sm:inline ${focusRing}`}
+      >
+        Dashboard
+      </Link>
+      <Link
         href={LEARNER_PROFILE_PATH}
-        className={`inline-flex max-w-[10rem] items-center gap-1.5 truncate rounded-md px-2.5 py-1.5 text-sm font-semibold text-hcx-text/90 transition-colors hover:text-hcx-cyan ${focusRing}`}
+        className={`inline-flex max-w-[8rem] items-center gap-1.5 truncate rounded-md px-2.5 py-1.5 text-sm font-semibold text-hcx-text/90 transition-colors hover:text-hcx-cyan ${focusRing}`}
         title={state.label}
       >
         <UserIcon className="h-4 w-4 shrink-0" />
-        <span className="hidden truncate sm:inline">{state.label}</span>
-        <span className="sm:hidden">Account</span>
+        <span className="hidden truncate sm:inline">Profile</span>
+        <span className="sm:hidden">Profile</span>
       </Link>
       <LearnerSignOutButton className="hidden rounded-md px-2 py-1.5 text-sm font-semibold text-hcx-text-secondary transition-colors hover:text-hcx-cyan sm:inline" />
     </div>

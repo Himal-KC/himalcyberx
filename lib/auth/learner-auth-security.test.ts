@@ -131,23 +131,24 @@ describe("auth callback and avatar path safety", () => {
   });
 
   it("scopes avatar storage paths to the signed-in user", () => {
+    const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     assert.equal(
-      avatars.buildAvatarStoragePath("user-1", "image/png"),
-      "user-1/avatar.png",
+      avatars.buildAvatarStoragePath(ownerId, "image/png"),
+      `${ownerId}/avatar.png`,
     );
     assert.equal(
       avatars.isOwnedAvatarUrl(
-        "https://xyz.supabase.co/storage/v1/object/public/avatars/user-1/avatar.png",
+        `https://xyz.supabase.co/storage/v1/object/public/avatars/${ownerId}/avatar.png`,
         "https://xyz.supabase.co",
-        "user-1",
+        ownerId,
       ),
       true,
     );
     assert.equal(
       avatars.isOwnedAvatarUrl(
-        "https://xyz.supabase.co/storage/v1/object/public/avatars/other/avatar.png",
+        "https://xyz.supabase.co/storage/v1/object/public/avatars/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/avatar.png",
         "https://xyz.supabase.co",
-        "user-1",
+        ownerId,
       ),
       false,
     );
@@ -155,7 +156,7 @@ describe("auth callback and avatar path safety", () => {
       avatars.isOwnedAvatarUrl(
         "javascript:alert(1)",
         "https://xyz.supabase.co",
-        "user-1",
+        ownerId,
       ),
       false,
     );
@@ -172,6 +173,7 @@ describe("auth callback and avatar path safety", () => {
     assert.match(proxySource, /\/admin\/:path\*/);
     assert.match(proxySource, /\/login/);
     assert.match(proxySource, /\/profile/);
+    assert.match(proxySource, /\/dashboard/);
     assert.match(proxySource, /\/auth\/:path\*/);
   });
 });

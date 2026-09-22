@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   formErrorClass,
   formInputClass,
@@ -16,11 +16,16 @@ import {
   uploadLearnerAvatar,
 } from "@/lib/actions/profile";
 import {
+  AVATAR_FORM_FIELD,
   PROFILE_BIO_MAX_LENGTH,
   PROFILE_DISPLAY_NAME_MAX_LENGTH,
   PROFILE_USERNAME_MAX_LENGTH,
 } from "@/lib/auth/constants";
 import { INITIAL_FORM_STATE } from "@/lib/form-types";
+import {
+  AVATAR_EMPTY_ERROR,
+  validateAvatarMetadata,
+} from "@/lib/storage/avatars";
 import type { Profile } from "@/lib/supabase/types";
 
 interface ProfileFormProps {
@@ -41,8 +46,62 @@ function AvatarForm({
     removeLearnerAvatar,
     INITIAL_FORM_STATE,
   );
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedName, setSelectedName] = useState<string | null>(null);
+  const [clientError, setClientError] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   const status = state.message ? state : removeState;
+  const displayUrl = previewUrl ?? profile.avatar_url;
+  const fieldError = clientError ?? state.fieldErrors?.avatar ?? null;
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    setClientError(null);
+
+    setPreviewUrl((current) => {
+      if (current) {
+        URL.revokeObjectURL(current);
+      }
+      return file ? URL.createObjectURL(file) : null;
+    });
+    setSelectedName(file?.name ?? null);
+
+    if (!file) {
+      return;
+    }
+
+    const validation = validateAvatarMetadata(file);
+    if (!validation.valid) {
+      setClientError(validation.error ?? AVATAR_EMPTY_ERROR);
+    }
+  }
+
+  function handleUploadSubmit(event: FormEvent<HTMLFormElement>) {
+    const input = event.currentTarget.elements.namedItem(
+      AVATAR_FORM_FIELD,
+    ) as HTMLInputElement | null;
+    const file = input?.files?.[0] ?? null;
+
+    if (!file) {
+      event.preventDefault();
+      setClientError(AVATAR_EMPTY_ERROR);
+      return;
+    }
+
+    const validation = validateAvatarMetadata(file);
+    if (!validation.valid) {
+      event.preventDefault();
+      setClientError(validation.error ?? AVATAR_EMPTY_ERROR);
+    }
+  }
 
   return (
     <div className="rounded-xl border border-hcx-border bg-hcx-card p-6 sm:p-8">
@@ -51,10 +110,10 @@ function AvatarForm({
         JPEG, PNG, or WebP up to 1 MB. Stored only in your avatar folder.
       </p>
 
-      {profile.avatar_url ? (
+      {displayUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={profile.avatar_url}
+          src={displayUrl}
           alt=""
           className="mt-4 h-20 w-20 rounded-full border border-hcx-border object-cover"
         />
@@ -70,18 +129,31 @@ function AvatarForm({
         </div>
       ) : null}
 
-      <form action={formAction} className="mt-4 space-y-3" aria-label="Upload avatar">
+      <form
+        action={formAction}
+        encType="multipart/form-data"
+        onSubmit={handleUploadSubmit}
+        className="mt-4 space-y-3"
+        aria-label="Upload avatar"
+      >
+        <label htmlFor="profile-avatar" className={formLabelClass}>
+          Profile photo
+        </label>
         <input
           id="profile-avatar"
-          name="avatar"
+          name={AVATAR_FORM_FIELD}
           type="file"
           accept="image/jpeg,image/png,image/webp"
           disabled={isPending}
+          onChange={handleFileChange}
           className="block w-full text-sm text-hcx-text-secondary file:mr-3 file:rounded-md file:border-0 file:bg-hcx-cyan file:px-3 file:py-2 file:text-sm file:font-semibold file:text-hcx-bg"
         />
-        {state.fieldErrors?.avatar ? (
+        {selectedName ? (
+          <p className="text-xs text-hcx-text-secondary">Selected: {selectedName}</p>
+        ) : null}
+        {fieldError ? (
           <p className={formErrorClass} role="alert">
-            {state.fieldErrors.avatar}
+            {fieldError}
           </p>
         ) : null}
         <button type="submit" disabled={isPending} className={authSubmitClass}>

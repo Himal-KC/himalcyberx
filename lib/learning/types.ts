@@ -91,6 +91,18 @@ export type ContinueLearningItem = {
   category: string | null;
 };
 
+export type CompletedLearningItem = {
+  progressId: string;
+  contentType: LearningContentType;
+  contentId: string;
+  completedAt: string;
+  title: string;
+  slug: string;
+  href: string;
+  difficulty: string | null;
+  category: string | null;
+};
+
 export type ContinueLearningRow = LearningProgressRecord & {
   tutorials?: PublishedLearningContent | PublishedLearningContent[] | null;
   labs?: PublishedLearningContent | PublishedLearningContent[] | null;

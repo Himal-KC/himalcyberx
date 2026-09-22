@@ -3,7 +3,9 @@ import "server-only";
 import { getLearnerServerClient } from "@/lib/auth/session";
 import {
   getContinueLearningItems as getContinueLearningItemsWithStore,
+  getCompletedLearningItems as getCompletedLearningItemsWithStore,
   getLearningProgress as getLearningProgressWithStore,
+  getLearningProgressStatusCounts as getLearningProgressStatusCountsWithStore,
   getLearningProgressUiState as getLearningProgressUiStateWithStore,
   markLearningCompleted as markLearningCompletedWithStore,
   startLearning as startLearningWithStore,
@@ -11,6 +13,7 @@ import {
   type LearningProgressStore,
 } from "@/lib/learning/operations-core";
 import type {
+  CompletedLearningItem,
   ContinueLearningItem,
   ContinueLearningRow,
   LearningContentColumn,
@@ -204,6 +207,41 @@ function createSessionStore(
         error: error ? { code: error.code, message: error.message } : null,
       };
     },
+    listOwnCompletedWithContent: async (ownerId: string, limit: number) => {
+      const { data, error } = await supabase
+        .from("learning_progress")
+        .select(
+          `${PROGRESS_FIELDS}, tutorials(${CONTENT_FIELDS}), labs(${CONTENT_FIELDS})`,
+        )
+        .eq("user_id", ownerId)
+        .eq("status", "completed")
+        .order("completed_at", { ascending: false })
+        .limit(limit);
+
+      return {
+        data: Array.isArray(data)
+          ? data
+              .map((row) => mapContinueLearningRow(row))
+              .filter((row): row is ContinueLearningRow => row !== null)
+          : [],
+        error: error ? { code: error.code, message: error.message } : null,
+      };
+    },
+    countOwnProgressByStatus: async (
+      ownerId: string,
+      status: "in_progress" | "completed",
+    ) => {
+      const { count, error } = await supabase
+        .from("learning_progress")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", ownerId)
+        .eq("status", status);
+
+      return {
+        count: count ?? 0,
+        error: error ? { code: error.code, message: error.message } : null,
+      };
+    },
   };
 }
 
@@ -274,6 +312,26 @@ export async function getContinueLearningItems(
     return { ok: false, error: store.error };
   }
   return getContinueLearningItemsWithStore(store.store, limit);
+}
+
+export async function getCompletedLearningItems(
+  limit?: unknown,
+): Promise<LearningProgressOpResult<CompletedLearningItem[]>> {
+  const store = await createAuthenticatedLearningStore();
+  if (!store.ok) {
+    return { ok: false, error: store.error };
+  }
+  return getCompletedLearningItemsWithStore(store.store, limit);
+}
+
+export async function getLearningProgressStatusCounts(): Promise<
+  LearningProgressOpResult<{ inProgress: number; completed: number }>
+> {
+  const store = await createAuthenticatedLearningStore();
+  if (!store.ok) {
+    return { ok: false, error: store.error };
+  }
+  return getLearningProgressStatusCountsWithStore(store.store);
 }
 
 export async function getLearningProgressUiState(

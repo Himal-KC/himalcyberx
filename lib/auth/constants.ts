@@ -3,6 +3,8 @@ export const LEARNER_SIGNUP_PATH = "/signup";
 export const LEARNER_FORGOT_PASSWORD_PATH = "/forgot-password";
 export const LEARNER_RESET_PASSWORD_PATH = "/reset-password";
 export const LEARNER_PROFILE_PATH = "/profile";
+export const LEARNER_DASHBOARD_PATH = "/dashboard";
+export const LEARNER_DASHBOARD_SAVED_PATH = "/dashboard/saved";
 export const LEARNER_AUTH_CALLBACK_PATH = "/auth/callback";
 
 export const LEARNER_DEFAULT_POST_AUTH_PATH = LEARNER_PROFILE_PATH;
@@ -38,11 +40,14 @@ export const RESERVED_USERNAMES = new Set([
 ]);
 
 export const AVATARS_BUCKET = "avatars";
+export const AVATAR_FORM_FIELD = "avatar";
 export const MAX_AVATAR_SIZE_BYTES = 1024 * 1024;
 export const ALLOWED_AVATAR_MIME_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
 ] as const;
+export const ALLOWED_AVATAR_EXTENSIONS = ["jpg", "png", "webp"] as const;
 
 export type AllowedAvatarMimeType = (typeof ALLOWED_AVATAR_MIME_TYPES)[number];
+export type AllowedAvatarExtension = (typeof ALLOWED_AVATAR_EXTENSIONS)[number];

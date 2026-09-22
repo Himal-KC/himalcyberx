@@ -2,17 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import type { FormActionState } from "@/lib/form-types";
-import { AVATARS_BUCKET, LEARNER_PROFILE_PATH } from "@/lib/auth/constants";
+import { LEARNER_PROFILE_PATH } from "@/lib/auth/constants";
 import { getLearnerServerClient } from "@/lib/auth/session";
 import {
   buildProfileUpdatePayload,
   validateProfileFields,
 } from "@/lib/auth/profile-validation";
 import {
-  buildAvatarStoragePath,
-  buildPublicAvatarUrl,
-  validateAvatarFile,
+  getAvatarFileFromFormData,
 } from "@/lib/storage/avatars";
+import {
+  removeOwnAvatar,
+  uploadOwnAvatar,
+} from "@/lib/storage/avatar-upload-core";
+import { createSupabaseAvatarStore } from "@/lib/storage/avatar-store";
 import { getSupabaseEnv, hasSupabaseEnv } from "@/lib/supabase/env";
 import { updateOwnProfile } from "@/lib/supabase/profiles";
 
@@ -92,54 +95,27 @@ export async function uploadLearnerAvatar(
     return { success: false, message: auth.error };
   }
 
-  const file = formData.get("avatar");
-  if (!(file instanceof File) || file.size === 0) {
-    return {
-      success: false,
-      message: "Choose an image to upload.",
-      fieldErrors: { avatar: "Choose an image to upload." },
-    };
-  }
-
-  const validation = validateAvatarFile(file);
-  if (!validation.valid) {
-    const avatarError =
-      validation.error ?? "That image cannot be used as an avatar.";
-    return {
-      success: false,
-      message: avatarError,
-      fieldErrors: { avatar: avatarError },
-    };
-  }
-
-  const path = buildAvatarStoragePath(auth.user.id, file.type);
-  const { error: uploadError } = await auth.supabase.storage
-    .from(AVATARS_BUCKET)
-    .upload(path, file, {
-      upsert: true,
-      contentType: file.type,
-      cacheControl: "3600",
-    });
-
-  if (uploadError) {
-    return {
-      success: false,
-      message:
-        "Avatar upload is not available yet. You can still save your name, username, and bio.",
-    };
-  }
-
-  const { url } = getSupabaseEnv();
-  const avatarUrl = buildPublicAvatarUrl(url, auth.user.id, file.type);
-  const { error } = await updateOwnProfile(auth.supabase, auth.user.id, {
-    avatar_url: avatarUrl,
-    updated_at: new Date().toISOString(),
+  const store = createSupabaseAvatarStore(
+    auth.supabase,
+    getSupabaseEnv().url,
+    auth.user.id,
+  );
+  const result = await uploadOwnAvatar(store, {
+    file: getAvatarFileFromFormData(formData),
   });
 
-  if (error) {
+  if (!result.ok) {
+    const fieldErrors =
+      result.error === "empty_file" ||
+      result.error === "invalid_type" ||
+      result.error === "too_large"
+        ? { avatar: result.message }
+        : undefined;
+
     return {
       success: false,
-      message: "Avatar uploaded, but the profile could not be updated. Please try again.",
+      message: result.message,
+      fieldErrors,
     };
   }
 
@@ -165,15 +141,17 @@ export async function removeLearnerAvatar(
     return { success: false, message: auth.error };
   }
 
-  const { error } = await updateOwnProfile(auth.supabase, auth.user.id, {
-    avatar_url: null,
-    updated_at: new Date().toISOString(),
-  });
+  const store = createSupabaseAvatarStore(
+    auth.supabase,
+    getSupabaseEnv().url,
+    auth.user.id,
+  );
+  const result = await removeOwnAvatar(store);
 
-  if (error) {
+  if (!result.ok) {
     return {
       success: false,
-      message: "Unable to remove your avatar. Please try again.",
+      message: result.message,
     };
   }
 
