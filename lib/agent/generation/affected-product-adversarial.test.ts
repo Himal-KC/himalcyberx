@@ -145,6 +145,21 @@ describe("affected product adversarial meta prose", () => {
     });
   }
 
+  it("does not treat CVSS impact-across-confidentiality prose as a product", () => {
+    const sentence =
+      "The CVSS assessment shows high impact across confidentiality, integrity and availability.";
+    const facts = productFactsForSentence(sentence, verifiedFamily);
+    assert.equal(facts.length, 0);
+    const trace = extractAffectedProductDraftFacts({
+      sentence: `${CVE_ID}. ${sentence}`,
+      primaryCve: CVE_ID,
+      catalog: buildCatalog(verifiedFamily),
+    });
+    assert.ok(
+      trace.diagnostics.every((entry) => entry.resolution !== "unsupported"),
+    );
+  });
+
   it("documents the historical ranges false-positive capture shape", () => {
     const sentence = "The affected product ranges are described below.";
     const legacyPattern =

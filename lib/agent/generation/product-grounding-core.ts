@@ -190,7 +190,7 @@ export function isAffectedProductSupported(
   verifiedAliases: Set<string>,
 ): boolean {
   if (verifiedAliases.size === 0) {
-    return true;
+    return false;
   }
 
   const segments = splitAffectedProductSegments(value);

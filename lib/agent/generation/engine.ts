@@ -316,13 +316,20 @@ export async function runAgentGeneration(
     const groundingFailureReason =
       formatGroundingAuditFailureReason(groundingAudit);
 
-    logGenerationValidationFailure(
-      buildGroundingValidationLog({
+    const groundingFailureLog = buildGroundingValidationLog({
+      agentRunId,
+      contentType: run.content_type,
+      audit: groundingAudit,
+      draft,
+    });
+    logGenerationValidationFailure(groundingFailureLog);
+    if (groundingFailureLog.draftDiagnosticExcerpt) {
+      console.error("[agent-generation:grounding-failure-draft]", {
         agentRunId,
         contentType: run.content_type,
-        audit: groundingAudit,
-      }),
-    );
+        excerpt: groundingFailureLog.draftDiagnosticExcerpt,
+      });
+    }
 
     await failGeneration(supabase, agentRunId, groundingFailureReason);
     return {

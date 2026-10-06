@@ -1,4 +1,4 @@
-import type { GroundingAuditResult } from "./types";
+import type { GeneratedDraft, GroundingAuditResult } from "./types";
 
 export type ValidationIssueCode =
   | "SCHEMA_VALIDATION_FAILED"
@@ -46,8 +46,10 @@ export interface GenerationValidationLog {
   htmlIssue?: string | null;
   htmlValidationPhase?: string | null;
   markupExcerpt?: string | null;
+  draftDiagnosticExcerpt?: string | null;
 }
 
+const DRAFT_DIAGNOSTIC_MAX_CHARS = 4096;
 const CVE_PATTERN = /\bCVE-\d{4}-\d{4,}\b/i;
 const CVSS_PATTERN = /\bCVSS\b/i;
 const KEV_PATTERN = /\b(known exploited vulnerabilities|CISA KEV|KEV catalog)\b/i;
@@ -63,6 +65,37 @@ export function sanitizeProductWording(value: string): string {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 120);
+}
+
+export function buildSanitizedDraftDiagnosticExcerpt(
+  draft: GeneratedDraft,
+): string {
+  const stripHtml = (value: string): string =>
+    value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+  const parts: string[] = [
+    `title=${draft.title?.slice(0, 160) ?? ""}`,
+    `slug=${draft.slug?.slice(0, 120) ?? ""}`,
+  ];
+
+  if ("excerpt" in draft && typeof draft.excerpt === "string") {
+    parts.push(`excerpt=${stripHtml(draft.excerpt).slice(0, 400)}`);
+  }
+
+  if ("content" in draft) {
+    parts.push(`content=${stripHtml(draft.content).slice(0, 2800)}`);
+  }
+
+  if ("keyTakeaways" in draft && Array.isArray(draft.keyTakeaways)) {
+    parts.push(
+      `keyTakeaways=${draft.keyTakeaways
+        .map((item) => stripHtml(item).slice(0, 200))
+        .join(" | ")
+        .slice(0, 600)}`,
+    );
+  }
+
+  return parts.join("\n").slice(0, DRAFT_DIAGNOSTIC_MAX_CHARS);
 }
 
 export function sanitizeMarkupExcerpt(excerpt: string): string {
@@ -305,6 +338,7 @@ export function buildGroundingValidationLog(input: {
   agentRunId?: string | null;
   contentType?: string | null;
   audit: GroundingAuditResult;
+  draft?: GeneratedDraft | null;
 }): GenerationValidationLog {
   const issueCodes = new Set<ValidationIssueCode>(
     issueCodesForUnsupportedClaims(input.audit.unsupportedClaims),
@@ -337,6 +371,9 @@ export function buildGroundingValidationLog(input: {
     invalidSourceCount: input.audit.invalidSourceUrls.length,
     invalidInternalLinkCount: input.audit.invalidInternalLinks.length,
     reason: formatGroundingAuditFailureReason(input.audit),
+    draftDiagnosticExcerpt: input.draft
+      ? buildSanitizedDraftDiagnosticExcerpt(input.draft)
+      : null,
   };
 }
 
