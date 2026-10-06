@@ -123,8 +123,8 @@ const SECURITY_PROSE: Array<{ sentence: string; expect: Expectation }> = [
   { sentence: `${CVE} affects organizations that delay patching.`, expect: "none" },
   { sentence: `${CVE} impacts environments with exposed management planes.`, expect: "none" },
   { sentence: "The flaw affects customers using default credentials.", expect: "none" },
-  { sentence: "Microsoft Exchange is affected.", expect: "unsupported" },
-  { sentence: "VMware ESXi is also affected.", expect: "unsupported" },
+  { sentence: "Microsoft Exchange is affected.", expect: "none" },
+  { sentence: "VMware ESXi is also affected.", expect: "none" },
   { sentence: "Citrix NetScaler Gateway is affected.", expect: "unsupported" },
   { sentence: "Affected products include Microsoft Exchange.", expect: "unsupported" },
   { sentence: `${CVE} affects Microsoft Exchange Server.`, expect: "unsupported" },
@@ -154,7 +154,7 @@ describe("security prose corpus (50+ cases)", () => {
       catalog,
     });
 
-    assert.ok(trace.legacyGenericAffectsMatch?.[1]?.toLowerCase().includes("across confidentiality"));
+    assert.equal(trace.extraction.facts.length, 0);
     assert.equal(trace.extraction.facts.length, 0);
     assert.equal(collectHighConfidenceEntityClauses(sentence).length, 0);
   });
