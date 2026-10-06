@@ -75,7 +75,7 @@ describe("Article category assignment core", () => {
       categories: SITE_CATEGORIES,
       persistedRecommendation: {
         id: STALE_CATEGORY_ID,
-        name: "Threat Intelligence",
+        name: "Deprecated Category Label",
       },
     });
 
@@ -107,11 +107,11 @@ describe("Article category assignment core", () => {
 
   it("rejects invented category UUIDs not present in the categories table", () => {
     const categoryId = resolveValidatedArticleCategoryId({
-      topic: "CISA ransomware guidance",
+      topic: "quantum gardening hydroponics",
       categories: SITE_CATEGORIES,
       persistedRecommendation: {
         id: INVENTED_CATEGORY_ID,
-        name: "Threat Intelligence",
+        name: "Invented Category",
       },
     });
 
@@ -127,6 +127,27 @@ describe("Article category assignment core", () => {
     });
 
     assert.equal(resolved, fresh.id);
+  });
+
+  it("maps clear vulnerability topics to the existing Vulnerabilities category UUID", () => {
+    const vulnerabilitiesId = "00000000-0000-4000-8000-000000000004";
+    const resolved = resolveValidatedArticleCategoryId({
+      topic: "CVE-2024-21412 remote code execution advisory and patch guidance",
+      categories: SITE_CATEGORIES,
+    });
+
+    assert.equal(resolved, vulnerabilitiesId);
+    assert.ok(SITE_CATEGORIES.some((entry) => entry.id === resolved));
+  });
+
+  it("maps categoryRecommendation label to an existing CMS category UUID", () => {
+    const resolved = resolveValidatedArticleCategoryId({
+      topic: "Enterprise email security controls",
+      categories: SITE_CATEGORIES,
+      categoryRecommendation: "Vulnerabilities",
+    });
+
+    assert.equal(resolved, "00000000-0000-4000-8000-000000000004");
   });
 
   it("validates persisted payload recommendation fields", () => {

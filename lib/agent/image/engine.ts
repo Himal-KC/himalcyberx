@@ -569,19 +569,27 @@ async function runAgentFeaturedImageGenerationInternal(
     stage: "fact_check",
     status: "ready",
     error_message: null,
-    generation_metadata: buildAgentRunImageMetadataUpdate({
-      existingMetadata:
-        run.generation_metadata &&
-        typeof run.generation_metadata === "object"
-          ? (run.generation_metadata as Record<string, unknown>)
-          : null,
-      storagePath: uploaded.data.storagePath,
-      publicUrl: uploaded.data.publicUrl,
-      width: processed.image.width,
-      height: processed.image.height,
-      mimeType: processed.image.mimeType,
-      byteSize: processed.image.byteSize,
-    }),
+    generation_metadata: {
+      ...buildAgentRunImageMetadataUpdate({
+        existingMetadata:
+          run.generation_metadata &&
+          typeof run.generation_metadata === "object"
+            ? (run.generation_metadata as Record<string, unknown>)
+            : null,
+        storagePath: uploaded.data.storagePath,
+        publicUrl: uploaded.data.publicUrl,
+        width: processed.image.width,
+        height: processed.image.height,
+        mimeType: processed.image.mimeType,
+        byteSize: processed.image.byteSize,
+      }),
+      featuredImageAltRepair: {
+        visualConcept: promptContext.visualBrief.visualConcept,
+        environment: promptContext.visualBrief.environment,
+        mood: promptContext.visualBrief.mood,
+        importantElements: promptContext.visualBrief.importantElements.slice(0, 2),
+      },
+    },
   });
 
   if (

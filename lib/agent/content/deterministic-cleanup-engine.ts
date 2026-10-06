@@ -4,8 +4,10 @@ import { unstable_noStore as noStore } from "next/cache";
 import {
   applyArticleDeterministicCleanup,
   articleNeedsDeterministicCleanup,
-  resolveVisualConceptForAltRepair,
+  resolveFeaturedImageAltRepairBrief,
 } from "@/lib/agent/content/deterministic-cleanup-core";
+import type { ApprovedInternalCatalogItem } from "@/lib/agent/content/internal-link-cleanup-core";
+import { getResearchPayloadFromRun } from "@/lib/agent/generation/research-payload";
 import { getCurrentDraftFingerprintFromSnapshot } from "@/lib/agent/readiness/readiness-gate-core";
 import { loadReviewDraftSnapshot } from "@/lib/agent/review/load-draft";
 import { runAgentReview } from "@/lib/agent/review/engine";
@@ -92,8 +94,18 @@ export async function runDeterministicAgentDraftCleanup(input: {
       ? (run.generation_metadata as Record<string, unknown>)
       : null;
 
-  const visualConcept = resolveVisualConceptForAltRepair({
+  const researchPayload = getResearchPayloadFromRun(run);
+  const approvedInternalCatalog: ApprovedInternalCatalogItem[] =
+    researchPayload?.relatedHCXContent.map((item) => ({
+      id: item.id,
+      contentType: item.contentType,
+      title: item.title,
+      slug: item.slug,
+    })) ?? [];
+
+  const altRepairBrief = resolveFeaturedImageAltRepairBrief({
     metadata: existingMetadata,
+    draft: snapshot.draft,
     recommendedAngle: run.recommended_angle,
     topic: run.topic,
   });
@@ -104,6 +116,7 @@ export async function runDeterministicAgentDraftCleanup(input: {
       slug: articleRow.slug,
       featuredImage: articleRow.featured_image,
       featuredImageAlt: articleRow.featured_image_alt,
+      approvedInternalCatalog,
     })
   ) {
     return {
@@ -117,8 +130,10 @@ export async function runDeterministicAgentDraftCleanup(input: {
     slug: articleRow.slug,
     featuredImage: articleRow.featured_image,
     featuredImageAlt: articleRow.featured_image_alt,
-    visualConcept,
+    visualConcept: altRepairBrief?.visualConcept ?? null,
     topic: run.topic,
+    altRepairBrief,
+    approvedInternalCatalog,
   });
 
   if (cleanup.changeSummary.length === 0) {
@@ -155,7 +170,10 @@ export async function runDeterministicAgentDraftCleanup(input: {
     reloaded.snapshot,
   );
 
-  if (revisedFingerprint === previousFingerprint) {
+  if (
+    revisedFingerprint === previousFingerprint &&
+    (cleanup.structureChanged || cleanup.internalLinksChanged)
+  ) {
     return {
       ok: false,
       error: "Draft fingerprint did not change after cleanup.",

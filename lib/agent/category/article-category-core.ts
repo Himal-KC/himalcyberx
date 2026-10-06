@@ -86,19 +86,76 @@ export function scoreCategoryMatch(topic: string, categoryText: string): number 
   return Math.round(jaccardTokenSimilarity(topicTokens, categoryTokens) * 100);
 }
 
+const VULNERABILITY_TOPIC_PATTERN =
+  /\bcve[\s-]?\d{4}[\s-]?\d+\b|\bvulnerabilit|\bexploit|\bcvss\b|\bkev\b|\bzero day|\badvisory|\bpatch\b/i;
+
+function categorySignalsVulnerabilityScope(category: CategoryInventoryItem): boolean {
+  const haystack = normalizeAwarenessText(
+    `${category.name} ${category.slug} ${category.description ?? ""}`,
+  );
+  return /\bvulnerabilit|\badvisory|\bcve\b|\bexploit|\bkev\b/.test(haystack);
+}
+
+function topicSignalsVulnerabilityContent(topic: string, categoryRecommendation?: string | null): boolean {
+  const haystack = normalizeAwarenessText(
+    `${topic} ${categoryRecommendation ?? ""}`,
+  );
+  return VULNERABILITY_TOPIC_PATTERN.test(haystack);
+}
+
+export function matchCategoryByRecommendationName(
+  categoryRecommendation: string,
+  categories: CategoryInventoryItem[],
+): RecommendedCategory | null {
+  const normalizedRecommendation = normalizeAwarenessText(categoryRecommendation);
+  if (!normalizedRecommendation) {
+    return null;
+  }
+
+  for (const category of categories) {
+    const normalizedName = normalizeAwarenessText(category.name);
+    const normalizedSlug = normalizeAwarenessText(category.slug.replace(/-/g, " "));
+    if (
+      normalizedRecommendation === normalizedName ||
+      normalizedRecommendation === normalizedSlug
+    ) {
+      return { id: category.id, name: category.name };
+    }
+  }
+
+  return null;
+}
+
 export function recommendArticleCategory(
   topic: string,
   categories: CategoryInventoryItem[],
+  options?: { categoryRecommendation?: string | null },
 ): RecommendedCategory {
+  const recommendation = options?.categoryRecommendation?.trim() ?? "";
+  if (recommendation) {
+    const exact = matchCategoryByRecommendationName(recommendation, categories);
+    if (exact?.id) {
+      return exact;
+    }
+  }
+
+  const topicHaystack = recommendation ? `${topic} ${recommendation}` : topic;
   let best: RecommendedCategory = { id: null, name: "" };
   let bestScore = 0;
 
   for (const category of categories) {
-    const score = Math.max(
-      scoreCategoryMatch(topic, category.name),
-      scoreCategoryMatch(topic, `${category.name} ${category.slug}`),
-      scoreCategoryMatch(topic, category.description ?? ""),
+    let score = Math.max(
+      scoreCategoryMatch(topicHaystack, category.name),
+      scoreCategoryMatch(topicHaystack, `${category.name} ${category.slug}`),
+      scoreCategoryMatch(topicHaystack, category.description ?? ""),
     );
+
+    if (
+      topicSignalsVulnerabilityContent(topic, recommendation) &&
+      categorySignalsVulnerabilityScope(category)
+    ) {
+      score = Math.max(score, 28);
+    }
 
     if (score > bestScore) {
       bestScore = score;
@@ -165,12 +222,30 @@ export function resolveValidatedArticleCategoryId(input: {
   topic: string;
   categories: CategoryInventoryItem[];
   persistedRecommendation?: RecommendedCategory | null;
+  categoryRecommendation?: string | null;
 }): string | null {
   if (input.categories.length === 0 || !input.topic.trim()) {
     return null;
   }
 
-  const fresh = recommendArticleCategory(input.topic, input.categories);
+  const recommendationLabel =
+    input.categoryRecommendation?.trim() ||
+    input.persistedRecommendation?.name?.trim() ||
+    null;
+
+  if (recommendationLabel) {
+    const exact = matchCategoryByRecommendationName(
+      recommendationLabel,
+      input.categories,
+    );
+    if (exact?.id && isValidatedCategoryMatch(exact.id, exact.name, input.categories)) {
+      return exact.id;
+    }
+  }
+
+  const fresh = recommendArticleCategory(input.topic, input.categories, {
+    categoryRecommendation: recommendationLabel,
+  });
   if (
     fresh.id &&
     fresh.name &&
@@ -195,6 +270,7 @@ export function resolveApplicableArticleCategory(input: {
   topic: string;
   categories: CategoryInventoryItem[];
   persistedRecommendation?: RecommendedCategory | null;
+  categoryRecommendation?: string | null;
 }): RecommendedCategory | null {
   const categoryId = resolveValidatedArticleCategoryId(input);
   if (!categoryId) {

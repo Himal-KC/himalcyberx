@@ -381,6 +381,13 @@ async function hydratePersistedAgentRun(
           slug: content.slug,
           featuredImage: content.featured_image ?? null,
           featuredImageAlt: content.featured_image_alt ?? null,
+          approvedInternalCatalog:
+            payload?.relatedHCXContent.map((item) => ({
+              id: item.id,
+              contentType: item.contentType,
+              title: item.title,
+              slug: item.slug,
+            })) ?? [],
         })
       : null;
   const resumed = buildResumedAgentRunResult({
@@ -408,6 +415,10 @@ async function hydratePersistedAgentRun(
       topic: run.topic,
       categories: mapCategoryRowsToInventory(categoryRows ?? []),
       persistedRecommendation: getPersistedArticleCategoryRecommendation(payload),
+      categoryRecommendation:
+        reviewContext.snapshot?.draft.contentType === "article"
+          ? reviewContext.snapshot.draft.categoryRecommendation
+          : payload?.categoryRecommendation ?? null,
     });
   }
 

@@ -90,7 +90,7 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function trimAltToLength(value: string, min: number, max: number): string {
+export function trimAltToLength(value: string, min: number, max: number): string {
   const next = value.replace(/\s+/g, " ").trim();
   if (next.length <= max) {
     return next;
@@ -105,24 +105,65 @@ function trimAltToLength(value: string, min: number, max: number): string {
   return slice.trim();
 }
 
-export function buildDeterministicFeaturedImageAlt(input: {
-  title: string;
-  slug: string;
-  visualConcept?: string | null;
-  topic?: string | null;
-}): string {
-  const concept =
-    input.visualConcept?.replace(/\s+/g, " ").trim() ||
-    input.topic?.replace(/\s+/g, " ").trim() ||
-    "a cybersecurity threat visualization";
+export interface FeaturedImageAltRepairBrief {
+  visualConcept: string;
+  environment: string;
+  mood: string;
+  importantElements?: string[];
+}
 
-  let alt = `Wide editorial hero artwork depicting ${concept}, created for a professional security publication audience.`;
+export function buildVisualArtworkAltFromBrief(
+  brief: FeaturedImageAltRepairBrief,
+): string {
+  const concept = brief.visualConcept.replace(/\s+/g, " ").trim();
+  const environment = brief.environment.replace(/\s+/g, " ").trim();
+  const mood = brief.mood.replace(/\s+/g, " ").trim();
+  const focal = (brief.importantElements ?? [])
+    .map((item) => item.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" and ");
+
+  let alt = focal
+    ? `Editorial hero artwork showing ${concept} in ${environment}, featuring ${focal}. ${mood}.`
+    : `Editorial hero artwork showing ${concept} in ${environment}. ${mood}.`;
 
   alt = trimAltToLength(alt, 80, 160);
 
   if (alt.length < 80) {
     alt = trimAltToLength(
-      `${alt} The scene uses realistic enterprise technology visuals without readable text.`,
+      `${alt} Realistic enterprise security visuals without readable text.`,
+      80,
+      160,
+    );
+  }
+
+  return alt;
+}
+
+export function buildDeterministicFeaturedImageAlt(input: {
+  title: string;
+  slug: string;
+  visualConcept?: string | null;
+  topic?: string | null;
+  altRepairBrief?: FeaturedImageAltRepairBrief | null;
+}): string {
+  if (input.altRepairBrief) {
+    return buildVisualArtworkAltFromBrief(input.altRepairBrief);
+  }
+
+  const concept =
+    input.visualConcept?.replace(/\s+/g, " ").trim() ||
+    input.topic?.replace(/\s+/g, " ").trim() ||
+    "a cybersecurity threat visualization";
+
+  let alt = `Wide editorial hero artwork depicting ${concept}, with realistic enterprise security visuals.`;
+
+  alt = trimAltToLength(alt, 80, 160);
+
+  if (alt.length < 80) {
+    alt = trimAltToLength(
+      `${alt} The scene avoids readable text and decorative stock cliches.`,
       80,
       160,
     );
@@ -137,6 +178,7 @@ export function repairFeaturedImageAltText(input: {
   currentAlt: string | null;
   visualConcept?: string | null;
   topic?: string | null;
+  altRepairBrief?: FeaturedImageAltRepairBrief | null;
   hasFeaturedImage: boolean;
 }): string | null {
   if (!input.hasFeaturedImage) {

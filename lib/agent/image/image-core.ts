@@ -1,3 +1,4 @@
+import { buildVisualArtworkAltFromBrief } from "@/lib/agent/content/featured-image-alt-core";
 import type { AgentContentType } from "@/lib/supabase/types";
 import type { VerifiedClaim } from "@/lib/agent/types";
 import type { ReviewOverallStatus } from "../review/types";
@@ -530,25 +531,12 @@ export function buildFeaturedImagePromptFromVisualBrief(
 export function buildFeaturedImageAltTextFromBrief(
   brief: FeaturedImageVisualBrief,
 ): string {
-  const focal = brief.importantElements.slice(0, 2).join(" and ");
-  let alt = normalizeBriefText(
-    `${brief.subject}: ${brief.visualConcept} in ${brief.environment}. ${focal}.`,
-    220,
-  );
-
-  if (alt.length < 80) {
-    alt = normalizeBriefText(`${alt} ${brief.mood}.`, 220);
-  }
-
-  if (alt.length > 160) {
-    alt = `${alt.slice(0, 157).trimEnd()}…`;
-  }
-
-  if (/^image of/i.test(alt)) {
-    alt = alt.replace(/^image of/i, "Wide hero showing");
-  }
-
-  return alt;
+  return buildVisualArtworkAltFromBrief({
+    visualConcept: brief.visualConcept,
+    environment: brief.environment,
+    mood: brief.mood,
+    importantElements: brief.importantElements,
+  });
 }
 
 export function promptDiscouragesGenericShieldLanguage(prompt: string): boolean {

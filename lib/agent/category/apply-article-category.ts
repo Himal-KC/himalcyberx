@@ -31,6 +31,7 @@ async function loadCategoryRows(
 export async function resolveArticleCategoryIdForAgentSave(input: {
   supabase: AdminSupabase;
   run: AgentRun;
+  draftCategoryRecommendation?: string | null;
 }): Promise<string | null> {
   if (input.run.content_type !== "article") {
     return null;
@@ -45,6 +46,10 @@ export async function resolveArticleCategoryIdForAgentSave(input: {
     topic: input.run.topic,
     categories,
     persistedRecommendation: getPersistedArticleCategoryRecommendation(payload),
+    categoryRecommendation:
+      input.draftCategoryRecommendation?.trim() ||
+      payload?.categoryRecommendation ||
+      null,
   });
 }
 
@@ -100,6 +105,7 @@ export async function applyRecommendedArticleCategoryToDraft(input: {
     topic: run.topic,
     categories,
     persistedRecommendation: getPersistedArticleCategoryRecommendation(payload),
+    categoryRecommendation: payload?.categoryRecommendation ?? null,
   });
 
   if (!applicable?.id) {

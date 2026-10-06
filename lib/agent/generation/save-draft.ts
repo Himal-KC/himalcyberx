@@ -151,6 +151,7 @@ export async function saveGeneratedDraft({
     const validatedCategoryId = await resolveArticleCategoryIdForAgentSave({
       supabase,
       run,
+      draftCategoryRecommendation: draft.categoryRecommendation,
     });
     const articleContent = appendArticleKeyTakeawaysToContent(
       draft.content,

@@ -236,6 +236,8 @@ describe("Featured image visual brief V2.1 art direction", () => {
     assert.ok(alt.length >= 80);
     assert.ok(alt.length <= 160);
     assert.equal(/^image of/i.test(alt), false);
+    assert.doesNotMatch(alt, /Ransomware Backup and Recovery Planning/i);
+    assert.doesNotMatch(alt, /…|\.\.\.$/);
   });
 
   it("supports article, tutorial, and lab content types", () => {

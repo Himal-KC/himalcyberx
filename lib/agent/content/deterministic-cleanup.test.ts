@@ -327,4 +327,119 @@ describe("deterministic draft cleanup", () => {
     assert.doesNotMatch(engineSource, /reviseDraftWithOpenAi/);
     assert.doesNotMatch(engineSource, /runPhase5AutomaticSafeRevision/);
   });
+
+  it("inserts approved internal links and repairs alt in one cleanup pass", () => {
+    const relatedTitle = "Microsoft 365 Phishing Defense Guide";
+    const relatedSlug = "microsoft-365-phishing-defense-guide";
+    const relatedId = "00000000-0000-4000-8000-000000000030";
+    const content = `<p>${"Body copy. ".repeat(30)} See ${relatedTitle} for baseline controls.</p>`;
+    const draft: ArticleDraft = {
+      ...buildArticleDraft(content),
+      internalLinks: [
+        {
+          contentId: relatedId,
+          contentType: "article",
+          anchorText: relatedTitle,
+          suggestedSection: "Related content",
+        },
+      ],
+    };
+
+    const cleaned = cleanupCore.applyArticleDeterministicCleanup({
+      draft,
+      slug: SLUG,
+      featuredImage: FEATURED_URL,
+      featuredImageAlt: `${TITLE}: ${TITLE}…`,
+      altRepairBrief: {
+        visualConcept: "Layered cloud email security operations center",
+        environment: "Enterprise SOC with analyst workstations",
+        mood: "Cinematic editorial lighting with realistic depth",
+        importantElements: ["email flow diagrams", "alert dashboards"],
+      },
+      approvedInternalCatalog: [
+        {
+          id: relatedId,
+          contentType: "article",
+          title: relatedTitle,
+          slug: relatedSlug,
+        },
+      ],
+    });
+
+    assert.match(
+      cleaned.draft.content,
+      new RegExp(
+        `<a href="/articles/${relatedSlug}">${relatedTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</a>`,
+      ),
+    );
+    assert.equal(cleaned.internalLinksChanged, true);
+    assert.equal(cleaned.altChanged, true);
+    assert.deepEqual(
+      evaluateAltTextQuality({
+        altText: cleaned.featuredImageAlt,
+        title: TITLE,
+        slug: SLUG,
+        hasFeaturedImage: true,
+      }),
+      [],
+    );
+    assert.equal(
+      cleanupCore.articleNeedsDeterministicCleanup({
+        draft: cleaned.draft,
+        slug: SLUG,
+        featuredImage: FEATURED_URL,
+        featuredImageAlt: cleaned.featuredImageAlt,
+        approvedInternalCatalog: [
+          {
+            id: relatedId,
+            contentType: "article",
+            title: relatedTitle,
+            slug: relatedSlug,
+          },
+        ],
+      }),
+      false,
+    );
+  });
+
+  it("changes draft fingerprint when internal link insertion changes body text", () => {
+    const relatedTitle = "Microsoft 365 Phishing Defense Guide";
+    const content = `<p>${"Body copy. ".repeat(10)} Read ${relatedTitle} first.</p>`;
+    const draft: ArticleDraft = {
+      ...buildArticleDraft(content),
+      internalLinks: [
+        {
+          contentId: "00000000-0000-4000-8000-000000000030",
+          contentType: "article",
+          anchorText: relatedTitle,
+          suggestedSection: "Related content",
+        },
+      ],
+    };
+    const before = getCurrentDraftFingerprintFromSnapshot(buildSnapshot(draft));
+    const cleaned = cleanupCore.applyArticleDeterministicCleanup({
+      draft,
+      slug: SLUG,
+      featuredImage: FEATURED_URL,
+      featuredImageAlt: altCore.repairFeaturedImageAltText({
+        title: TITLE,
+        slug: SLUG,
+        currentAlt: null,
+        visualConcept: "Enterprise cloud email security environment",
+        hasFeaturedImage: true,
+      }),
+      approvedInternalCatalog: [
+        {
+          id: "00000000-0000-4000-8000-000000000030",
+          contentType: "article",
+          title: relatedTitle,
+          slug: "microsoft-365-phishing-defense-guide",
+        },
+      ],
+    });
+    const after = getCurrentDraftFingerprintFromSnapshot(
+      buildSnapshot(cleaned.draft),
+    );
+    assert.notEqual(before, after);
+  });
 });
