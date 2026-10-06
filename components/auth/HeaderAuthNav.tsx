@@ -6,9 +6,7 @@ import { LearnerSignOutButton } from "@/components/auth/LearnerSignOutButton";
 import { UserIcon } from "@/components/icons";
 import {
   LEARNER_DASHBOARD_PATH,
-  LEARNER_LOGIN_PATH,
   LEARNER_PROFILE_PATH,
-  LEARNER_SIGNUP_PATH,
 } from "@/lib/auth/constants";
 import { focusRing } from "@/lib/page-data";
 import { createClient } from "@/lib/supabase/client";
@@ -124,47 +122,7 @@ export function HeaderAuthNav({ variant, onNavigate }: HeaderAuthNavProps) {
   }
 
   if (state.status === "signed-out") {
-    if (variant === "mobile") {
-      return (
-        <>
-          <li className="pt-2">
-            <Link
-              href={LEARNER_LOGIN_PATH}
-              className={`block min-h-11 rounded-md px-3 py-2.5 text-sm text-hcx-text-secondary transition-colors hover:bg-hcx-card hover:text-hcx-cyan ${focusRing}`}
-              onClick={onNavigate}
-            >
-              Sign In
-            </Link>
-          </li>
-          <li>
-            <Link
-              href={LEARNER_SIGNUP_PATH}
-              className={`block min-h-11 rounded-md bg-hcx-cyan px-3 py-2.5 text-center text-sm font-semibold text-hcx-bg ${focusRing}`}
-              onClick={onNavigate}
-            >
-              Create Account
-            </Link>
-          </li>
-        </>
-      );
-    }
-
-    return (
-      <div className="hidden items-center gap-1.5 sm:flex">
-        <Link
-          href={LEARNER_LOGIN_PATH}
-          className={`rounded-md px-2.5 py-1.5 text-sm font-semibold text-hcx-text/85 transition-colors hover:text-hcx-cyan ${focusRing}`}
-        >
-          Sign In
-        </Link>
-        <Link
-          href={LEARNER_SIGNUP_PATH}
-          className={`rounded-md border border-hcx-cyan/40 px-3 py-1.5 text-sm font-semibold text-hcx-cyan transition-colors hover:bg-hcx-cyan/10 ${focusRing}`}
-        >
-          Create Account
-        </Link>
-      </div>
-    );
+    return null;
   }
 
   if (variant === "mobile") {
