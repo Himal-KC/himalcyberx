@@ -31,10 +31,14 @@ const {
   pathToFileURL(join(testDir, "ga4-format-core.ts")).href
 )) as typeof import("./ga4-format-core");
 
-const { GA4_ADMIN_BATCH_HTTP_REQUEST_COUNT, GA4_ADMIN_BATCH_REPORT_COUNT } =
-  (await import(
-    pathToFileURL(join(testDir, "ga4-reports-core.ts")).href
-  )) as typeof import("./ga4-reports-core");
+const {
+  GA4_ADMIN_BATCH_HTTP_REQUEST_COUNT,
+  GA4_ADMIN_BATCH_REPORT_COUNT,
+  GA4_ADMIN_MAX_BATCH_HTTP_REQUEST_COUNT,
+  GA4_ADMIN_MAX_REPORT_COUNT,
+} = (await import(
+  pathToFileURL(join(testDir, "ga4-reports-core.ts")).href
+)) as typeof import("./ga4-reports-core");
 
 const validServiceAccount = JSON.stringify({
   type: "service_account",
@@ -135,15 +139,20 @@ describe("GA4 response normalization", () => {
   });
 
   it("handles empty GA responses with zeros", () => {
-    const data = buildAdminAnalyticsDashboardData({
-      dailyViews30d: { rows: [] },
-      activeUsers7d: { rows: [] },
-      averageSessionDuration30d: { rows: [] },
-      topContent30d: { rows: [] },
-      trafficSources30d: { rows: [] },
-      devices30d: { rows: [] },
-      countries30d: { rows: [] },
-    });
+    const data = buildAdminAnalyticsDashboardData(
+      {
+        dailyViews30d: { rows: [] },
+        activeUsers7d: { rows: [] },
+        averageSessionDuration30d: { rows: [] },
+        topContent30d: { rows: [] },
+        trafficSources30d: { rows: [] },
+        devices30d: { rows: [] },
+        countries30d: { rows: [] },
+        shareEventsTotal30d: { rows: [] },
+        shareEventsByMethod30d: { rows: [] },
+      },
+      { shareMethodBreakdownStatus: "available" },
+    );
 
     assert.deepEqual(data.kpis, {
       viewsToday: 0,
@@ -153,6 +162,7 @@ describe("GA4 response normalization", () => {
     });
     assert.equal(data.viewsOverTime.length, 0);
     assert.equal(data.topContent.length, 0);
+    assert.equal(data.shareEngagement.totalActions, 0);
   });
 
   it("excludes /admin paths from top content output", () => {
@@ -190,8 +200,10 @@ describe("GA4 formatting", () => {
 });
 
 describe("GA4 dashboard request budget", () => {
-  it("uses two batch HTTP requests for seven reports", () => {
-    assert.equal(GA4_ADMIN_BATCH_REPORT_COUNT, 7);
+  it("keeps primary batches bounded and documents optional share method batch", () => {
+    assert.equal(GA4_ADMIN_BATCH_REPORT_COUNT, 8);
     assert.equal(GA4_ADMIN_BATCH_HTTP_REQUEST_COUNT, 2);
+    assert.equal(GA4_ADMIN_MAX_REPORT_COUNT, 9);
+    assert.equal(GA4_ADMIN_MAX_BATCH_HTTP_REQUEST_COUNT, 3);
   });
 });

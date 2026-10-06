@@ -28,6 +28,25 @@ export interface AdminAnalyticsBreakdownRow {
   value: number;
 }
 
+export type AdminAnalyticsShareMethodBreakdownStatus =
+  | "available"
+  | "unavailable"
+  | "not_configured";
+
+export interface AdminAnalyticsShareMethodRow {
+  method: string;
+  label: string;
+  count: number;
+}
+
+export interface AdminAnalyticsShareEngagement {
+  periodDays: 30;
+  totalActions: number;
+  methods: AdminAnalyticsShareMethodRow[];
+  methodBreakdownStatus: AdminAnalyticsShareMethodBreakdownStatus;
+  methodBreakdownNotice?: string;
+}
+
 export interface AdminAnalyticsDashboardData {
   kpis: AdminAnalyticsKpis;
   viewsOverTime: AdminAnalyticsDailyViews[];
@@ -36,6 +55,7 @@ export interface AdminAnalyticsDashboardData {
   trafficSources: AdminAnalyticsBreakdownRow[];
   devices: AdminAnalyticsBreakdownRow[];
   countries: AdminAnalyticsBreakdownRow[];
+  shareEngagement: AdminAnalyticsShareEngagement;
 }
 
 export type AdminAnalyticsLoadResult =

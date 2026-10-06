@@ -2,13 +2,13 @@ import { AnalyticsAverageEngagement } from "@/components/admin/analytics/Analyti
 import { AnalyticsBreakdown } from "@/components/admin/analytics/AnalyticsBreakdown";
 import { AnalyticsKpiGrid } from "@/components/admin/analytics/AnalyticsKpiGrid";
 import { AnalyticsPendingSectionPanel } from "@/components/admin/analytics/AnalyticsSectionPanel";
+import { AnalyticsShareEngagement } from "@/components/admin/analytics/AnalyticsShareEngagement";
 import { AnalyticsTopContent } from "@/components/admin/analytics/AnalyticsTopContent";
 import { AnalyticsUnavailableBanner } from "@/components/admin/analytics/AnalyticsUnavailableBanner";
 import { AnalyticsViewsOverTime } from "@/components/admin/analytics/AnalyticsViewsOverTime";
 import {
   ANALYTICS_CONSENT_NOTICE,
   ANALYTICS_RECENT_CONTENT_PENDING,
-  ANALYTICS_SHARE_EVENTS_PENDING,
 } from "@/lib/analytics/admin-dashboard-constants";
 import type { AdminAnalyticsLoadResult } from "@/lib/analytics/ga4-types";
 
@@ -99,10 +99,8 @@ export function AnalyticsDashboard({ result }: AnalyticsDashboardProps) {
               valueLabel="users"
               emptyMessage="No country data for this period."
             />
-            <AnalyticsPendingSectionPanel
-              title="Share Engagement"
-              description="LinkedIn, X and copy-link actions on articles."
-              pendingMessage={ANALYTICS_SHARE_EVENTS_PENDING}
+            <AnalyticsShareEngagement
+              shareEngagement={result.data.shareEngagement}
             />
           </div>
 

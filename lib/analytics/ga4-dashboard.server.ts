@@ -25,7 +25,7 @@ const loadGa4AdminDashboardCached = unstable_cache(
       cacheMaxAgeSeconds: GA4_ADMIN_DASHBOARD_REVALIDATE_SECONDS,
     };
   },
-  ["hcx-admin-ga4-dashboard-v1"],
+  ["hcx-admin-ga4-dashboard-v2"],
   { revalidate: GA4_ADMIN_DASHBOARD_REVALIDATE_SECONDS },
 );
 

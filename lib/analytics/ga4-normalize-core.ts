@@ -4,12 +4,14 @@ import {
   parseGa4MetricInt,
 } from "./ga4-format-core.ts";
 import { filterPublicContentPaths } from "./ga4-path-core.ts";
+import { buildShareEngagementSummary } from "./ga4-share-normalize-core.ts";
 import type {
   AdminAnalyticsAverageEngagement,
   AdminAnalyticsBreakdownRow,
   AdminAnalyticsDailyViews,
   AdminAnalyticsDashboardData,
   AdminAnalyticsKpis,
+  AdminAnalyticsShareMethodBreakdownStatus,
   AdminAnalyticsTopContentRow,
   Ga4ReportPayload,
 } from "./ga4-types.ts";
@@ -141,10 +143,17 @@ export interface Ga4BatchReportSet {
   trafficSources30d: Ga4ReportPayload | null | undefined;
   devices30d: Ga4ReportPayload | null | undefined;
   countries30d: Ga4ReportPayload | null | undefined;
+  shareEventsTotal30d: Ga4ReportPayload | null | undefined;
+  shareEventsByMethod30d: Ga4ReportPayload | null | undefined;
+}
+
+export interface BuildAdminAnalyticsDashboardOptions {
+  shareMethodBreakdownStatus: AdminAnalyticsShareMethodBreakdownStatus;
 }
 
 export function buildAdminAnalyticsDashboardData(
   reports: Ga4BatchReportSet,
+  options: BuildAdminAnalyticsDashboardOptions,
 ): AdminAnalyticsDashboardData {
   const viewsOverTime = normalizeDailyViewsReport(reports.dailyViews30d);
   const kpiViews = deriveKpisFromDailyViews(viewsOverTime);
@@ -169,6 +178,11 @@ export function buildAdminAnalyticsDashboardData(
     countries: normalizeDimensionBreakdownReport(reports.countries30d, {
       limit: COUNTRY_LIMIT,
       emptyLabel: "Unknown",
+    }),
+    shareEngagement: buildShareEngagementSummary({
+      totalReport: reports.shareEventsTotal30d,
+      methodReport: reports.shareEventsByMethod30d,
+      methodBreakdownStatus: options.shareMethodBreakdownStatus,
     }),
   };
 }

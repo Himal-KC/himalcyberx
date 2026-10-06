@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { LinkedInIcon, XIcon } from "@/components/icons";
+import { useConsent } from "@/components/consent/ConsentProvider";
+import { trackArticleShareButtonAction } from "@/lib/analytics/track-article-share-event";
 import { focusRing } from "@/lib/page-data";
 
 interface ArticleShareProps {
@@ -11,6 +13,7 @@ interface ArticleShareProps {
 
 export function ArticleShare({ title, slug }: ArticleShareProps) {
   const [copied, setCopied] = useState(false);
+  const { analyticsGranted } = useConsent();
 
   async function copyLink() {
     const url =
@@ -21,10 +24,19 @@ export function ArticleShare({ title, slug }: ArticleShareProps) {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
+      trackArticleShareButtonAction(analyticsGranted, "copy_link", slug);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       setCopied(false);
     }
+  }
+
+  function handleLinkedInShareClick() {
+    trackArticleShareButtonAction(analyticsGranted, "linkedin", slug);
+  }
+
+  function handleXShareClick() {
+    trackArticleShareButtonAction(analyticsGranted, "x", slug);
   }
 
   const shareUrl = encodeURIComponent(
@@ -43,6 +55,7 @@ export function ArticleShare({ title, slug }: ArticleShareProps) {
         href={`https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={handleLinkedInShareClick}
         className={`flex h-9 w-9 items-center justify-center rounded-md border border-hcx-border text-hcx-text-secondary transition-colors hover:border-hcx-cyan/30 hover:text-hcx-cyan ${focusRing}`}
         aria-label="Share on LinkedIn"
       >
@@ -52,6 +65,7 @@ export function ArticleShare({ title, slug }: ArticleShareProps) {
         href={`https://twitter.com/intent/tweet?text=${shareTitle}&url=${shareUrl}`}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={handleXShareClick}
         className={`flex h-9 w-9 items-center justify-center rounded-md border border-hcx-border text-hcx-text-secondary transition-colors hover:border-hcx-cyan/30 hover:text-hcx-cyan ${focusRing}`}
         aria-label="Share on X"
       >
