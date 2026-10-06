@@ -3,6 +3,7 @@ import { buildPublisherHtmlFallbackQuery } from "@/lib/agent/research/search-que
 
 export {
   buildGapTargetedResearchQueries,
+  buildImproveResearchQueries,
   buildIntentExpandedQuery,
   buildPrimaryResearchQuery,
   buildPublisherHtmlFallbackQuery,

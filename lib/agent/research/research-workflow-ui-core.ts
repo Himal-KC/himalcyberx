@@ -1,3 +1,4 @@
+import { buildImproveResearchQueries } from "./search-queries-core.ts";
 import { deriveCanGenerateDraft } from "./derive-can-generate.ts";
 import {
   MAX_RESEARCH_IMPROVEMENTS,
@@ -58,7 +59,7 @@ export function canShowImproveResearchAction(
   input: Pick<
     ResearchWorkflowUiInput,
     "hasLinkedDraft" | "researchSufficiency" | "researchImprovementCount"
-  >,
+  > & { topic: string },
 ): boolean {
   if (input.hasLinkedDraft) {
     return false;
@@ -68,7 +69,42 @@ export function canShowImproveResearchAction(
     return false;
   }
 
-  return (input.researchImprovementCount ?? 0) < MAX_RESEARCH_IMPROVEMENTS;
+  if ((input.researchImprovementCount ?? 0) >= MAX_RESEARCH_IMPROVEMENTS) {
+    return false;
+  }
+
+  return (
+    buildImproveResearchQueries(input.topic, input.researchSufficiency).length >
+    0
+  );
+}
+
+export function resolveImproveResearchUnavailableMessage(input: {
+  topic: string;
+  researchSufficiency?: ResearchSufficiencyAssessment | null;
+  researchImprovementCount?: number;
+  hasLinkedDraft?: boolean;
+}): string | null {
+  if (
+    !input.researchSufficiency ||
+    input.researchSufficiency.status !== "needs_more_research" ||
+    input.hasLinkedDraft
+  ) {
+    return null;
+  }
+
+  if ((input.researchImprovementCount ?? 0) >= MAX_RESEARCH_IMPROVEMENTS) {
+    return "Maximum research improvement attempts reached for this run.";
+  }
+
+  if (
+    buildImproveResearchQueries(input.topic, input.researchSufficiency)
+      .length === 0
+  ) {
+    return "Follow-up research queries could not be derived from the current evidence gaps.";
+  }
+
+  return null;
 }
 
 export function shouldShowPostDraftInsufficientEvidence(

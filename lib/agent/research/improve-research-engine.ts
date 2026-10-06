@@ -14,7 +14,7 @@ import {
   assessResearchSufficiency,
   MAX_RESEARCH_IMPROVEMENTS,
 } from "@/lib/agent/research/research-sufficiency-core";
-import { buildGapTargetedResearchQueries } from "@/lib/agent/research/search-queries";
+import { buildImproveResearchQueries } from "@/lib/agent/research/search-queries";
 import { searchAuthoritativeSourcesForQueries } from "@/lib/agent/research/tavily";
 import { mapAgentSourceToResearchSource } from "@/lib/agent/resume/resume-core";
 import type { ResearchResult } from "@/lib/agent/types";
@@ -108,10 +108,17 @@ export async function runAgentResearchImprovement(input: {
     };
   }
 
-  const gapQueries = buildGapTargetedResearchQueries(
+  const gapQueries = buildImproveResearchQueries(
     run.topic,
-    eligibility.researchSufficiency.missingIntentAreas,
+    eligibility.researchSufficiency,
   );
+  if (gapQueries.length === 0) {
+    return {
+      ok: false,
+      error:
+        "Unable to derive follow-up research queries for the current evidence gaps.",
+    };
+  }
   const gapSearch = await searchAuthoritativeSourcesForQueries(gapQueries);
   if (!gapSearch.ok) {
     return {

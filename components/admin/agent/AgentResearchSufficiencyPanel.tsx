@@ -11,6 +11,7 @@ import { buildResearchCoverageLines } from "@/lib/agent/research/research-suffic
 import {
   canShowImproveResearchAction,
   POST_DRAFT_INSUFFICIENT_EVIDENCE_MESSAGE,
+  resolveImproveResearchUnavailableMessage,
   shouldShowPostDraftInsufficientEvidence,
 } from "@/lib/agent/research/research-workflow-ui-core";
 import type { ResearchResult } from "@/lib/agent/types";
@@ -38,10 +39,14 @@ export function AgentResearchSufficiencyPanel({
     hasLinkedDraft,
     researchSufficiency: assessment,
     researchImprovementCount: research.researchImprovementCount,
+    topic: research.topic,
   };
   const showPostDraftGuidance =
     shouldShowPostDraftInsufficientEvidence(workflowInput);
   const canImprove = canShowImproveResearchAction(workflowInput);
+  const improveUnavailableMessage = resolveImproveResearchUnavailableMessage(
+    workflowInput,
+  );
 
   useEffect(() => {
     if (!state.success || !state.research) {
@@ -103,6 +108,12 @@ export function AgentResearchSufficiencyPanel({
 
       {state.error ? (
         <p className="mt-3 text-sm text-hcx-red">{state.error}</p>
+      ) : null}
+
+      {!canImprove && improveUnavailableMessage ? (
+        <p className="mt-4 text-sm text-hcx-text-secondary">
+          {improveUnavailableMessage}
+        </p>
       ) : null}
 
       {canImprove ? (

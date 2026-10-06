@@ -76,6 +76,69 @@ export function buildPublisherHtmlFallbackQuery(
   return `site:${publisherDomain} ${topic} ${suffix}`;
 }
 
+export type ImproveResearchQueryAssessment = {
+  status: "sufficient" | "needs_more_research" | "blocked";
+  missingIntentAreas: string[];
+  reasons: string[];
+  topicRelevantClaimCount: number;
+  authoritativeSourceCount: number;
+};
+
+export function buildImproveResearchQueries(
+  topic: string,
+  assessment: ImproveResearchQueryAssessment,
+): string[] {
+  if (assessment.status !== "needs_more_research") {
+    return [];
+  }
+
+  const fromIntentGaps = buildGapTargetedResearchQueries(
+    topic,
+    assessment.missingIntentAreas,
+  );
+  if (fromIntentGaps.length > 0) {
+    return fromIntentGaps;
+  }
+
+  const trimmedTopic = topic.trim();
+  if (!trimmedTopic) {
+    return [];
+  }
+
+  const queries: string[] = [];
+  const reasonText = assessment.reasons.join(" ").toLowerCase();
+
+  if (
+    reasonText.includes("topic-relevant") ||
+    reasonText.includes("too few")
+  ) {
+    queries.push(`${trimmedTopic} official advisory verified technical details`);
+  }
+
+  if (
+    reasonText.includes("confidence") ||
+    reasonText.includes("authoritative source alone")
+  ) {
+    queries.push(
+      `${trimmedTopic} authoritative verification guidance mitigation`,
+    );
+  }
+
+  if (assessment.authoritativeSourceCount === 0) {
+    queries.push(`${trimmedTopic} official cybersecurity advisory`);
+  }
+
+  queries.push(buildIntentExpandedQuery(trimmedTopic));
+
+  if (/\bcve[-\s]?\d{4}-\d+/i.test(trimmedTopic)) {
+    queries.push(
+      `${trimmedTopic} affected versions patch vendor security bulletin`,
+    );
+  }
+
+  return uniqueQueries(queries).slice(0, 2);
+}
+
 export function buildGapTargetedResearchQueries(
   topic: string,
   missingIntentAreas: string[],

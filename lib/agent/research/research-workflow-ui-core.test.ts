@@ -93,14 +93,20 @@ describe("research workflow UI core", () => {
   });
 
   it("hides improve research after a draft exists", () => {
+    const topic =
+      "Citrix NetScaler CVE-2026-88771: Security Analysis and Mitigation Guidance";
     assert.equal(
-      workflowUi.canShowImproveResearchAction(
-        baseInput({ hasLinkedDraft: true }),
-      ),
+      workflowUi.canShowImproveResearchAction({
+        ...baseInput({ hasLinkedDraft: true }),
+        topic,
+      }),
       false,
     );
     assert.equal(
-      workflowUi.canShowImproveResearchAction(baseInput({ hasLinkedDraft: false })),
+      workflowUi.canShowImproveResearchAction({
+        ...baseInput({ hasLinkedDraft: false }),
+        topic,
+      }),
       true,
     );
   });
