@@ -4,6 +4,7 @@ export {
   buildGroundingValidationLog,
   buildValidationFailureLog,
   classifyUnsupportedClaimTypes,
+  formatGroundingAuditFailureReason,
   issueCodesForReferenceError,
   issueCodesForStructureError,
   issueCodesForUnsupportedClaims,

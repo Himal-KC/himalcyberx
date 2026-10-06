@@ -192,6 +192,105 @@ export function issueCodesForStructureError(
   return ["GROUNDING_AUDIT_FAILED"];
 }
 
+function parseUnsupportedClaimToken(claim: string): {
+  kind: string;
+  cveId?: string;
+  value?: string;
+} {
+  if (claim.startsWith("internal_link:")) {
+    const [, contentId, cveId] = claim.split(":");
+    return {
+      kind: "internal_link_cve",
+      cveId,
+      value: contentId,
+    };
+  }
+
+  const parts = claim.split(":");
+  if (parts.length >= 3) {
+    return {
+      kind: parts[0] ?? "unknown",
+      cveId: parts[1],
+      value: parts.slice(2).join(":"),
+    };
+  }
+
+  return {
+    kind: parts[0] ?? "unknown",
+    value: parts[1],
+  };
+}
+
+export function formatGroundingAuditFailureReason(
+  audit: GroundingAuditResult,
+): string {
+  if (audit.unsupportedClaims.length > 0) {
+    const firstClaim = audit.unsupportedClaims[0]?.trim() ?? "";
+    if (CVE_PATTERN.test(firstClaim) && firstClaim.split(":").length === 1) {
+      const cveId = firstClaim.match(CVE_PATTERN)?.[0]?.toUpperCase() ?? firstClaim;
+      return sanitizeValidationReason(
+        `Draft validation failed: CVE ${cveId} is not supported by verified research.`,
+      );
+    }
+
+    const token = parseUnsupportedClaimToken(firstClaim);
+    switch (token.kind) {
+      case "cve":
+        return sanitizeValidationReason(
+          `Draft validation failed: CVE ${token.cveId ?? token.value ?? "identifier"} is not supported by verified research.`,
+        );
+      case "cvss_score":
+        return sanitizeValidationReason(
+          `Draft validation failed: CVSS score ${token.value ?? "value"} for ${token.cveId ?? "the CVE"} is not supported by verified research.`,
+        );
+      case "cvss_severity":
+        return sanitizeValidationReason(
+          `Draft validation failed: CVSS severity ${token.value ?? "value"} for ${token.cveId ?? "the CVE"} is not supported by verified research.`,
+        );
+      case "cvss_vector":
+        return sanitizeValidationReason(
+          `Draft validation failed: CVSS vector for ${token.cveId ?? "the CVE"} is not supported by verified research.`,
+        );
+      case "kev_status":
+        return sanitizeValidationReason(
+          `Draft validation failed: CISA KEV status for ${token.cveId ?? "the CVE"} is not supported by verified research.`,
+        );
+      case "patch_id":
+        return sanitizeValidationReason(
+          `Draft validation failed: patch ID ${token.value ?? "value"} is not supported by verified research.`,
+        );
+      case "affected_product":
+        return sanitizeValidationReason(
+          `Draft validation failed: affected product wording for ${token.cveId ?? "the CVE"} is not supported by verified research.`,
+        );
+      case "internal_link_cve":
+        return sanitizeValidationReason(
+          `Draft validation failed: internal link references CVE ${token.cveId ?? "identifier"} not present on the linked HCX content.`,
+        );
+      default:
+        return sanitizeValidationReason(
+          "Draft validation failed: draft includes factual claims not supported by verified research.",
+        );
+    }
+  }
+
+  if (audit.invalidSourceUrls.length > 0) {
+    return sanitizeValidationReason(
+      "Draft validation failed: citation URL is not present in verified research sources.",
+    );
+  }
+
+  if (audit.invalidInternalLinks.length > 0) {
+    return sanitizeValidationReason(
+      "Draft validation failed: internal link references unknown or disallowed HCX content.",
+    );
+  }
+
+  return sanitizeValidationReason(
+    "Draft validation failed: grounding audit failed.",
+  );
+}
+
 export function buildGroundingValidationLog(input: {
   agentRunId?: string | null;
   contentType?: string | null;
@@ -227,7 +326,7 @@ export function buildGroundingValidationLog(input: {
     ),
     invalidSourceCount: input.audit.invalidSourceUrls.length,
     invalidInternalLinkCount: input.audit.invalidInternalLinks.length,
-    reason: sanitizeValidationReason("Generated output failed validation."),
+    reason: formatGroundingAuditFailureReason(input.audit),
   };
 }
 

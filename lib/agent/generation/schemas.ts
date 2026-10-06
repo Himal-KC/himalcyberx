@@ -142,6 +142,49 @@ export function getOpenAiDraftFormatName(
   return OPENAI_DRAFT_FORMAT_NAMES[contentType];
 }
 
+export function formatContentTypeDraftParseFailureReason(
+  contentType: AgentContentTypeDraft,
+  value: unknown,
+): string {
+  if (value == null) {
+    return "Draft validation failed: model returned empty or incomplete structured output.";
+  }
+
+  const parsed = getContentTypeDraftSchema(contentType).safeParse(value);
+  if (parsed.success) {
+    return "Draft validation failed: structured output did not match schema.";
+  }
+
+  const issue = parsed.error.issues[0];
+  if (!issue) {
+    return "Draft validation failed: structured output did not match schema.";
+  }
+
+  const fieldPath =
+    issue.path.length > 0 ? issue.path.map(String).join(".") : "draft";
+
+  if (
+    issue.code === "invalid_type" &&
+    "input" in issue &&
+    issue.input === undefined
+  ) {
+    return `Draft validation failed: missing required field ${fieldPath}.`;
+  }
+
+  if (issue.code === "too_small") {
+    return `Draft validation failed: ${fieldPath} is too short.`;
+  }
+
+  if (issue.code === "too_big") {
+    return `Draft validation failed: ${fieldPath} exceeds maximum length.`;
+  }
+
+  return `Draft validation failed: ${fieldPath} ${issue.message}.`.slice(
+    0,
+    240,
+  );
+}
+
 export function parseContentTypeDraftOutput(
   contentType: AgentContentTypeDraft,
   value: unknown,

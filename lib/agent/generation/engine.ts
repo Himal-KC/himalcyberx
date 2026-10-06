@@ -38,6 +38,7 @@ import {
 import {
   buildGroundingValidationLog,
   buildValidationFailureLog,
+  formatGroundingAuditFailureReason,
   issueCodesForReferenceError,
   issueCodesForStructureError,
   logGenerationTrace,
@@ -176,18 +177,9 @@ export async function runAgentGeneration(
         stage: "writing",
         outcome: generated.error,
       });
-    } else if (generated.error === "Generated output failed validation.") {
-      logGenerationValidationFailure(
-        buildValidationFailureLog({
-          agentRunId,
-          contentType: run.content_type,
-          validationStage: "openai_parse",
-          issueCodes: ["SCHEMA_VALIDATION_FAILED"],
-          reason: generated.error,
-        }),
-      );
     } else if (
-      generated.error === "Generated output did not match the requested content type."
+      generated.error ===
+      "Generated output did not match the requested content type."
     ) {
       logGenerationValidationFailure(
         buildValidationFailureLog({
@@ -195,6 +187,16 @@ export async function runAgentGeneration(
           contentType: run.content_type,
           validationStage: "openai_content_type",
           issueCodes: ["CONTENT_TYPE_MISMATCH"],
+          reason: generated.error,
+        }),
+      );
+    } else if (generated.error?.startsWith("Draft validation failed:")) {
+      logGenerationValidationFailure(
+        buildValidationFailureLog({
+          agentRunId,
+          contentType: run.content_type,
+          validationStage: "openai_parse",
+          issueCodes: ["SCHEMA_VALIDATION_FAILED"],
           reason: generated.error,
         }),
       );
@@ -311,6 +313,9 @@ export async function runAgentGeneration(
   });
 
   if (!groundingAudit.passed) {
+    const groundingFailureReason =
+      formatGroundingAuditFailureReason(groundingAudit);
+
     logGenerationValidationFailure(
       buildGroundingValidationLog({
         agentRunId,
@@ -319,14 +324,10 @@ export async function runAgentGeneration(
       }),
     );
 
-    await failGeneration(
-      supabase,
-      agentRunId,
-      "Generated output failed validation.",
-    );
+    await failGeneration(supabase, agentRunId, groundingFailureReason);
     return {
       ok: false,
-      error: "Generated output failed validation.",
+      error: groundingFailureReason,
     };
   }
 

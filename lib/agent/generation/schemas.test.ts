@@ -186,6 +186,15 @@ describe("Phase 4 OpenAI schema selection", () => {
     );
   });
 
+  it("formats schema parse failures for admin diagnostics", () => {
+    const reason = schemas.formatContentTypeDraftParseFailureReason("article", {
+      contentType: "article",
+      title: "too short",
+    });
+
+    assert.match(reason, /^Draft validation failed:/);
+  });
+
   it("keeps grounding audit behavior unchanged", () => {
     const draft = buildArticleDraft();
     const audit = auditGrounding({

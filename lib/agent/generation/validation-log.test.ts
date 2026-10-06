@@ -72,7 +72,34 @@ describe("Phase 4 validation diagnostics logging", () => {
     assert.ok(log.issueCodes.includes("INVALID_INTERNAL_LINK"));
     assert.equal(log.invalidSourceCount, 1);
     assert.equal(log.invalidInternalLinkCount, 1);
-    assert.equal(log.reason, "Generated output failed validation.");
+    assert.match(
+      log.reason ?? "",
+      /Draft validation failed: CVE CVE-2099-00001 is not supported by verified research\./,
+    );
+  });
+
+  it("formats grounding audit failures for admin display", () => {
+    assert.match(
+      validationLog.formatGroundingAuditFailureReason({
+        passed: false,
+        unsupportedClaims: ["cvss_score:CVE-2026-88771:9.9"],
+        invalidSourceUrls: [],
+        invalidInternalLinks: [],
+        warnings: [],
+      }),
+      /CVSS score 9\.9 for CVE-2026-88771/,
+    );
+
+    assert.match(
+      validationLog.formatGroundingAuditFailureReason({
+        passed: false,
+        unsupportedClaims: [],
+        invalidSourceUrls: ["https://evil.example/not-allowed"],
+        invalidInternalLinks: [],
+        warnings: [],
+      }),
+      /citation URL is not present in verified research sources/,
+    );
   });
 
   it("sanitizes validation reasons to short safe strings", () => {

@@ -24,6 +24,7 @@ import {
   createOpenAiDraftTextFormat,
   parseContentTypeDraftOutput,
 } from "@/lib/agent/generation/schema-selection";
+import { formatContentTypeDraftParseFailureReason } from "@/lib/agent/generation/schemas";
 import {
   buildValidationFailureLog,
   logGenerationValidationFailure,
@@ -73,19 +74,24 @@ export async function generateDraftWithOpenAi(
     };
 
     if (!draft) {
+      const parseFailureReason = formatContentTypeDraftParseFailureReason(
+        context.contentType,
+        response.output_parsed ?? null,
+      );
+
       logGenerationValidationFailure(
         buildValidationFailureLog({
           contentType: context.contentType,
           validationStage: "openai_parse",
           issueCodes: ["SCHEMA_VALIDATION_FAILED"],
-          reason: "Generated output failed validation.",
+          reason: parseFailureReason,
         }),
       );
 
       return {
         draft: null,
         usage,
-        error: "Generated output failed validation.",
+        error: parseFailureReason,
       };
     }
 
