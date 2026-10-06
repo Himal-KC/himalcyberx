@@ -18,6 +18,7 @@ import {
   buildResumableAgentRunSummary,
   buildResearchResultFromPersistedRun,
   buildResumedAgentRunResult,
+  getRunLinkedContentId,
   isValidAgentRunId,
   mapAgentSourceToResearchSource,
   selectAutoRestoreAgentRunId,
@@ -26,6 +27,7 @@ import {
   type LinkedContentRecord,
   type ResumableAgentRunSummary,
   type ResumedAgentRunResult,
+  validateResearchStageAgentRunInput,
   validateResumeAgentRunInput,
 } from "@/lib/agent/resume/resume-core";
 import {
@@ -167,6 +169,62 @@ export async function loadResumableAgentRunSummaries(
   return { data: summaries, error: null };
 }
 
+async function hydrateResearchStageAgentRun(
+  supabase: AdminSupabase,
+  run: AgentRun,
+): Promise<
+  | { ok: true; hydration: AgentRunPageHydration }
+  | { ok: false; error: string }
+> {
+  const validation = validateResearchStageAgentRunInput({
+    agentRunId: run.id,
+    run,
+  });
+
+  if (!validation.valid) {
+    return { ok: false, error: validation.error };
+  }
+
+  const payload = parsePersistedResearchPayload(run.research_payload);
+  if (!payload) {
+    return { ok: false, error: "Research evidence is insufficient." };
+  }
+
+  const sourcesResult = await getAgentSources(supabase, run.id);
+  const research = buildResearchResultFromPersistedRun({
+    run,
+    payload,
+    sources: (sourcesResult.data ?? []).map(mapAgentSourceToResearchSource),
+  });
+
+  const presentation = buildAgentRunAdminPresentationFromRun({
+    run,
+    contentId: run.id,
+    contentStatus: null,
+    research: {
+      researchQuality: research.researchQuality,
+      researchConfidence: research.researchConfidence,
+    },
+    review: null,
+    readiness: null,
+    publish: null,
+  });
+
+  return {
+    ok: true,
+    hydration: {
+      agentRunId: run.id,
+      phase: "research",
+      resumed: null,
+      research,
+      contentAwareness: payload.contentAwareness ?? null,
+      presentation,
+      applicableArticleCategory: null,
+      linkedArticleCategoryId: null,
+    },
+  };
+}
+
 async function hydratePersistedAgentRun(
   supabase: AdminSupabase,
   agentRunId: string,
@@ -176,9 +234,16 @@ async function hydratePersistedAgentRun(
 > {
   const trimmedRunId = agentRunId.trim();
   const loadedRun = await getAgentRun(supabase, trimmedRunId);
-  const linkedContent = loadedRun.data
-    ? await loadLinkedContentRecord(supabase, loadedRun.data)
-    : null;
+
+  if (!loadedRun.data) {
+    return { ok: false, error: "Unable to load agent research run." };
+  }
+
+  if (!getRunLinkedContentId(loadedRun.data)) {
+    return hydrateResearchStageAgentRun(supabase, loadedRun.data);
+  }
+
+  const linkedContent = await loadLinkedContentRecord(supabase, loadedRun.data);
   const reviewContext = await loadReviewRunContext(supabase, trimmedRunId);
 
   const validation = validateResumeAgentRunInput({
@@ -380,6 +445,7 @@ async function hydratePersistedAgentRun(
     ok: true,
     hydration: {
       agentRunId: run.id,
+      phase: "draft_workflow",
       resumed,
       research,
       contentAwareness: payload.contentAwareness ?? null,
@@ -481,6 +547,16 @@ export async function resumePersistedAgentRun(
   const outcome = await hydratePersistedAgentRun(supabase, agentRunId);
   if (!outcome.ok) {
     return outcome;
+  }
+
+  if (
+    outcome.hydration.phase !== "draft_workflow" ||
+    !outcome.hydration.resumed
+  ) {
+    return {
+      ok: false,
+      error: "No draft exists for this research run.",
+    };
   }
 
   return {

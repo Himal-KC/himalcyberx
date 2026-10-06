@@ -56,14 +56,61 @@ export interface ResumedAgentRunResult {
   phase5DeterministicCleanup: DeterministicCleanupUiState | null;
 }
 
+export type AgentRunHydrationPhase = "research" | "draft_workflow";
+
 export interface AgentRunPageHydration {
   agentRunId: string;
-  resumed: ResumedAgentRunResult;
+  phase: AgentRunHydrationPhase;
+  resumed: ResumedAgentRunResult | null;
   research: ResearchResult;
   contentAwareness: ContentAwarenessResult | null;
   presentation: import("../status/presentation-core").AgentRunAdminPresentation;
   applicableArticleCategory: RecommendedCategory | null;
   linkedArticleCategoryId: string | null;
+}
+
+export function resolveAgentRunHydrationPhase(
+  run: AgentRun,
+): AgentRunHydrationPhase | null {
+  if (isResumableAgentRun(run)) {
+    return "draft_workflow";
+  }
+
+  if (runHasPersistedResearch(run) && !runHasLinkedDraft(run)) {
+    return "research";
+  }
+
+  return null;
+}
+
+export function validateResearchStageAgentRunInput(input: {
+  agentRunId: string;
+  run: AgentRun | null;
+}): { valid: true } | { valid: false; error: string } {
+  if (!isValidAgentRunId(input.agentRunId)) {
+    return { valid: false, error: "Invalid agent run ID." };
+  }
+
+  if (!input.run) {
+    return { valid: false, error: "Unable to load agent research run." };
+  }
+
+  if (input.run.id !== input.agentRunId.trim()) {
+    return { valid: false, error: "Agent run ID mismatch." };
+  }
+
+  if (!runHasPersistedResearch(input.run)) {
+    return { valid: false, error: "Research evidence is insufficient." };
+  }
+
+  if (runHasLinkedDraft(input.run)) {
+    return {
+      valid: false,
+      error: "Use draft workflow hydration for runs with linked drafts.",
+    };
+  }
+
+  return { valid: true };
 }
 
 export type AgentRunPageQuery = {

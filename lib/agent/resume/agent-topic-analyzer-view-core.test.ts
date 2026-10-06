@@ -14,51 +14,72 @@ describe("Agent topic analyzer view", () => {
   it("shows fresh topic workflow in explicit new-run mode with resume list still available", () => {
     const view = viewCore.resolveAgentTopicAnalyzerView({
       startNew: true,
-      hasInitialHydration: false,
+      hydrationPhase: "none",
       resumableRunCount: 2,
     });
 
     assert.equal(view.showNewTopicWorkflow, true);
     assert.equal(view.showActiveRunWorkflow, false);
+    assert.equal(view.showRestoredResearchWorkflow, false);
     assert.equal(view.showResumeRunsPanel, true);
     assert.equal(view.newTopicWorkflowFirst, true);
   });
 
-  it("hides topic workflow while a restored active run is on screen", () => {
+  it("hides topic workflow while a restored draft workflow run is on screen", () => {
     const view = viewCore.resolveAgentTopicAnalyzerView({
       startNew: false,
-      hasInitialHydration: true,
+      hydrationPhase: "draft_workflow",
       resumableRunCount: 2,
     });
 
     assert.equal(view.showNewTopicWorkflow, false);
     assert.equal(view.showActiveRunWorkflow, true);
+    assert.equal(view.showRestoredResearchWorkflow, false);
     assert.equal(view.newTopicWorkflowFirst, false);
   });
 
-  it("keeps new-run workflow visible even if hydration were stale while startNew is true", () => {
+  it("shows restored research workflow after reload of a research-stage run without a draft", () => {
+    const view = viewCore.resolveAgentTopicAnalyzerView({
+      startNew: false,
+      hydrationPhase: "research",
+      resumableRunCount: 2,
+    });
+
+    assert.equal(view.showNewTopicWorkflow, false);
+    assert.equal(view.showActiveRunWorkflow, false);
+    assert.equal(view.showRestoredResearchWorkflow, true);
+  });
+
+  it("keeps new-run workflow visible while startNew is true", () => {
     const view = viewCore.resolveAgentTopicAnalyzerView({
       startNew: true,
-      hasInitialHydration: true,
+      hydrationPhase: "draft_workflow",
       resumableRunCount: 2,
     });
 
     assert.equal(view.showNewTopicWorkflow, true);
     assert.equal(view.showActiveRunWorkflow, false);
+    assert.equal(view.showRestoredResearchWorkflow, false);
   });
 
-  it("requires the topic analyzer to gate the rendered new-run workflow on view state", () => {
+  it("requires the topic analyzer to render restored research results for research hydration", () => {
     const analyzerSource = readFileSync(
       join(testDir, "../../../components/admin/agent/AgentTopicAnalyzer.tsx"),
       "utf8",
     );
 
     assert.match(analyzerSource, /resolveAgentTopicAnalyzerView/);
+    assert.match(analyzerSource, /view\.showRestoredResearchWorkflow/);
+    assert.match(
+      analyzerSource,
+      /showRestoredResearchWorkflow[\s\S]{0,200}AgentResearchResults/,
+    );
     assert.match(analyzerSource, /view\.showNewTopicWorkflow/);
     assert.match(analyzerSource, /view\.newTopicWorkflowFirst/);
     assert.ok(viewCore.newRunWorkflowMarkerPresent(analyzerSource));
-
-    assert.match(analyzerSource, /view\.showNewTopicWorkflow/);
-    assert.match(analyzerSource, /view\.newTopicWorkflowFirst/);
+    assert.doesNotMatch(
+      analyzerSource,
+      /hydrationError[\s\S]{0,120}No draft exists for this research run/,
+    );
   });
 });

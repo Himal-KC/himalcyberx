@@ -4,7 +4,15 @@ import Link from "next/link";
 import { AgentApplyCategoryPanel } from "@/components/admin/agent/AgentApplyCategoryPanel";
 import { AgentResearchResults } from "@/components/admin/agent/AgentResearchResults";
 import { AgentReviewPanel } from "@/components/admin/agent/AgentReviewPanel";
-import type { AgentRunPageHydration } from "@/lib/agent/resume/resume-core";
+import type {
+  AgentRunPageHydration,
+  ResumedAgentRunResult,
+} from "@/lib/agent/resume/resume-core";
+
+type DraftWorkflowHydration = AgentRunPageHydration & {
+  phase: "draft_workflow";
+  resumed: ResumedAgentRunResult;
+};
 import type { StatusPresentationTone } from "@/lib/agent/status/presentation";
 import { contentTypeAdminLabel } from "@/lib/agent/status/presentation";
 import { focusRing } from "@/lib/page-data";
@@ -27,7 +35,7 @@ function summaryToneClass(tone: StatusPresentationTone): string {
 export function AgentActiveRunWorkflow({
   hydration,
 }: {
-  hydration: AgentRunPageHydration;
+  hydration: DraftWorkflowHydration;
 }) {
   const resumed = hydration.resumed;
   const presentation = hydration.presentation;

@@ -21,7 +21,9 @@ const {
   parseAgentRunPageSearchParams,
   selectAutoRestoreAgentRunId,
   shouldAutoRedirectToHydratedRun,
+  resolveAgentRunHydrationPhase,
   validateContentBelongsToRun,
+  validateResearchStageAgentRunInput,
   validateResumeAgentRunInput,
 } = (await import(pathToFileURL(join(testDir, "resume-core.ts")).href)) as typeof import("./resume-core");
 
@@ -241,6 +243,39 @@ describe("Agent run resume core", () => {
     assert.equal(resumed.agentRunId, VALID_RUN_ID);
   });
 
+  it("classifies research-stage runs without drafts separately from draft workflow runs", () => {
+    const researchOnly = buildRun({
+      content_type: "article",
+      stage: "planning",
+      status: "ready",
+      article_id: null,
+    });
+    const withDraft = buildRun({
+      content_type: "article",
+      article_id: VALID_ARTICLE_ID,
+    });
+
+    assert.equal(resolveAgentRunHydrationPhase(researchOnly), "research");
+    assert.equal(resolveAgentRunHydrationPhase(withDraft), "draft_workflow");
+    assert.equal(
+      validateResearchStageAgentRunInput({
+        agentRunId: VALID_RUN_ID,
+        run: researchOnly,
+      }).valid,
+      true,
+    );
+    assert.equal(
+      validateResumeAgentRunInput({
+        agentRunId: VALID_RUN_ID,
+        run: researchOnly,
+        content: null,
+        hasResearchPayload: true,
+        hasDraftSnapshot: false,
+      }).valid,
+      false,
+    );
+  });
+
   it("rejects runs without persisted research payload", () => {
     const run = buildRun({
       content_type: "article",
@@ -324,7 +359,7 @@ describe("Agent run switch navigation", () => {
     );
     assert.match(
       analyzerSource,
-      /AgentResumeRuns[\s\S]{0,200}AgentActiveRunWorkflow/,
+      /AgentResumeRuns[\s\S]{0,800}AgentActiveRunWorkflow/,
     );
 
     const pageSource = readFileSync(
@@ -342,6 +377,7 @@ describe("Agent run switch navigation", () => {
     const resumeSource = readFileSync(join(testDir, "resume-run.ts"), "utf8");
     assert.match(resumeSource, /resolveAgentPageHydration/);
     assert.match(resumeSource, /if \(input\.startNew\)/);
+    assert.match(resumeSource, /hydrateResearchStageAgentRun/);
     assert.match(resumeSource, /hydratePersistedAgentRun/);
     assert.doesNotMatch(
       resumeSource,

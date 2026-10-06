@@ -191,9 +191,16 @@ export function AgentTopicAnalyzer({
     });
   }, [researchState.success, researchState.research?.agentRunId, router]);
 
+  const hydrationPhase =
+    initialHydration?.phase === "research"
+      ? "research"
+      : initialHydration?.phase === "draft_workflow"
+        ? "draft_workflow"
+        : "none";
+
   const view = resolveAgentTopicAnalyzerView({
     startNew,
-    hasInitialHydration: initialHydration != null,
+    hydrationPhase,
     resumableRunCount: resumableRuns.length,
   });
 
@@ -414,8 +421,24 @@ export function AgentTopicAnalyzer({
         <AgentResumeRuns runs={resumableRuns} activeRunId={activeRunId} />
       ) : null}
 
-      {view.showActiveRunWorkflow && initialHydration ? (
-        <AgentActiveRunWorkflow hydration={initialHydration} />
+      {view.showRestoredResearchWorkflow && initialHydration ? (
+        <AgentResearchResults
+          research={initialHydration.research}
+          showGenerateDraft
+          hasLinkedDraft={false}
+        />
+      ) : null}
+
+      {view.showActiveRunWorkflow &&
+      initialHydration?.phase === "draft_workflow" &&
+      initialHydration.resumed ? (
+        <AgentActiveRunWorkflow
+          hydration={{
+            ...initialHydration,
+            phase: "draft_workflow",
+            resumed: initialHydration.resumed,
+          }}
+        />
       ) : null}
 
       {!view.newTopicWorkflowFirst ? newTopicWorkflow : null}
