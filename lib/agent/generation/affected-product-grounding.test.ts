@@ -177,3 +177,89 @@ describe("affected product grounding", () => {
     assert.match(reason, /affected product "NetScaler ADC"/);
   });
 });
+
+describe("affected product extraction lead-ins", () => {
+  const verifiedNetScaler = [
+    kevProductClaim("Citrix — NetScaler"),
+    {
+      id: "claim-topic-cve",
+      type: "exploitation_status" as const,
+      statement: `${CVE_ID} is listed in the CISA Known Exploited Vulnerabilities catalog.`,
+      sources: [{ url: "https://www.cisa.gov/kev", title: "CISA KEV" }],
+      confidence: "high" as const,
+      relevanceLevel: "high" as const,
+    },
+  ];
+
+  it("passes when draft mirrors KEV phrasing: affected product as Citrix NetScaler", () => {
+    const sentence =
+      "CISA KEV identifies the affected product as Citrix NetScaler for active remediation.";
+    const audit = auditProductSentence(sentence, verifiedNetScaler);
+
+    assert.equal(audit.passed, true, audit.unsupportedClaims.join(", "));
+    assert.equal(
+      productGrounding.normalizeAffectedProductSegment("as Citrix NetScaler"),
+      "citrix netscaler",
+    );
+  });
+
+  it("passes identified-as and such-as phrasing when Citrix NetScaler is verified", () => {
+    assert.equal(
+      auditProductSentence(
+        `${CVE_ID} impacts products identified as Citrix NetScaler.`,
+        verifiedNetScaler,
+      ).passed,
+      true,
+    );
+    assert.equal(
+      auditProductSentence(
+        `${CVE_ID} affects platforms such as Citrix NetScaler.`,
+        verifiedNetScaler,
+      ).passed,
+      true,
+    );
+  });
+
+  it("fails as Citrix NetScaler Gateway when Gateway is not independently verified", () => {
+    const audit = auditProductSentence(
+      "The affected product as Citrix NetScaler Gateway requires urgent patching.",
+      verifiedNetScaler,
+    );
+
+    assert.equal(audit.passed, false);
+    assert.ok(
+      audit.unsupportedClaims.some((claim) =>
+        claim.includes("affected_product"),
+      ),
+    );
+  });
+
+  it("fails unrelated products even with an as lead-in", () => {
+    assert.equal(
+      auditProductSentence(
+        "The affected product as Microsoft Exchange is referenced in vendor guidance.",
+        verifiedNetScaler,
+      ).passed,
+      false,
+    );
+  });
+
+  it("keeps ADC alias behavior and unsupported Gateway strictness", () => {
+    const adcClaims = [
+      nvdProductClaim("citrix netscaler_application_delivery_controller"),
+    ];
+
+    assert.equal(
+      auditProductSentence(`${CVE_ID} affects Citrix NetScaler ADC.`, adcClaims)
+        .passed,
+      true,
+    );
+    assert.equal(
+      auditProductSentence(
+        `${CVE_ID} affects Citrix NetScaler Gateway.`,
+        adcClaims,
+      ).passed,
+      false,
+    );
+  });
+});

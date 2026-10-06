@@ -31,7 +31,7 @@ const KEV_ADDED_DATE_PATTERN =
 const KEV_NEGATION_PATTERN =
   /\b(not|no longer|isn't|aren't|wasn't|weren't)\b[^.]{0,80}\b(kev|known exploited vulnerabilities)\b/i;
 const AFFECTED_PRODUCT_PATTERN =
-  /\b(?:affects?|impacts?|vulnerable in|affected product(?:s)?(?:\s+(?:include|is|are))?|affected versions?(?:\s+(?:include|are))?)\s+([^.;]+)/i;
+  /\b(?:affects?|impacts?|vulnerable in|affected product(?:s)?(?:\s+(?:include|is|are|as))?|affected versions?(?:\s+(?:include|are|as))?)\s+([^.;]+)/i;
 const FACTUAL_CLAIM_INDICATORS =
   /\b(?:cvss|(?:cisa )?kev|known exploited vulnerabilities|actively exploited|exploited in(?: the)? wild|base score|severity(?:\s+is|\s+of|\s+rated)?|affects?|impacts?|vulnerable(?:\s+to|\s+in|\s+systems)?|(?:apply|install)\s+(?:patch|update)\s+kb|listed in (?:the )?cisa|added to (?:the )?(?:cisa )?(?:known exploited|kev)|not in (?:the )?(?:cisa )?kev|remediation|mitigation)\b/i;
 const INTERNAL_LINK_REFERENCE_INDICATORS =

@@ -39,13 +39,56 @@ export function splitAffectedProductSegments(value: string): string[] {
   return segments;
 }
 
+const AFFECTED_PRODUCT_EXTRACTION_LEAD_INS: RegExp[] = [
+  /^products?\s+identified\s+as\s+/i,
+  /^products?\s+such\s+as\s+/i,
+  /^products?\s+including\s+/i,
+  /^platforms?\s+such\s+as\s+/i,
+  /^systems?\s+such\s+as\s+/i,
+  /^such\s+as\s+/i,
+  /^including\s+/i,
+  /^identified\s+as\s+/i,
+  /^known\s+as\s+/i,
+  /^as\s+/i,
+];
+
+const AFFECTED_PRODUCT_EXTRACTION_TRAILERS: RegExp[] = [
+  /\s+for\s+active\s+(?:remediation|mitigation|patching)\.?$/i,
+  /\s+under\s+active\s+(?:remediation|mitigation|patching)\.?$/i,
+];
+
+export function stripAffectedProductExtractionLeadIn(segment: string): string {
+  let result = segment.trim();
+
+  for (let pass = 0; pass < AFFECTED_PRODUCT_EXTRACTION_LEAD_INS.length; pass += 1) {
+    let changed = false;
+    for (const pattern of AFFECTED_PRODUCT_EXTRACTION_LEAD_INS) {
+      const stripped = result.replace(pattern, "").trim();
+      if (stripped !== result) {
+        result = stripped;
+        changed = true;
+      }
+    }
+    if (!changed) {
+      break;
+    }
+  }
+
+  return result;
+}
+
 export function normalizeAffectedProductSegment(segment: string): string {
-  let normalized = normalizeProduct(segment);
+  let normalized = normalizeProduct(
+    stripAffectedProductExtractionLeadIn(segment),
+  );
   normalized = normalized.replace(
     /\s*\((?:adc|application delivery controller)\)/gi,
     "",
   );
   normalized = normalized.replace(/\s+(?:deployments|appliances|systems)$/i, "");
+  for (const pattern of AFFECTED_PRODUCT_EXTRACTION_TRAILERS) {
+    normalized = normalized.replace(pattern, "");
+  }
   return normalized.trim();
 }
 
