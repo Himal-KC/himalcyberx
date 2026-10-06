@@ -13,6 +13,7 @@ import {
   type AgentTopicAnalysisMatch,
   type AnalyzeAgentTopicState,
 } from "@/lib/actions/agent";
+import { resolveAgentTopicAnalyzerView } from "@/lib/agent/resume/agent-topic-analyzer-view-core";
 import type {
   AgentRunPageHydration,
   ResumableAgentRunSummary,
@@ -190,7 +191,11 @@ export function AgentTopicAnalyzer({
     });
   }, [researchState.success, researchState.research?.agentRunId, router]);
 
-  const showNewTopicFlow = startNew || !initialHydration;
+  const view = resolveAgentTopicAnalyzerView({
+    startNew,
+    hasInitialHydration: initialHydration != null,
+    resumableRunCount: resumableRuns.length,
+  });
 
   const analyzedContentType = analysisState.contentType ?? contentType;
   const analyzedLabel =
@@ -200,42 +205,8 @@ export function AgentTopicAnalyzer({
   const canContinueResearch =
     analysisState.success === true && analysisState.safeToContinue !== false;
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {initialHydration || resumableRuns.length > 0 ? (
-          <button
-            type="button"
-            onClick={navigateToNewAgentRun}
-            className={`inline-flex items-center rounded-lg border border-hcx-border px-4 py-2 text-sm font-semibold text-hcx-text hover:bg-hcx-bg/60 ${focusRing}`}
-          >
-            New Agent Run
-          </button>
-        ) : null}
-        {activeRunId ? (
-          <p className="text-xs text-hcx-text-secondary">
-            Active run restored from persisted state.
-          </p>
-        ) : null}
-      </div>
-
-      {hydrationError ? (
-        <div className="rounded-lg border border-hcx-orange/30 bg-hcx-orange/5 p-4 text-sm text-hcx-orange">
-          {hydrationError}
-        </div>
-      ) : null}
-
-      <AgentResumeRuns
-        runs={resumableRuns}
-        activeRunId={activeRunId}
-      />
-
-      {initialHydration && !startNew ? (
-        <AgentActiveRunWorkflow hydration={initialHydration} />
-      ) : null}
-
-      {showNewTopicFlow ? (
-        <>
+  const newTopicWorkflow = view.showNewTopicWorkflow ? (
+    <>
       <form action={analyzeAction} className="space-y-6">
         <section className="rounded-xl border border-hcx-border bg-hcx-card p-6 sm:p-8">
           <h2 className="text-lg font-semibold text-hcx-text">
@@ -409,8 +380,45 @@ export function AgentTopicAnalyzer({
           research={researchState.research}
         />
       ) : null}
-        </>
+    </>
+  ) : null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {view.showNewAgentRunButton ? (
+          <button
+            type="button"
+            onClick={navigateToNewAgentRun}
+            className={`inline-flex items-center rounded-lg border border-hcx-border px-4 py-2 text-sm font-semibold text-hcx-text hover:bg-hcx-bg/60 ${focusRing}`}
+          >
+            New Agent Run
+          </button>
+        ) : null}
+        {activeRunId ? (
+          <p className="text-xs text-hcx-text-secondary">
+            Active run restored from persisted state.
+          </p>
+        ) : null}
+      </div>
+
+      {hydrationError ? (
+        <div className="rounded-lg border border-hcx-orange/30 bg-hcx-orange/5 p-4 text-sm text-hcx-orange">
+          {hydrationError}
+        </div>
       ) : null}
+
+      {view.newTopicWorkflowFirst ? newTopicWorkflow : null}
+
+      {view.showResumeRunsPanel ? (
+        <AgentResumeRuns runs={resumableRuns} activeRunId={activeRunId} />
+      ) : null}
+
+      {view.showActiveRunWorkflow && initialHydration ? (
+        <AgentActiveRunWorkflow hydration={initialHydration} />
+      ) : null}
+
+      {!view.newTopicWorkflowFirst ? newTopicWorkflow : null}
     </div>
   );
 }

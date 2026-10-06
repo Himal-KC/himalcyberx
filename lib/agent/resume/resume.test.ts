@@ -528,6 +528,11 @@ describe("Agent run refresh server contracts", () => {
       "utf8",
     );
     assert.match(analyzerSource, /useNavigateToNewAgentRun/);
+    const navSource = readFileSync(
+      join(testDir, "../../../components/admin/agent/agent-run-navigation.ts"),
+      "utf8",
+    );
+    assert.match(navSource, /window\.location\.assign/);
     assert.match(analyzerSource, /router\.replace\(`\/admin\/agent\?run=/);
     assert.match(analyzerSource, /AgentActiveRunWorkflow/);
     assert.match(analyzerSource, /initialHydration/);

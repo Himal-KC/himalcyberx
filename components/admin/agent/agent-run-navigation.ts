@@ -1,16 +1,11 @@
 "use client";
 
 import { useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { buildAgentRunNewTopicHref } from "@/lib/agent/resume/resume-core";
 
-/** Same navigation contract as resume-run switching: push URL then refresh RSC. */
+/** Full document navigation so ?new=1 always re-runs server hydration (avoids push/refresh races). */
 export function useNavigateToNewAgentRun() {
-  const router = useRouter();
-
   return useCallback(() => {
-    const href = buildAgentRunNewTopicHref();
-    router.push(href);
-    router.refresh();
-  }, [router]);
+    window.location.assign(buildAgentRunNewTopicHref());
+  }, []);
 }
