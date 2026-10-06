@@ -12,10 +12,17 @@ import {
   GA4_ADMIN_REPORT_DEFINITIONS,
 } from "@/lib/analytics/ga4-reports-core";
 import { resolveGa4AdminConfig } from "@/lib/analytics/ga4-service-account-core";
+import {
+  normalizePagePathPerformanceReport,
+  normalizeShareEventsByPagePathReport,
+} from "@/lib/analytics/recent-content-join-core";
 import type {
   AdminAnalyticsDashboardData,
   AdminAnalyticsShareMethodBreakdownStatus,
+  AdminAnalyticsSharePerContentStatus,
+  Ga4PagePathMetricsMap,
   Ga4ReportPayload,
+  Ga4ShareActionsByPathMap,
 } from "@/lib/analytics/ga4-types";
 
 type RunReportRequest =
@@ -30,6 +37,9 @@ export type Ga4DashboardFetchResult =
   | {
       ok: true;
       data: AdminAnalyticsDashboardData;
+      pagePathMetrics: Ga4PagePathMetricsMap;
+      shareActionsByPath: Ga4ShareActionsByPathMap;
+      sharePerContentStatus: AdminAnalyticsSharePerContentStatus;
       meta: Ga4DashboardFetchMeta;
     }
   | { ok: false; error: string };
@@ -66,6 +76,7 @@ function mapBatchReports(
     devices30d,
     countries30d,
     shareEventsTotal30d,
+    pagePathPerformance30d,
   ] = reports;
 
   return {
@@ -78,6 +89,7 @@ function mapBatchReports(
     countries30d,
     shareEventsTotal30d,
     shareEventsByMethod30d,
+    pagePathPerformance30d,
   };
 }
 
@@ -87,30 +99,52 @@ function cloneReportRequest(
   return structuredClone(request) as RunReportRequest;
 }
 
-async function fetchShareMethodBreakdownReport(
+async function fetchShareOptionalReports(
   client: BetaAnalyticsDataClient,
   property: string,
 ): Promise<{
-  payload: Ga4ReportPayload | null;
-  status: AdminAnalyticsShareMethodBreakdownStatus;
+  shareEventsByMethod30d: Ga4ReportPayload | null;
+  shareMethodBreakdownStatus: AdminAnalyticsShareMethodBreakdownStatus;
+  shareActionsByPath: Ga4ShareActionsByPathMap;
+  sharePerContentStatus: AdminAnalyticsSharePerContentStatus;
 }> {
   try {
-    const methodResult = await client.batchRunReports({
+    const optionalResult = await client.batchRunReports({
       property,
-      requests: [cloneReportRequest(GA4_ADMIN_REPORT_DEFINITIONS.shareEventsByMethod30d)],
+      requests: [
+        cloneReportRequest(GA4_ADMIN_REPORT_DEFINITIONS.shareEventsByMethod30d),
+        cloneReportRequest(GA4_ADMIN_REPORT_DEFINITIONS.shareEventsByPagePath30d),
+      ],
     });
 
-    const report = methodResult[0]?.reports?.[0];
-    if (!report) {
-      return { payload: null, status: "unavailable" };
+    const reports = optionalResult[0]?.reports ?? [];
+    if (reports.length !== 2) {
+      return {
+        shareEventsByMethod30d: null,
+        shareMethodBreakdownStatus: "unavailable",
+        shareActionsByPath: {},
+        sharePerContentStatus: "unavailable",
+      };
     }
 
+    const methodPayload = toReportPayload(reports[0]);
+    const pagePathPayload = toReportPayload(reports[1]);
+
     return {
-      payload: toReportPayload(report),
-      status: "available",
+      shareEventsByMethod30d: methodPayload,
+      shareMethodBreakdownStatus: "available",
+      shareActionsByPath: normalizeShareEventsByPagePathReport(
+        pagePathPayload.rows,
+      ),
+      sharePerContentStatus: "available",
     };
   } catch {
-    return { payload: null, status: "not_configured" };
+    return {
+      shareEventsByMethod30d: null,
+      shareMethodBreakdownStatus: "not_configured",
+      shareActionsByPath: {},
+      sharePerContentStatus: "unavailable",
+    };
   }
 }
 
@@ -137,6 +171,7 @@ export async function fetchGa4AdminDashboardUncached(): Promise<Ga4DashboardFetc
     devices30d,
     countries30d,
     shareEventsTotal30d,
+    pagePathPerformance30d,
   } = GA4_ADMIN_REPORT_DEFINITIONS;
 
   const batchOneRequests: RunReportRequest[] = [
@@ -151,6 +186,7 @@ export async function fetchGa4AdminDashboardUncached(): Promise<Ga4DashboardFetc
     cloneReportRequest(devices30d),
     cloneReportRequest(countries30d),
     cloneReportRequest(shareEventsTotal30d),
+    cloneReportRequest(pagePathPerformance30d),
   ];
 
   try {
@@ -166,31 +202,38 @@ export async function fetchGa4AdminDashboardUncached(): Promise<Ga4DashboardFetc
     const batchOneReports = batchOneResult[0]?.reports ?? [];
     const batchTwoReports = batchTwoResult[0]?.reports ?? [];
 
-    if (batchOneReports.length !== 5 || batchTwoReports.length !== 3) {
+    if (batchOneReports.length !== 5 || batchTwoReports.length !== 4) {
       return {
         ok: false,
         error: "Analytics response was incomplete. Try again later.",
       };
     }
 
-    const shareMethodResult = await fetchShareMethodBreakdownReport(
-      client,
-      property,
-    );
+    const shareOptionalResult = await fetchShareOptionalReports(client, property);
 
     const payloads: Ga4ReportPayload[] = [
       ...batchOneReports.map((report) => toReportPayload(report)),
       ...batchTwoReports.map((report) => toReportPayload(report)),
     ];
 
-    const data = buildAdminAnalyticsDashboardData(
-      mapBatchReports(payloads, shareMethodResult.payload),
-      { shareMethodBreakdownStatus: shareMethodResult.status },
+    const reportSet = mapBatchReports(
+      payloads,
+      shareOptionalResult.shareEventsByMethod30d,
     );
+    const pagePathMetrics = normalizePagePathPerformanceReport(
+      reportSet.pagePathPerformance30d?.rows,
+    );
+
+    const data = buildAdminAnalyticsDashboardData(reportSet, {
+      shareMethodBreakdownStatus: shareOptionalResult.shareMethodBreakdownStatus,
+    });
 
     return {
       ok: true,
       data,
+      pagePathMetrics,
+      shareActionsByPath: shareOptionalResult.shareActionsByPath,
+      sharePerContentStatus: shareOptionalResult.sharePerContentStatus,
       meta: {
         batchHttpRequestCount: GA4_ADMIN_MAX_BATCH_HTTP_REQUEST_COUNT,
         reportCount: GA4_ADMIN_MAX_REPORT_COUNT,

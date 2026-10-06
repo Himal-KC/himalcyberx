@@ -4,6 +4,7 @@ import {
   parseGa4MetricInt,
 } from "./ga4-format-core.ts";
 import { filterPublicContentPaths } from "./ga4-path-core.ts";
+import { createEmptyRecentContentPerformance } from "./recent-content-default-core.ts";
 import { buildShareEngagementSummary } from "./ga4-share-normalize-core.ts";
 import type {
   AdminAnalyticsAverageEngagement,
@@ -145,6 +146,7 @@ export interface Ga4BatchReportSet {
   countries30d: Ga4ReportPayload | null | undefined;
   shareEventsTotal30d: Ga4ReportPayload | null | undefined;
   shareEventsByMethod30d: Ga4ReportPayload | null | undefined;
+  pagePathPerformance30d: Ga4ReportPayload | null | undefined;
 }
 
 export interface BuildAdminAnalyticsDashboardOptions {
@@ -184,5 +186,6 @@ export function buildAdminAnalyticsDashboardData(
       methodReport: reports.shareEventsByMethod30d,
       methodBreakdownStatus: options.shareMethodBreakdownStatus,
     }),
+    recentContentPerformance: createEmptyRecentContentPerformance(),
   };
 }

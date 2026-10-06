@@ -132,6 +132,7 @@ describe("Phase 2 dashboard normalization regression", () => {
         countries30d: { rows: [] },
         shareEventsTotal30d: { rows: [{ metricValues: [{ value: "0" }] }] },
         shareEventsByMethod30d: { rows: [] },
+        pagePathPerformance30d: { rows: [] },
       },
       { shareMethodBreakdownStatus: "available" },
     );

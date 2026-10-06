@@ -1,6 +1,9 @@
 /** GA4 Data API report definitions (portable, no SDK import). */
 
-import { GA4_SHARE_METHOD_DIMENSION } from "./ga4-share-dimension-core.ts";
+import {
+  GA4_SHARE_METHOD_DIMENSION,
+  GA4_SHARE_PAGE_PATH_DIMENSION,
+} from "./ga4-share-dimension-core.ts";
 
 export const GA4_SHARE_EVENT_NAME_FILTER = {
   filter: {
@@ -106,23 +109,40 @@ export const GA4_ADMIN_REPORT_DEFINITIONS = {
     ],
     limit: 10,
   },
+  pagePathPerformance30d: {
+    dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
+    dimensions: [{ name: "pagePath" }],
+    metrics: [{ name: "screenPageViews" }, { name: "userEngagementDuration" }],
+    dimensionFilter: GA4_ADMIN_PUBLIC_PATH_FILTER,
+    limit: 500,
+  },
+  shareEventsByPagePath30d: {
+    dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
+    dimensions: [{ name: GA4_SHARE_PAGE_PATH_DIMENSION }],
+    metrics: [{ name: "eventCount" }],
+    dimensionFilter: GA4_SHARE_EVENT_NAME_FILTER,
+    limit: 500,
+  },
 };
 
 /** Required reports in the two primary batchRunReports calls. */
-export const GA4_ADMIN_BATCH_REPORT_COUNT = 8;
+export const GA4_ADMIN_BATCH_REPORT_COUNT = 9;
 
 /** Primary batchRunReports HTTP calls (always executed on cache miss). */
 export const GA4_ADMIN_BATCH_HTTP_REQUEST_COUNT = 2;
 
-/** Optional third batchRunReports call for share method breakdown. */
-export const GA4_ADMIN_OPTIONAL_SHARE_METHOD_BATCH_HTTP_REQUEST_COUNT = 1;
+/** Optional third batchRunReports call (share method + share page_path). */
+export const GA4_ADMIN_OPTIONAL_SHARE_BATCH_HTTP_REQUEST_COUNT = 1;
 
-export const GA4_ADMIN_OPTIONAL_SHARE_METHOD_REPORT_COUNT = 1;
+export const GA4_ADMIN_OPTIONAL_SHARE_BATCH_REPORT_COUNT = 2;
 
 export const GA4_ADMIN_MAX_BATCH_HTTP_REQUEST_COUNT =
   GA4_ADMIN_BATCH_HTTP_REQUEST_COUNT +
-  GA4_ADMIN_OPTIONAL_SHARE_METHOD_BATCH_HTTP_REQUEST_COUNT;
+  GA4_ADMIN_OPTIONAL_SHARE_BATCH_HTTP_REQUEST_COUNT;
 
 export const GA4_ADMIN_MAX_REPORT_COUNT =
   GA4_ADMIN_BATCH_REPORT_COUNT +
-  GA4_ADMIN_OPTIONAL_SHARE_METHOD_REPORT_COUNT;
+  GA4_ADMIN_OPTIONAL_SHARE_BATCH_REPORT_COUNT;
+
+/** Supabase reads on an uncached admin analytics dashboard load. */
+export const GA4_ADMIN_RECENT_CONTENT_SUPABASE_QUERY_COUNT = 3;

@@ -150,6 +150,7 @@ describe("GA4 response normalization", () => {
         countries30d: { rows: [] },
         shareEventsTotal30d: { rows: [] },
         shareEventsByMethod30d: { rows: [] },
+        pagePathPerformance30d: { rows: [] },
       },
       { shareMethodBreakdownStatus: "available" },
     );
@@ -201,9 +202,9 @@ describe("GA4 formatting", () => {
 
 describe("GA4 dashboard request budget", () => {
   it("keeps primary batches bounded and documents optional share method batch", () => {
-    assert.equal(GA4_ADMIN_BATCH_REPORT_COUNT, 8);
+    assert.equal(GA4_ADMIN_BATCH_REPORT_COUNT, 9);
     assert.equal(GA4_ADMIN_BATCH_HTTP_REQUEST_COUNT, 2);
-    assert.equal(GA4_ADMIN_MAX_REPORT_COUNT, 9);
+    assert.equal(GA4_ADMIN_MAX_REPORT_COUNT, 11);
     assert.equal(GA4_ADMIN_MAX_BATCH_HTTP_REQUEST_COUNT, 3);
   });
 });

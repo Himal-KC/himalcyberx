@@ -1,15 +1,12 @@
 import { AnalyticsAverageEngagement } from "@/components/admin/analytics/AnalyticsAverageEngagement";
 import { AnalyticsBreakdown } from "@/components/admin/analytics/AnalyticsBreakdown";
 import { AnalyticsKpiGrid } from "@/components/admin/analytics/AnalyticsKpiGrid";
-import { AnalyticsPendingSectionPanel } from "@/components/admin/analytics/AnalyticsSectionPanel";
+import { AnalyticsRecentContentPerformance } from "@/components/admin/analytics/AnalyticsRecentContentPerformance";
 import { AnalyticsShareEngagement } from "@/components/admin/analytics/AnalyticsShareEngagement";
 import { AnalyticsTopContent } from "@/components/admin/analytics/AnalyticsTopContent";
 import { AnalyticsUnavailableBanner } from "@/components/admin/analytics/AnalyticsUnavailableBanner";
 import { AnalyticsViewsOverTime } from "@/components/admin/analytics/AnalyticsViewsOverTime";
-import {
-  ANALYTICS_CONSENT_NOTICE,
-  ANALYTICS_RECENT_CONTENT_PENDING,
-} from "@/lib/analytics/admin-dashboard-constants";
+import { ANALYTICS_CONSENT_NOTICE } from "@/lib/analytics/admin-dashboard-constants";
 import type { AdminAnalyticsLoadResult } from "@/lib/analytics/ga4-types";
 
 interface AnalyticsDashboardProps {
@@ -104,10 +101,8 @@ export function AnalyticsDashboard({ result }: AnalyticsDashboardProps) {
             />
           </div>
 
-          <AnalyticsPendingSectionPanel
-            title="Recent Content Performance"
-            description="Recently published content compared to baseline traffic."
-            pendingMessage={ANALYTICS_RECENT_CONTENT_PENDING}
+          <AnalyticsRecentContentPerformance
+            recentContent={result.data.recentContentPerformance}
           />
         </>
       )}

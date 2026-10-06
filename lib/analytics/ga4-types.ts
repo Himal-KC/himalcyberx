@@ -47,6 +47,58 @@ export interface AdminAnalyticsShareEngagement {
   methodBreakdownNotice?: string;
 }
 
+export interface Ga4PagePathMetrics {
+  views: number;
+  userEngagementDuration: number;
+}
+
+export type Ga4PagePathMetricsMap = Record<string, Ga4PagePathMetrics>;
+
+export type Ga4ShareActionsByPathMap = Record<string, number>;
+
+export type AdminAnalyticsRecentContentStatus =
+  | "ok"
+  | "cms_unavailable";
+
+export type AdminAnalyticsSharePerContentStatus =
+  | "available"
+  | "not_configured"
+  | "unavailable";
+
+export interface AdminAnalyticsRecentContentRow {
+  id: string;
+  title: string;
+  contentType: "article" | "tutorial" | "lab";
+  contentTypeLabel: string;
+  slug: string;
+  publicPath: string;
+  publishedAt: string;
+  publishedAtFormatted: string;
+  publishedRelative: string;
+  views: number;
+  avgEngagementSecondsPerView: number | null;
+  avgEngagementFormatted: string;
+  shareActions: number | null;
+}
+
+export interface AdminAnalyticsRecentContentPerformance {
+  periodDays: 30;
+  periodDescription: string;
+  status: AdminAnalyticsRecentContentStatus;
+  rows: AdminAnalyticsRecentContentRow[];
+  sharePerContentStatus: AdminAnalyticsSharePerContentStatus;
+  sharePerContentNotice?: string;
+}
+
+export interface RecentPublishedContentItem {
+  id: string;
+  title: string;
+  slug: string;
+  contentType: "article" | "tutorial" | "lab";
+  publishedAt: string;
+  publicPath: string;
+}
+
 export interface AdminAnalyticsDashboardData {
   kpis: AdminAnalyticsKpis;
   viewsOverTime: AdminAnalyticsDailyViews[];
@@ -56,6 +108,7 @@ export interface AdminAnalyticsDashboardData {
   devices: AdminAnalyticsBreakdownRow[];
   countries: AdminAnalyticsBreakdownRow[];
   shareEngagement: AdminAnalyticsShareEngagement;
+  recentContentPerformance: AdminAnalyticsRecentContentPerformance;
 }
 
 export type AdminAnalyticsLoadResult =
