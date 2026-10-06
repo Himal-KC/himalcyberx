@@ -199,9 +199,9 @@ export function AgentReviewPanel({
                 Deterministic cleanup available
               </p>
               <p className="mt-2 text-sm text-hcx-text-secondary">
-                Fix duplicate Key Takeaways and featured-image alt text without
-                another paid revision pass. Phase 5 will re-run afterward because
-                the draft fingerprint changes.
+                Fix duplicate Key Takeaways, featured-image alt text, or approved
+                internal links without another paid Safe Revision pass.{" "}
+                {phase5DeterministicCleanup.phase5ReviewNote}
               </p>
               {phase5DeterministicCleanup.previewSummary.length > 0 ? (
                 <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-hcx-text-secondary">
@@ -228,7 +228,13 @@ export function AgentReviewPanel({
           {cleanupState.success ? (
             <div className="rounded-lg border border-hcx-green/30 bg-hcx-green/5 p-4 text-sm text-hcx-green">
               <p className="font-semibold">Deterministic cleanup applied</p>
-              <p className="mt-1">Phase 5 re-run completed.</p>
+              <p className="mt-1">
+                {cleanupState.phase5ReviewRerun === false
+                  ? "Independent Review was not rerun; your existing review and acceptance still apply."
+                  : cleanupState.phase5ReviewRerun
+                    ? "Independent Review rerun completed."
+                    : "Run Final Readiness Check when you are ready to refresh Phase 7."}
+              </p>
               {cleanupState.changeSummary && cleanupState.changeSummary.length > 0 ? (
                 <ul className="mt-3 list-disc space-y-1 pl-5 text-hcx-text-secondary">
                   {cleanupState.changeSummary.map((item) => (

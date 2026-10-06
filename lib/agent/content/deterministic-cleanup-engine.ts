@@ -5,6 +5,7 @@ import {
   applyArticleDeterministicCleanup,
   articleNeedsDeterministicCleanup,
   deterministicCleanupFingerprintGateFailed,
+  deterministicCleanupRequiresIndependentPhase5Review,
   resolveFeaturedImageAltRepairBrief,
 } from "@/lib/agent/content/deterministic-cleanup-core";
 import type { ApprovedInternalCatalogItem } from "@/lib/agent/content/internal-link-cleanup-core";
@@ -19,8 +20,6 @@ import {
   contentTableForRevision,
 } from "@/lib/agent/review/revision-save-core";
 import { getAgentRun } from "@/lib/supabase/admin-agent";
-import { enforceRateLimit } from "@/lib/rate-limit";
-import { RATE_LIMIT_MESSAGES } from "@/lib/rate-limit/messages";
 import { createClient } from "@/lib/supabase/server";
 
 type AdminSupabase = Awaited<ReturnType<typeof createClient>>;
@@ -31,7 +30,8 @@ export type ApplyDeterministicCleanupOutcome =
       changeSummary: string[];
       previousFingerprint: string;
       revisedFingerprint: string;
-      review: RunReviewResult;
+      phase5ReviewRerun: boolean;
+      review: RunReviewResult | null;
     }
   | { ok: false; error: string };
 
@@ -42,11 +42,6 @@ export async function runDeterministicAgentDraftCleanup(input: {
 }): Promise<ApplyDeterministicCleanupOutcome> {
   noStore();
   const trimmedRunId = input.agentRunId.trim();
-
-  const allowed = await enforceRateLimit("agent-review", input.adminUserId);
-  if (!allowed) {
-    return { ok: false, error: RATE_LIMIT_MESSAGES.agentReview };
-  }
 
   const loadedRun = await getAgentRun(input.supabase, trimmedRunId);
   if (!loadedRun.data || loadedRun.error) {
@@ -184,6 +179,22 @@ export async function runDeterministicAgentDraftCleanup(input: {
     };
   }
 
+  if (
+    !deterministicCleanupRequiresIndependentPhase5Review({
+      previousFingerprint,
+      revisedFingerprint,
+    })
+  ) {
+    return {
+      ok: true,
+      changeSummary: cleanup.changeSummary,
+      previousFingerprint,
+      revisedFingerprint,
+      phase5ReviewRerun: false,
+      review: null,
+    };
+  }
+
   const reviewOutcome = await runAgentReview({
     supabase: input.supabase,
     agentRunId: trimmedRunId,
@@ -199,6 +210,7 @@ export async function runDeterministicAgentDraftCleanup(input: {
     changeSummary: cleanup.changeSummary,
     previousFingerprint,
     revisedFingerprint,
+    phase5ReviewRerun: true,
     review: reviewOutcome.result,
   };
 }

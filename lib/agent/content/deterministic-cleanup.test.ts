@@ -592,4 +592,112 @@ describe("deterministic draft cleanup", () => {
       /internalLinksChanged[\s\S]{0,120}Draft fingerprint did not change/,
     );
   });
+
+  it("does not require Independent Review when canonical fingerprint is unchanged after internal-link cleanup", () => {
+    const fingerprint = "c".repeat(64);
+    assert.equal(
+      cleanupCore.deterministicCleanupRequiresIndependentPhase5Review({
+        previousFingerprint: fingerprint,
+        revisedFingerprint: fingerprint,
+      }),
+      false,
+    );
+    assert.match(
+      engineSource,
+      /deterministicCleanupRequiresIndependentPhase5Review/,
+    );
+    assert.match(engineSource, /phase5ReviewRerun: false/);
+  });
+
+  it("requires Independent Review when canonical fingerprint changes after factual cleanup", () => {
+    const before = "d".repeat(64);
+    const after = "e".repeat(64);
+    assert.equal(
+      cleanupCore.deterministicCleanupRequiresIndependentPhase5Review({
+        previousFingerprint: before,
+        revisedFingerprint: after,
+      }),
+      true,
+    );
+  });
+
+  it("skips runAgentReview for fingerprint-neutral cleanup in the engine", () => {
+    const reviewCall = engineSource.indexOf("runAgentReview(");
+    const requiresCheck = engineSource.indexOf(
+      "deterministicCleanupRequiresIndependentPhase5Review",
+    );
+    assert.ok(requiresCheck > -1);
+    assert.ok(reviewCall > requiresCheck);
+    assert.doesNotMatch(
+      engineSource.slice(0, requiresCheck),
+      /enforceRateLimit\(\s*["']agent-review["']/,
+    );
+  });
+
+  it("marks preview as fingerprint-neutral when only alt text and internal links need cleanup", () => {
+    const ui = cleanupCore.buildDeterministicCleanupUiState({
+      draft: buildArticleDraft(
+        `<p>${"Body copy. ".repeat(20)} See Microsoft 365 Phishing Defense Guide here.</p>`,
+      ),
+      slug: SLUG,
+      featuredImage: FEATURED_URL,
+      featuredImageAlt: `${TITLE}: ${TITLE}…`,
+      approvedInternalCatalog: [
+        {
+          id: "00000000-0000-4000-8000-000000000030",
+          contentType: "article",
+          title: "Microsoft 365 Phishing Defense Guide",
+          slug: "microsoft-365-phishing-defense-guide",
+        },
+      ],
+    });
+
+    assert.equal(ui.phase5IndependentReviewRequired, false);
+    assert.match(ui.phase5ReviewNote, /stay valid/i);
+  });
+
+  it("marks preview as requiring Independent Review when Key Takeaways structure changes", () => {
+    const ui = cleanupCore.buildDeterministicCleanupUiState({
+      draft: buildArticleDraft(
+        `<p>Intro</p><h2>Key Takeaways</h2><ul><li>A</li></ul><h2>Key Takeaways</h2><ul><li>B</li></ul>`,
+      ),
+      slug: SLUG,
+      featuredImage: FEATURED_URL,
+      featuredImageAlt: altCore.repairFeaturedImageAltText({
+        title: TITLE,
+        slug: SLUG,
+        currentAlt: null,
+        visualConcept: "Enterprise cloud email security environment",
+        hasFeaturedImage: true,
+      }),
+    });
+
+    assert.equal(ui.phase5IndependentReviewRequired, true);
+    assert.match(ui.phase5ReviewNote, /will rerun/i);
+  });
+
+  it("invalidates human acceptance after a genuine canonical fingerprint change", () => {
+    const review = {
+      id: "00000000-0000-4000-8000-000000000099",
+      agentRunId: "00000000-0000-4000-8000-000000000001",
+      draftFingerprint: "f".repeat(64),
+    } as import("../review/types").AgentReviewRecord;
+
+    const acceptance = buildPhase5HumanReviewAcceptanceRecord({
+      agentRunId: "00000000-0000-4000-8000-000000000001",
+      review,
+      currentDraftFingerprint: review.draftFingerprint,
+      resolvedBy: "admin-user",
+    });
+
+    assert.equal(
+      isPhase5HumanAcceptanceCurrentlyValid({
+        acceptance,
+        agentRunId: "00000000-0000-4000-8000-000000000001",
+        review,
+        currentDraftFingerprint: "a".repeat(64),
+      }),
+      false,
+    );
+  });
 });

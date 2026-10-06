@@ -36,6 +36,19 @@ export function deterministicCleanupFingerprintGateFailed(input: {
   );
 }
 
+export function deterministicCleanupRequiresIndependentPhase5Review(input: {
+  previousFingerprint: string;
+  revisedFingerprint: string;
+}): boolean {
+  return input.previousFingerprint !== input.revisedFingerprint;
+}
+
+export function deterministicCleanupPreviewRequiresPhase5Review(input: {
+  draft: Extract<GeneratedDraft, { contentType: "article" }>;
+}): boolean {
+  return countKeyTakeawaysSections(input.draft.content) > 1;
+}
+
 export function articleNeedsDeterministicCleanup(input: {
   draft: Extract<GeneratedDraft, { contentType: "article" }>;
   slug: string;
@@ -155,6 +168,8 @@ export interface DeterministicCleanupUiState {
   canApply: boolean;
   reason: string;
   previewSummary: string[];
+  phase5IndependentReviewRequired: boolean;
+  phase5ReviewNote: string;
 }
 
 export function resolveFeaturedImageAltRepairBrief(input: {
@@ -256,11 +271,19 @@ export function buildDeterministicCleanupUiState(input: {
   }
 
   const canApply = previewSummary.length > 0;
+  const phase5IndependentReviewRequired = deterministicCleanupPreviewRequiresPhase5Review({
+    draft: input.draft,
+  });
+
   return {
     canApply,
     reason: canApply
       ? "Deterministic cleanup can resolve Phase 7 structure, alt-text, and internal-link presentation issues."
       : "No deterministic cleanup is needed for the current draft.",
     previewSummary,
+    phase5IndependentReviewRequired,
+    phase5ReviewNote: phase5IndependentReviewRequired
+      ? "Independent Review will rerun afterward because factual draft content changes."
+      : "Your current Independent Review and human acceptance stay valid; this cleanup only updates presentation (links or alt text).",
   };
 }

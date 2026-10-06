@@ -176,6 +176,7 @@ export interface ApplyDeterministicCleanupState {
   success?: boolean;
   error?: string;
   review?: RunReviewResult;
+  phase5ReviewRerun?: boolean;
   changeSummary?: string[];
   phase5DeterministicCleanup?: DeterministicCleanupUiState;
 }
@@ -646,12 +647,18 @@ export async function applyDeterministicAgentDraftCleanupAction(
 
   return {
     success: true,
-    review: outcome.review,
+    review: outcome.review ?? undefined,
+    phase5ReviewRerun: outcome.phase5ReviewRerun,
     changeSummary: outcome.changeSummary,
     phase5DeterministicCleanup: {
       canApply: false,
       reason: "Deterministic cleanup was applied for the current draft.",
       previewSummary: [],
+      phase5IndependentReviewRequired: false,
+      phase5ReviewNote:
+        outcome.phase5ReviewRerun
+          ? "Independent Review was rerun for the updated factual draft."
+          : "Independent Review was not rerun because factual draft content is unchanged.",
     },
   };
 }
