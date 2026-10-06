@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
+import { useNavigateToNewAgentRun } from "@/components/admin/agent/agent-run-navigation";
 import { AgentActiveRunWorkflow } from "@/components/admin/agent/AgentActiveRunWorkflow";
 import { AgentResearchResults } from "@/components/admin/agent/AgentResearchResults";
 import { AgentResumeRuns } from "@/components/admin/agent/AgentResumeRuns";
@@ -16,7 +17,6 @@ import type {
   AgentRunPageHydration,
   ResumableAgentRunSummary,
 } from "@/lib/agent/resume/resume-core";
-import { buildAgentRunNewTopicHref } from "@/lib/agent/resume/resume-core";
 import type { AgentContentType } from "@/lib/supabase/types";
 import { focusRing } from "@/lib/page-data";
 
@@ -153,6 +153,7 @@ export function AgentTopicAnalyzer({
   startNew?: boolean;
 }) {
   const router = useRouter();
+  const navigateToNewAgentRun = useNavigateToNewAgentRun();
   const [analysisState, analyzeAction, isAnalyzing] = useActionState(
     analyzeAgentTopic,
     {},
@@ -203,12 +204,13 @@ export function AgentTopicAnalyzer({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {initialHydration || resumableRuns.length > 0 ? (
-          <Link
-            href={buildAgentRunNewTopicHref()}
+          <button
+            type="button"
+            onClick={navigateToNewAgentRun}
             className={`inline-flex items-center rounded-lg border border-hcx-border px-4 py-2 text-sm font-semibold text-hcx-text hover:bg-hcx-bg/60 ${focusRing}`}
           >
             New Agent Run
-          </Link>
+          </button>
         ) : null}
         {activeRunId ? (
           <p className="text-xs text-hcx-text-secondary">

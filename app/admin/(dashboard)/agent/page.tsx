@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
+import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
+import { AgentCapabilitiesStatusStrip } from "@/components/admin/agent/AgentCapabilitiesStatusStrip";
 import { AgentTopicAnalyzer } from "@/components/admin/agent/AgentTopicAnalyzer";
+import { loadAgentCapabilitiesStatus } from "@/lib/agent/capabilities/load-agent-capabilities-status";
 import {
+  buildAgentPageComponentKey,
   buildAgentRunResumeHref,
-  parseAgentRunPageQuery,
+  parseAgentRunPageSearchParams,
+  shouldAutoRedirectToHydratedRun,
 } from "@/lib/agent/resume/resume-core";
 import { resolveAgentPageHydration } from "@/lib/agent/resume/resume-run";
 import { getAuthenticatedServerClient } from "@/lib/supabase/admin-session";
@@ -18,31 +23,39 @@ export const dynamic = "force-dynamic";
 export default async function AdminAgentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ run?: string; new?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  noStore();
   const params = await searchParams;
-  const query = parseAgentRunPageQuery(params);
+  const query = parseAgentRunPageSearchParams(params);
   const auth = await getAuthenticatedServerClient("adminAgentPage");
 
-  const resolved = auth.ok
-    ? await resolveAgentPageHydration(auth.supabase, {
-        requestedRunId: query.requestedRunId,
-        startNew: query.startNew,
-      })
-    : {
-        hydration: null,
-        resumableRuns: [],
-        hydrationError: null,
-        activeRunId: null,
-      };
+  const [resolved, capabilitiesSnapshot] = auth.ok
+    ? await Promise.all([
+        resolveAgentPageHydration(auth.supabase, {
+          requestedRunId: query.requestedRunId,
+          startNew: query.startNew,
+        }),
+        loadAgentCapabilitiesStatus(auth.supabase),
+      ])
+    : [
+        {
+          hydration: null,
+          resumableRuns: [],
+          hydrationError: null,
+          activeRunId: null,
+        },
+        null,
+      ];
 
   if (
     auth.ok &&
-    resolved.hydration &&
-    !query.requestedRunId &&
-    !query.startNew
+    shouldAutoRedirectToHydratedRun({
+      query,
+      hasHydration: Boolean(resolved.hydration),
+    })
   ) {
-    redirect(buildAgentRunResumeHref(resolved.hydration.agentRunId));
+    redirect(buildAgentRunResumeHref(resolved.hydration!.agentRunId));
   }
 
   return (
@@ -66,8 +79,12 @@ export default async function AdminAgentPage({
         </p>
       </div>
 
+      {capabilitiesSnapshot ? (
+        <AgentCapabilitiesStatusStrip snapshot={capabilitiesSnapshot} />
+      ) : null}
+
       <AgentTopicAnalyzer
-        key={resolved.activeRunId ?? (query.startNew ? "new-agent-run" : "no-active-run")}
+        key={buildAgentPageComponentKey(query)}
         resumableRuns={resolved.resumableRuns}
         initialHydration={resolved.hydration}
         hydrationError={resolved.hydrationError}

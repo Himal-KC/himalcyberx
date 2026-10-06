@@ -7,6 +7,7 @@ import {
   generateAgentDraft,
   type GenerateAgentDraftState,
 } from "@/lib/actions/agent";
+import { resolveResearchGenerateDraftUi } from "@/lib/agent/research/research-workflow-ui-core";
 import type { ResearchResult } from "@/lib/agent/types";
 import { focusRing } from "@/lib/page-data";
 
@@ -21,7 +22,13 @@ const generationStageMessages = [
 
 const initialState: GenerateAgentDraftState = {};
 
-export function AgentGenerateDraft({ research }: { research: ResearchResult }) {
+export function AgentGenerateDraft({
+  research,
+  hasLinkedDraft = false,
+}: {
+  research: ResearchResult;
+  hasLinkedDraft?: boolean;
+}) {
   const [state, formAction, isPending] = useActionState(
     generateAgentDraft,
     initialState,
@@ -29,11 +36,16 @@ export function AgentGenerateDraft({ research }: { research: ResearchResult }) {
   const [stageIndex, setStageIndex] = useState(0);
   const activeStageIndex = isPending ? stageIndex : 0;
 
-  const canGenerate = research.canGenerateDraft;
-
-  const blockedByResearch =
-    !canGenerate &&
-    research.researchSufficiency?.status === "needs_more_research";
+  const draftUi = resolveResearchGenerateDraftUi({
+    researchQuality: research.researchQuality,
+    researchConfidence: research.researchConfidence,
+    sources: research.sources,
+    canGenerateDraft: research.canGenerateDraft,
+    researchSufficiency: research.researchSufficiency,
+    hasLinkedDraft,
+    researchImprovementCount: research.researchImprovementCount,
+  });
+  const canGenerate = draftUi.enabled;
 
   useEffect(() => {
     if (!isPending) {
@@ -51,11 +63,18 @@ export function AgentGenerateDraft({ research }: { research: ResearchResult }) {
 
   return (
     <div className="mt-8 border-t border-hcx-border pt-6">
-      {research.researchQuality === "needs_review" && canGenerate ? (
+      {draftUi.showNeedsReviewAllowedNotice ? (
         <p className="mb-4 text-sm text-hcx-orange">
-          Draft generation is allowed, but this research needs review before any
-          publication.
+          {draftUi.helperMessage}
         </p>
+      ) : null}
+
+      {draftUi.blockedHeadline ? (
+        <div className="mb-4 rounded-lg border border-hcx-orange/50 bg-hcx-orange/10 p-4">
+          <p className="text-sm font-semibold text-hcx-orange">
+            {draftUi.blockedHeadline}
+          </p>
+        </div>
       ) : null}
 
       {state.error ? (
@@ -112,9 +131,7 @@ export function AgentGenerateDraft({ research }: { research: ResearchResult }) {
         </p>
       ) : !canGenerate ? (
         <p className="mt-2 text-sm text-hcx-text-secondary">
-          {blockedByResearch
-            ? "More research is needed. The verified evidence does not yet support a well-grounded draft."
-            : "Draft generation is unavailable because research did not meet the minimum evidence threshold."}
+          {draftUi.helperMessage}
         </p>
       ) : (
         <p className="mt-2 text-sm text-hcx-text-secondary">

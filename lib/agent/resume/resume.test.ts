@@ -8,6 +8,7 @@ import type { AgentRun, AgentContentType } from "../../supabase/types";
 const testDir = dirname(fileURLToPath(import.meta.url));
 
 const {
+  buildAgentPageComponentKey,
   buildAgentRunNewTopicHref,
   buildAgentRunResumeHref,
   buildResumableAgentRunSummary,
@@ -17,7 +18,9 @@ const {
   isResumableAgentRun,
   isValidAgentRunId,
   parseAgentRunPageQuery,
+  parseAgentRunPageSearchParams,
   selectAutoRestoreAgentRunId,
+  shouldAutoRedirectToHydratedRun,
   validateContentBelongsToRun,
   validateResumeAgentRunInput,
 } = (await import(pathToFileURL(join(testDir, "resume-core.ts")).href)) as typeof import("./resume-core");
@@ -328,7 +331,9 @@ describe("Agent run switch navigation", () => {
       join(testDir, "../../../app/admin/(dashboard)/agent/page.tsx"),
       "utf8",
     );
-    assert.match(pageSource, /key=\{resolved\.activeRunId/);
+    assert.match(pageSource, /buildAgentPageComponentKey/);
+    assert.match(pageSource, /parseAgentRunPageSearchParams/);
+    assert.match(pageSource, /unstable_noStore/);
     assert.match(pageSource, /export const dynamic = "force-dynamic"/);
     assert.match(pageSource, /redirect\(buildAgentRunResumeHref/);
   });
@@ -336,6 +341,7 @@ describe("Agent run switch navigation", () => {
   it("uses server hydration for switched runs without external side effects", () => {
     const resumeSource = readFileSync(join(testDir, "resume-run.ts"), "utf8");
     assert.match(resumeSource, /resolveAgentPageHydration/);
+    assert.match(resumeSource, /if \(input\.startNew\)/);
     assert.match(resumeSource, /hydratePersistedAgentRun/);
     assert.doesNotMatch(
       resumeSource,
@@ -358,6 +364,49 @@ describe("Agent run refresh restore", () => {
       startNew: false,
       requestedRunId: null,
     });
+    assert.deepEqual(
+      parseAgentRunPageSearchParams({ new: ["1"], run: [VALID_RUN_ID] }),
+      {
+        startNew: true,
+        requestedRunId: null,
+      },
+    );
+    assert.deepEqual(parseAgentRunPageSearchParams({ run: VALID_RUN_ID }), {
+      startNew: false,
+      requestedRunId: VALID_RUN_ID,
+    });
+  });
+
+  it("keeps new-run mode out of auto-restore redirect and hydration selection", () => {
+    assert.equal(
+      shouldAutoRedirectToHydratedRun({
+        query: { startNew: true, requestedRunId: null },
+        hasHydration: true,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldAutoRedirectToHydratedRun({
+        query: { startNew: false, requestedRunId: VALID_RUN_ID },
+        hasHydration: true,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldAutoRedirectToHydratedRun({
+        query: { startNew: false, requestedRunId: null },
+        hasHydration: true,
+      }),
+      true,
+    );
+    assert.equal(buildAgentPageComponentKey({ startNew: true, requestedRunId: null }), "agent-new-run");
+    assert.equal(
+      buildAgentPageComponentKey({
+        startNew: false,
+        requestedRunId: VALID_RUN_ID,
+      }),
+      `agent-run-${VALID_RUN_ID}`,
+    );
   });
 
   it("auto-selects the most recent unfinished resumable run", () => {
@@ -454,11 +503,12 @@ describe("Agent run refresh server contracts", () => {
       "utf8",
     );
     assert.match(pageSource, /resolveAgentPageHydration/);
-    assert.match(pageSource, /parseAgentRunPageQuery/);
+    assert.match(pageSource, /parseAgentRunPageSearchParams/);
     assert.match(pageSource, /searchParams/);
 
     const resumeSource = readFileSync(join(testDir, "resume-run.ts"), "utf8");
     assert.match(resumeSource, /resolveAgentPageHydration/);
+    assert.match(resumeSource, /if \(input\.startNew\)/);
     assert.match(resumeSource, /hydratePersistedAgentRun/);
     assert.match(resumeSource, /getAgentSources/);
     assert.match(resumeSource, /buildResearchResultFromPersistedRun/);
@@ -477,7 +527,7 @@ describe("Agent run refresh server contracts", () => {
       join(testDir, "../../../components/admin/agent/AgentTopicAnalyzer.tsx"),
       "utf8",
     );
-    assert.match(analyzerSource, /buildAgentRunNewTopicHref/);
+    assert.match(analyzerSource, /useNavigateToNewAgentRun/);
     assert.match(analyzerSource, /router\.replace\(`\/admin\/agent\?run=/);
     assert.match(analyzerSource, /AgentActiveRunWorkflow/);
     assert.match(analyzerSource, /initialHydration/);

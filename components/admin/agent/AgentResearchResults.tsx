@@ -6,6 +6,10 @@ import { AgentGenerateDraft } from "@/components/admin/agent/AgentGenerateDraft"
 import {
   AgentResearchSufficiencyPanel,
 } from "@/components/admin/agent/AgentResearchSufficiencyPanel";
+import {
+  IMPROVE_BEFORE_DRAFT_HEADLINE,
+  shouldShowImproveBeforeDraftBanner,
+} from "@/lib/agent/research/research-workflow-ui-core";
 import type { ResearchResult, VerifiedClaimType } from "@/lib/agent/types";
 import {
   formatResearchAssessmentLabel,
@@ -109,14 +113,20 @@ function buildAdminHref(contentType: AgentContentType, id: string): string {
 export function AgentResearchResults({
   research: initialResearch,
   showGenerateDraft = true,
+  hasLinkedDraft = false,
 }: {
   research: ResearchResult;
   showGenerateDraft?: boolean;
+  hasLinkedDraft?: boolean;
 }) {
   const [improvedResearch, setImprovedResearch] = useState<ResearchResult | null>(
     null,
   );
   const research = improvedResearch ?? initialResearch;
+  const showImproveBeforeDraft = shouldShowImproveBeforeDraftBanner({
+    hasLinkedDraft,
+    researchSufficiency: research.researchSufficiency,
+  });
 
   return (
     <section className="rounded-xl border border-hcx-border bg-hcx-card p-6 sm:p-8">
@@ -144,6 +154,14 @@ export function AgentResearchResults({
         . This reflects Phase 3 research only and does not determine publication
         readiness.
       </p>
+
+      {showImproveBeforeDraft ? (
+        <div className="mt-4 rounded-lg border border-hcx-orange/50 bg-hcx-orange/10 p-4">
+          <p className="text-sm font-semibold text-hcx-orange">
+            {IMPROVE_BEFORE_DRAFT_HEADLINE}
+          </p>
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div>
@@ -189,6 +207,7 @@ export function AgentResearchResults({
 
       <AgentResearchSufficiencyPanel
         research={research}
+        hasLinkedDraft={hasLinkedDraft}
         onResearchUpdated={(updated) => setImprovedResearch(updated)}
       />
 
@@ -422,7 +441,9 @@ export function AgentResearchResults({
         )}
       </div>
 
-      {showGenerateDraft ? <AgentGenerateDraft research={research} /> : null}
+      {showGenerateDraft ? (
+        <AgentGenerateDraft research={research} hasLinkedDraft={hasLinkedDraft} />
+      ) : null}
     </section>
   );
 }

@@ -125,6 +125,7 @@ export function AgentActiveRunWorkflow({
       <AgentResearchResults
         research={hydration.research}
         showGenerateDraft={false}
+        hasLinkedDraft
       />
 
       {resumed.contentType === "article" ? (

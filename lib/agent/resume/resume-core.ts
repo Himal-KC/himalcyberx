@@ -66,13 +66,27 @@ export interface AgentRunPageHydration {
   linkedArticleCategoryId: string | null;
 }
 
+export type AgentRunPageQuery = {
+  startNew: boolean;
+  requestedRunId: string | null;
+};
+
+export function firstAgentRunPageQueryParam(
+  value: string | string[] | undefined | null,
+): string | null {
+  if (value == null) {
+    return null;
+  }
+
+  const raw = Array.isArray(value) ? value[0] : value;
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : null;
+}
+
 export function parseAgentRunPageQuery(input: {
   run?: string | null;
   new?: string | null;
-}): {
-  startNew: boolean;
-  requestedRunId: string | null;
-} {
+}): AgentRunPageQuery {
   const startNew = input.new === "1" || input.new === "true";
   const requestedRunId =
     startNew || !input.run?.trim() ? null : input.run.trim();
@@ -81,6 +95,38 @@ export function parseAgentRunPageQuery(input: {
     startNew,
     requestedRunId,
   };
+}
+
+export function parseAgentRunPageSearchParams(
+  params: Record<string, string | string[] | undefined>,
+): AgentRunPageQuery {
+  return parseAgentRunPageQuery({
+    run: firstAgentRunPageQueryParam(params.run),
+    new: firstAgentRunPageQueryParam(params.new),
+  });
+}
+
+export function shouldAutoRedirectToHydratedRun(input: {
+  query: AgentRunPageQuery;
+  hasHydration: boolean;
+}): boolean {
+  return (
+    input.hasHydration &&
+    !input.query.requestedRunId &&
+    !input.query.startNew
+  );
+}
+
+export function buildAgentPageComponentKey(input: AgentRunPageQuery): string {
+  if (input.startNew) {
+    return "agent-new-run";
+  }
+
+  if (input.requestedRunId) {
+    return `agent-run-${input.requestedRunId}`;
+  }
+
+  return "agent-default";
 }
 
 export function buildAgentRunResumeHref(agentRunId: string): string {

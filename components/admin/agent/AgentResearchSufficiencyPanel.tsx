@@ -2,11 +2,17 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useNavigateToNewAgentRun } from "@/components/admin/agent/agent-run-navigation";
 import {
   improveAgentResearch,
   type ImproveAgentResearchState,
 } from "@/lib/actions/agent";
 import { buildResearchCoverageLines } from "@/lib/agent/research/research-sufficiency-core";
+import {
+  canShowImproveResearchAction,
+  POST_DRAFT_INSUFFICIENT_EVIDENCE_MESSAGE,
+  shouldShowPostDraftInsufficientEvidence,
+} from "@/lib/agent/research/research-workflow-ui-core";
 import type { ResearchResult } from "@/lib/agent/types";
 import { focusRing } from "@/lib/page-data";
 
@@ -14,20 +20,28 @@ const initialImproveState: ImproveAgentResearchState = {};
 
 export function AgentResearchSufficiencyPanel({
   research,
+  hasLinkedDraft = false,
   onResearchUpdated,
 }: {
   research: ResearchResult;
+  hasLinkedDraft?: boolean;
   onResearchUpdated?: (research: ResearchResult) => void;
 }) {
   const router = useRouter();
+  const navigateToNewAgentRun = useNavigateToNewAgentRun();
   const [state, formAction, isPending] = useActionState(
     improveAgentResearch,
     initialImproveState,
   );
   const assessment = research.researchSufficiency;
-  const canImprove =
-    assessment?.status === "needs_more_research" &&
-    (research.researchImprovementCount ?? 0) < 3;
+  const workflowInput = {
+    hasLinkedDraft,
+    researchSufficiency: assessment,
+    researchImprovementCount: research.researchImprovementCount,
+  };
+  const showPostDraftGuidance =
+    shouldShowPostDraftInsufficientEvidence(workflowInput);
+  const canImprove = canShowImproveResearchAction(workflowInput);
 
   useEffect(() => {
     if (!state.success || !state.research) {
@@ -45,7 +59,23 @@ export function AgentResearchSufficiencyPanel({
   const coverageLines = buildResearchCoverageLines(assessment);
 
   return (
-    <div className="mt-4 rounded-lg border border-hcx-orange/30 bg-hcx-orange/5 p-4">
+    <div className="mt-4 space-y-4">
+      {showPostDraftGuidance ? (
+        <div className="rounded-lg border border-hcx-border bg-hcx-bg/40 p-4">
+          <p className="text-sm leading-relaxed text-hcx-text-secondary">
+            {POST_DRAFT_INSUFFICIENT_EVIDENCE_MESSAGE}
+          </p>
+          <button
+            type="button"
+            onClick={navigateToNewAgentRun}
+            className={`mt-4 inline-flex items-center rounded-lg border border-hcx-cyan/40 bg-hcx-cyan/10 px-4 py-2 text-sm font-semibold text-hcx-cyan hover:bg-hcx-cyan/20 ${focusRing}`}
+          >
+            Start New Run
+          </button>
+        </div>
+      ) : null}
+
+      <div className="rounded-lg border border-hcx-orange/30 bg-hcx-orange/5 p-4">
       <p className="text-xs font-semibold uppercase tracking-wide text-hcx-orange">
         {assessment.status === "blocked"
           ? "Research Blocked"
@@ -91,6 +121,7 @@ export function AgentResearchSufficiencyPanel({
           </p>
         </form>
       ) : null}
+      </div>
     </div>
   );
 }
