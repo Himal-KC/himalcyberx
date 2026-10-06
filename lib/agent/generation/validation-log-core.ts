@@ -261,7 +261,7 @@ export function formatGroundingAuditFailureReason(
         );
       case "kev_status":
         return sanitizeValidationReason(
-          `Draft validation failed: CISA KEV status for ${token.cveId ?? "the CVE"} is not supported by verified research.`,
+          `Draft validation failed: unsupported factual CISA KEV claim for ${token.cveId ?? "the CVE"} is not supported by verified research.`,
         );
       case "patch_id":
         return sanitizeValidationReason(

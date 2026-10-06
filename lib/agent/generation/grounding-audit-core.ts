@@ -165,6 +165,89 @@ export function isFactualClaimSentence(sentence: string): boolean {
   return FACTUAL_CLAIM_INDICATORS.test(sentence);
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function matchesApprovedInternalContentTitle(
+  sentence: string,
+  cveId: string,
+  approvedInternalContent: Map<string, ApprovedInternalContentRecord>,
+): boolean {
+  const normalizedSentence = sentence.toLowerCase();
+
+  for (const record of approvedInternalContent.values()) {
+    if (
+      record.cveIds.has(cveId) &&
+      normalizedSentence.includes(record.title.toLowerCase())
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function isExplicitFactualClaimAboutCve(
+  sentence: string,
+  cveId: string,
+): boolean {
+  const escapedCveId = escapeRegExp(cveId);
+  const directClaimPatterns = [
+    new RegExp(
+      `${escapedCveId}\\b[^.!?]{0,100}\\b(?:is|was|are|were)\\s+(?:also\\s+)?(?:listed in|added to|on|in)\\s+(?:the\\s+)?(?:cisa\\s+)?(?:known exploited vulnerabilities|kev(?:\\s+catalog)?)`,
+      "i",
+    ),
+    new RegExp(
+      `${escapedCveId}\\b[^.!?]{0,100}\\b(?:cvss|severity|base score|affects?|impacts?|patch\\s+kb|actively exploited|exploited in(?: the)? wild)\\b`,
+      "i",
+    ),
+    new RegExp(
+      `${escapedCveId}\\b[^.!?]{0,40}\\b(?:not|no longer)\\s+[^.!?]{0,40}\\b(?:kev|known exploited vulnerabilities)\\b`,
+      "i",
+    ),
+  ];
+
+  return directClaimPatterns.some((pattern) => pattern.test(sentence));
+}
+
+export function isCveApprovedInternalReferenceMention(
+  sentence: string,
+  cveId: string,
+  approvedInternalCves: Set<string>,
+  approvedInternalContent: Map<string, ApprovedInternalContentRecord>,
+): boolean {
+  if (!approvedInternalCves.has(cveId)) {
+    return false;
+  }
+
+  if (isExplicitFactualClaimAboutCve(sentence, cveId)) {
+    return false;
+  }
+
+  if (
+    matchesApprovedInternalContentTitle(
+      sentence,
+      cveId,
+      approvedInternalContent,
+    )
+  ) {
+    return true;
+  }
+
+  const sentenceCves = extractCveIds(sentence);
+  if (
+    sentenceCves.length === 1 &&
+    sentenceCves[0] === cveId &&
+    INTERNAL_LINK_REFERENCE_INDICATORS.test(sentence) &&
+    !isFactualClaimSentence(sentence)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export function isInternalLinkReferenceSentence(
   sentence: string,
   sentenceCves: string[],
@@ -175,32 +258,41 @@ export function isInternalLinkReferenceSentence(
     return false;
   }
 
-  if (!sentenceCves.every((cveId) => approvedInternalCves.has(cveId))) {
-    return false;
-  }
+  return sentenceCves.every((cveId) =>
+    isCveApprovedInternalReferenceMention(
+      sentence,
+      cveId,
+      approvedInternalCves,
+      approvedInternalContent,
+    ),
+  );
+}
 
-  if (isFactualClaimSentence(sentence)) {
-    return false;
-  }
-
-  if (INTERNAL_LINK_REFERENCE_INDICATORS.test(sentence)) {
+export function shouldExtractKevStatusForCve(
+  sentence: string,
+  cveId: string,
+  context: DraftFactExtractionContext,
+): boolean {
+  if (context.researchCveIds.has(cveId)) {
     return true;
   }
 
-  const normalizedSentence = sentence.toLowerCase();
-
-  for (const record of approvedInternalContent.values()) {
-    const titleMatches = sentenceCves.some(
-      (cveId) =>
-        record.cveIds.has(cveId) &&
-        normalizedSentence.includes(record.title.toLowerCase()),
-    );
-    if (titleMatches) {
-      return true;
-    }
+  if (isExplicitFactualClaimAboutCve(sentence, cveId)) {
+    return true;
   }
 
-  return false;
+  if (
+    isCveApprovedInternalReferenceMention(
+      sentence,
+      cveId,
+      context.approvedInternalCves,
+      context.approvedInternalContent,
+    )
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 export function isResearchCveMentionSupported(
@@ -214,10 +306,9 @@ export function isResearchCveMentionSupported(
     return true;
   }
 
-  const sentenceCves = extractCveIds(sentence);
-  return isInternalLinkReferenceSentence(
+  return isCveApprovedInternalReferenceMention(
     sentence,
-    sentenceCves,
+    cveId,
     approvedInternalCves,
     approvedInternalContent,
   );
@@ -407,7 +498,15 @@ export function extractDraftFacts(
 
     const associatedCves =
       sentenceCves.length > 0 ? sentenceCves : documentCves;
-    const primaryCve = associatedCves[0];
+    const researchCvesInSentence = sentenceCves.filter((cveId) =>
+      researchCveIds.has(cveId),
+    );
+    const primaryCve = researchCvesInSentence[0] ?? associatedCves[0];
+    const factExtractionContext: DraftFactExtractionContext = {
+      researchCveIds,
+      approvedInternalCves,
+      approvedInternalContent,
+    };
 
     const scoreMatch = sentence.match(CVSS_SCORE_PATTERN);
     if (scoreMatch?.[1]) {
@@ -444,11 +543,21 @@ export function extractDraftFacts(
     }
 
     if (
-      associatedCves.length > 0 &&
+      sentenceCves.length > 0 &&
       /\b(known exploited vulnerabilities|cisa kev|kev catalog)\b/i.test(sentence)
     ) {
       const negated = KEV_NEGATION_PATTERN.test(sentence);
-      for (const cveId of associatedCves) {
+      for (const cveId of sentenceCves) {
+        if (
+          !shouldExtractKevStatusForCve(
+            sentence,
+            cveId,
+            factExtractionContext,
+          )
+        ) {
+          continue;
+        }
+
         pushFact({
           type: "kev_status",
           cveId,
