@@ -1,10 +1,13 @@
 import type { VerifiedClaim } from "../types";
 import type { AgentContentType } from "../../supabase/types";
+import { buildVerifiedProductCatalog } from "./product-catalog-core.ts";
+import {
+  extractAffectedProductDraftFacts,
+  formatAffectedProductDiagnosticSummary,
+} from "./product-extraction-core.ts";
 import {
   addVerifiedAffectedProducts,
   isAffectedProductSupported,
-  normalizeProduct,
-  splitAffectedProductSegments,
 } from "./product-grounding-core.ts";
 import type {
   GeneratedDraft,
@@ -30,8 +33,6 @@ const KEV_ADDED_DATE_PATTERN =
   /\badded\b.+\b(?:known exploited vulnerabilities|kev)\b.+\bon\s+(\d{4}-\d{2}-\d{2})\b/i;
 const KEV_NEGATION_PATTERN =
   /\b(not|no longer|isn't|aren't|wasn't|weren't)\b[^.]{0,80}\b(kev|known exploited vulnerabilities)\b/i;
-const AFFECTED_PRODUCT_PATTERN =
-  /\b(?:affects?|impacts?|vulnerable in|affected product(?:s)?(?:\s+(?:include|is|are|as))?|affected versions?(?:\s+(?:include|are|as))?)\s+([^.;]+)/i;
 const FACTUAL_CLAIM_INDICATORS =
   /\b(?:cvss|(?:cisa )?kev|known exploited vulnerabilities|actively exploited|exploited in(?: the)? wild|base score|severity(?:\s+is|\s+of|\s+rated)?|affects?|impacts?|vulnerable(?:\s+to|\s+in|\s+systems)?|(?:apply|install)\s+(?:patch|update)\s+kb|listed in (?:the )?cisa|added to (?:the )?(?:cisa )?(?:known exploited|kev)|not in (?:the )?(?:cisa )?kev|remediation|mitigation)\b/i;
 const INTERNAL_LINK_REFERENCE_INDICATORS =
@@ -445,6 +446,7 @@ export interface DraftFactExtractionContext {
   researchCveIds: Set<string>;
   approvedInternalCves: Set<string>;
   approvedInternalContent: Map<string, ApprovedInternalContentRecord>;
+  verifiedProductCatalog: ReturnType<typeof buildVerifiedProductCatalog>;
 }
 
 export function extractDraftFacts(
@@ -506,6 +508,8 @@ export function extractDraftFacts(
       researchCveIds,
       approvedInternalCves,
       approvedInternalContent,
+      verifiedProductCatalog:
+        context?.verifiedProductCatalog ?? buildVerifiedProductCatalog([]),
     };
 
     const scoreMatch = sentence.match(CVSS_SCORE_PATTERN);
@@ -569,16 +573,28 @@ export function extractDraftFacts(
     }
 
     if (primaryCve) {
-      const productMatch = sentence.match(AFFECTED_PRODUCT_PATTERN);
-      if (productMatch?.[1]) {
-        for (const part of splitAffectedProductSegments(productMatch[1])) {
-          pushFact({
-            type: "affected_product",
-            cveId: primaryCve,
-            value: part,
-            raw: productMatch[0],
-          });
+      const productExtraction = extractAffectedProductDraftFacts({
+        sentence,
+        primaryCve,
+        catalog: factExtractionContext.verifiedProductCatalog,
+      });
+
+      for (const diagnostic of productExtraction.diagnostics) {
+        if (diagnostic.resolution === "unsupported") {
+          console.error(
+            "[agent-generation:product-extraction]",
+            formatAffectedProductDiagnosticSummary(diagnostic),
+          );
         }
+      }
+
+      for (const productFact of productExtraction.facts) {
+        pushFact({
+          type: "affected_product",
+          cveId: productFact.cveId,
+          value: productFact.value,
+          raw: productFact.raw,
+        });
       }
     }
   }
@@ -650,6 +666,8 @@ export function findUnsupportedDraftFacts(
     (fact) => !isDraftFactSupported(fact, index),
   );
 }
+
+export { buildVerifiedProductCatalog } from "./product-catalog-core.ts";
 
 function validateInternalLinkReferences(
   links: InternalLinkSuggestion[],
@@ -745,10 +763,12 @@ export function auditGrounding({
   const approvedInternalCves = collectApprovedInternalCveIds(
     approvedInternalContentIndex,
   );
+  const verifiedProductCatalog = buildVerifiedProductCatalog(verifiedClaims);
   const factExtractionContext: DraftFactExtractionContext = {
     researchCveIds: verifiedFactIndex.cveIds,
     approvedInternalCves,
     approvedInternalContent: approvedInternalContentIndex,
+    verifiedProductCatalog,
   };
   const unsupportedClaims: string[] = [];
   const invalidSourceUrls: string[] = [];

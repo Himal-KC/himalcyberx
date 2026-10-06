@@ -1,6 +1,10 @@
 import type { AgentContentType, AgentRun } from "@/lib/supabase/types";
 import type { AgentSource } from "@/lib/supabase/types";
 import type { PersistedResearchPayload } from "@/lib/agent/generation/types";
+import {
+  buildVerifiedProductCatalog,
+  serializeVerifiedProductsForPrompt,
+} from "./product-catalog-core.ts";
 
 export interface GroundedGenerationContext {
   topic: string;
@@ -44,6 +48,7 @@ export interface GroundedGenerationContext {
   categoryRecommendation: string | null;
   categoryId: string | null;
   difficulty: string | null;
+  verifiedAffectedProducts: Array<{ canonical: string; aliases: string[] }>;
 }
 
 export function buildGroundedGenerationContext({
@@ -56,6 +61,9 @@ export function buildGroundedGenerationContext({
   sources: AgentSource[];
 }): GroundedGenerationContext {
   const allowedSourceUrls = sources.map((source) => source.url);
+  const verifiedProductCatalog = buildVerifiedProductCatalog(
+    payload.verifiedClaims,
+  );
 
   return {
     topic: run.topic,
@@ -107,6 +115,9 @@ export function buildGroundedGenerationContext({
       payload.contentAwareness?.recommendedCategory?.id ??
       null,
     difficulty: payload.difficulty ?? null,
+    verifiedAffectedProducts: serializeVerifiedProductsForPrompt(
+      verifiedProductCatalog,
+    ),
   };
 }
 
@@ -125,6 +136,7 @@ export function serializeContextForPrompt(
       researchConfidence: context.researchConfidence,
       keyFindings: context.keyFindings,
       verifiedClaims: context.verifiedClaims,
+      verifiedAffectedProducts: context.verifiedAffectedProducts,
       uncertainClaims: context.uncertainClaims,
       sources: context.sources,
       allowedSourceUrls: context.allowedSourceUrls,

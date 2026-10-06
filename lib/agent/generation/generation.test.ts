@@ -377,6 +377,7 @@ describe("Phase 4 research payload", () => {
       categoryRecommendation: "Ransomware",
       categoryId: null,
       difficulty: null,
+      verifiedAffectedProducts: [],
     };
 
     const serialized = serializeContextForPrompt(context);
