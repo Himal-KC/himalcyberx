@@ -7,8 +7,11 @@ import { getCurrentDraftFingerprintFromSnapshot } from "../review/fingerprint-co
 
 export { getCurrentDraftFingerprintFromSnapshot };
 import type { GroundingAuditResult } from "../generation/types";
-import type { Phase5HumanReviewAcceptanceRecord } from "../review/human-acceptance-core";
-import type { AgentReviewRecord, ReviewDraftSnapshot, SolReviewOutput } from "../review/types";
+import {
+  reconcilePhase5NeedsReviewReadinessIssues,
+  type Phase5HumanReviewAcceptanceRecord,
+} from "../review/human-acceptance-core.ts";
+import type { AgentReviewRecord, SolReviewOutput } from "../review/types";
 import type {
   PersistedReadinessResult,
   ReadinessChecksSummary,
@@ -1127,6 +1130,71 @@ function checkCmsFields(input: EvaluateReadinessGateInput): ReadinessIssue[] {
         ),
       );
     }
+  }
+
+  return issues;
+}
+
+export function isStaleInternalLinkPresentationIssue(issue: ReadinessIssue): boolean {
+  if (issue.category === "internal_link") {
+    return true;
+  }
+  if (issue.code === "INTERNAL_LINK_INTEGRITY_FAILED") {
+    return true;
+  }
+  return /clickable link|referenced in prose|bodyHtml|not rendered as/i.test(
+    issue.message,
+  );
+}
+
+export function buildReadinessChecksSummaryFromIssues(
+  issues: ReadinessIssue[],
+): ReadinessChecksSummary {
+  return {
+    review: summarizeCheckStatus(issues, "review"),
+    factual: summarizeCheckStatus(issues, "factual"),
+    cms: summarizeCheckStatus(issues, "cms"),
+    source: summarizeCheckStatus(issues, "source"),
+    seo: summarizeCheckStatus(issues, "seo"),
+    image: summarizeCheckStatus(issues, "image"),
+    altText: summarizeCheckStatus(issues, "alt_text"),
+    structure: summarizeCheckStatus(issues, "structure"),
+    internalLinks: summarizeCheckStatus(issues, "internal_link"),
+  };
+}
+
+export function reconcilePersistedReadinessIssuesWithCurrentDraft(input: {
+  issues: ReadinessIssue[];
+  agentRunId: string;
+  review: AgentReviewRecord | null;
+  currentDraftFingerprint: string | null;
+  acceptance: Phase5HumanReviewAcceptanceRecord | null;
+  internalLinkPresentationResolved?: boolean;
+}): ReadinessIssue[] {
+  let issues = [...input.issues];
+
+  if (
+    input.review &&
+    input.currentDraftFingerprint &&
+    input.review.draftFingerprint === input.currentDraftFingerprint
+  ) {
+    issues = issues.filter((entry) => entry.code !== "REVIEW_STALE");
+  }
+
+  if (input.review && input.currentDraftFingerprint) {
+    issues = reconcilePhase5NeedsReviewReadinessIssues({
+      issues,
+      acceptance: input.acceptance,
+      agentRunId: input.agentRunId,
+      review: input.review,
+      currentDraftFingerprint: input.currentDraftFingerprint,
+    });
+  }
+
+  if (input.internalLinkPresentationResolved) {
+    issues = issues.filter(
+      (entry) => !isStaleInternalLinkPresentationIssue(entry),
+    );
   }
 
   return issues;

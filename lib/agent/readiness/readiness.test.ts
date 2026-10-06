@@ -17,11 +17,17 @@ const testDir = dirname(fileURLToPath(import.meta.url));
 const {
   buildAgentRunReadinessMetadataUpdate,
   buildPersistedReadinessResult,
+  buildReadinessChecksSummaryFromIssues,
   calculateReadinessScore,
   evaluateAltTextQuality,
   evaluateReadinessGate,
+  reconcilePersistedReadinessIssuesWithCurrentDraft,
   resolveReadinessStatus,
 } = (await import(pathToFileURL(join(testDir, "readiness-gate-core.ts")).href)) as typeof import("./readiness-gate-core");
+
+const { isPhase5HumanAcceptanceCurrentlyValid } = (await import(
+  pathToFileURL(join(testDir, "../review/human-acceptance-core.ts")).href
+)) as typeof import("../review/human-acceptance-core");
 
 const {
   buildReadinessFingerprint,
@@ -987,6 +993,116 @@ describe("Phase 7 alt text and metadata merge", () => {
     assert.ok(Array.isArray(merged.sourceMappings));
     assert.ok(merged.latestFeaturedImage);
     assert.ok(merged.finalReadiness);
+  });
+});
+
+describe("persisted Phase 7 reconciliation after fingerprint-neutral cleanup", () => {
+  const staleInternalLinkIssue = {
+    code: "INTERNAL_LINK_PRESENTATION",
+    severity: "warning" as const,
+    category: "internal_link" as const,
+    message:
+      "The approved internal article is referenced in prose but is not rendered as a clickable link in bodyHtml.",
+    recommendedAction: "Insert the approved internal link into the article body.",
+  };
+
+  it("drops REVIEW_STALE when the latest Phase 5 fingerprint matches the current draft", () => {
+    const review = buildReview({
+      status: "needs_review",
+      draftFingerprint: FINGERPRINT_A,
+    });
+    const acceptance = buildPhase5HumanReviewAcceptanceRecord({
+      agentRunId: VALID_RUN_ID,
+      review,
+      currentDraftFingerprint: FINGERPRINT_A,
+      resolvedBy: "admin-user",
+    });
+    const reconciled = reconcilePersistedReadinessIssuesWithCurrentDraft({
+      issues: [
+        {
+          code: "REVIEW_STALE",
+          severity: "warning",
+          category: "review",
+          message: "The draft changed after the latest Phase 5 review.",
+          recommendedAction: "Rerun the independent Phase 5 review after editing the draft.",
+        },
+        {
+          code: "PHASE5_NEEDS_REVIEW",
+          severity: "warning",
+          category: "review",
+          message: "The latest Phase 5 review still requires human review.",
+          recommendedAction: "Review the Phase 5 findings and resolve outstanding issues before publishing.",
+        },
+      ],
+      agentRunId: VALID_RUN_ID,
+      review,
+      currentDraftFingerprint: FINGERPRINT_A,
+      acceptance,
+      internalLinkPresentationResolved: false,
+    });
+
+    assert.ok(!reconciled.some((entry) => entry.code === "REVIEW_STALE"));
+    assert.ok(!reconciled.some((entry) => entry.code === "PHASE5_NEEDS_REVIEW"));
+    assert.equal(
+      isPhase5HumanAcceptanceCurrentlyValid({
+        acceptance,
+        agentRunId: VALID_RUN_ID,
+        review,
+        currentDraftFingerprint: FINGERPRINT_A,
+      }),
+      true,
+    );
+  });
+
+  it("removes stale internal-link presentation warnings when current HTML already contains the approved link", () => {
+    const reconciled = reconcilePersistedReadinessIssuesWithCurrentDraft({
+      issues: [staleInternalLinkIssue],
+      agentRunId: VALID_RUN_ID,
+      review: buildReview({ draftFingerprint: FINGERPRINT_A }),
+      currentDraftFingerprint: FINGERPRINT_A,
+      acceptance: null,
+      internalLinkPresentationResolved: true,
+    });
+
+    assert.equal(reconciled.length, 0);
+    assert.equal(
+      buildReadinessChecksSummaryFromIssues(reconciled).internalLinks,
+      "pass",
+    );
+  });
+
+  it("keeps REVIEW_STALE when a genuine factual/content fingerprint change occurred", () => {
+    const reconciled = reconcilePersistedReadinessIssuesWithCurrentDraft({
+      issues: [
+        {
+          code: "REVIEW_STALE",
+          severity: "warning",
+          category: "review",
+          message: "The draft changed after the latest Phase 5 review.",
+          recommendedAction: "Rerun the independent Phase 5 review after editing the draft.",
+        },
+      ],
+      agentRunId: VALID_RUN_ID,
+      review: buildReview({ draftFingerprint: FINGERPRINT_A }),
+      currentDraftFingerprint: FINGERPRINT_B,
+      acceptance: null,
+      internalLinkPresentationResolved: true,
+    });
+
+    assert.ok(reconciled.some((entry) => entry.code === "REVIEW_STALE"));
+  });
+
+  it("matches loadPersistedReadinessForRun reconciliation wiring in engine and resume", () => {
+    const engineSource = readFileSync(join(testDir, "engine.ts"), "utf8");
+    const resumeSource = readFileSync(
+      join(testDir, "../resume/resume-run.ts"),
+      "utf8",
+    );
+    assert.match(engineSource, /reconcilePersistedReadinessIssuesWithCurrentDraft/);
+    assert.match(engineSource, /buildReadinessChecksSummaryFromIssues/);
+    assert.match(engineSource, /internalLinkPresentationResolved/);
+    assert.match(resumeSource, /internalLinkPresentationResolved/);
+    assert.match(resumeSource, /articleNeedsApprovedInternalLinkInsertion/);
   });
 });
 

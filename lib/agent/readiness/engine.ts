@@ -11,20 +11,19 @@ import {
 import {
   buildAgentRunReadinessMetadataUpdate,
   buildPersistedReadinessResult,
+  buildReadinessChecksSummaryFromIssues,
   calculateReadinessScore,
   evaluateReadinessGate,
   getCurrentDraftFingerprintFromSnapshot,
   parsePersistedReadinessResult,
+  reconcilePersistedReadinessIssuesWithCurrentDraft,
   resolveReadinessStatus,
   type ReadinessArticleContent,
   type ReadinessImageMetadata,
   type ReadinessLabContent,
   type ReadinessTutorialContent,
 } from "@/lib/agent/readiness/readiness-gate-core";
-import {
-  readPhase5HumanReviewAcceptanceFromMetadata,
-  reconcilePhase5NeedsReviewReadinessIssues,
-} from "@/lib/agent/review/human-acceptance-core";
+import { readPhase5HumanReviewAcceptanceFromMetadata } from "@/lib/agent/review/human-acceptance-core";
 import {
   buildReadinessFingerprint,
   isPersistedReadinessStale,
@@ -476,6 +475,7 @@ export function loadPersistedReadinessForRun(
     currentDraftFingerprint?: string | null;
     phase5HumanAcceptance?: import("@/lib/agent/review/human-acceptance-core").Phase5HumanReviewAcceptanceRecord | null;
     reviewRecord?: import("@/lib/agent/review/types").AgentReviewRecord | null;
+    internalLinkPresentationResolved?: boolean;
   },
 ): RunReadinessResult | null {
   const metadata =
@@ -505,22 +505,18 @@ export function loadPersistedReadinessForRun(
     options?.currentDraftFingerprint?.trim() || null;
   const reviewRecord = options?.reviewRecord ?? null;
 
-  let issues = persisted.issues;
-  let status = persisted.status;
-  let readinessScore = persisted.readinessScore;
-
-  if (reviewRecord && currentDraftFingerprint) {
-    const reconciled = reconcilePhase5NeedsReviewReadinessIssues({
-      issues: persisted.issues,
-      acceptance,
-      agentRunId: run.id,
-      review: reviewRecord,
-      currentDraftFingerprint,
-    });
-    issues = reconciled;
-    status = resolveReadinessStatus(reconciled);
-    readinessScore = calculateReadinessScore(reconciled);
-  }
+  const issues = reconcilePersistedReadinessIssuesWithCurrentDraft({
+    issues: persisted.issues,
+    acceptance,
+    agentRunId: run.id,
+    review: reviewRecord,
+    currentDraftFingerprint,
+    internalLinkPresentationResolved:
+      options?.internalLinkPresentationResolved ?? false,
+  });
+  const status = resolveReadinessStatus(issues);
+  const readinessScore = calculateReadinessScore(issues);
+  const checks = buildReadinessChecksSummaryFromIssues(issues);
 
   const blockingIssues = issues.filter(
     (entry) => entry.severity === "blocking",
@@ -543,7 +539,7 @@ export function loadPersistedReadinessForRun(
     blockingIssues,
     warningIssues,
     passedChecks: [],
-    checks: persisted.checks,
+    checks,
     editUrl: urls.editUrl,
     previewUrl: urls.previewUrl,
   };

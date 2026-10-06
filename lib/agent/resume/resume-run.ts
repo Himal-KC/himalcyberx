@@ -53,6 +53,7 @@ import {
 import {
   buildDeterministicCleanupUiState,
 } from "@/lib/agent/content/deterministic-cleanup-core";
+import { articleNeedsApprovedInternalLinkInsertion } from "@/lib/agent/content/internal-link-cleanup-core";
 import { buildPhase5WorkflowUiState } from "@/lib/agent/review/phase5-workflow-ui-core";
 import { getCurrentDraftFingerprintFromSnapshot } from "@/lib/agent/readiness/readiness-gate-core";
 import { loadPersistedReadinessForRun } from "@/lib/agent/readiness/engine";
@@ -326,6 +327,23 @@ async function hydratePersistedAgentRun(
         })
       : null;
 
+  const approvedInternalCatalog =
+    payload?.relatedHCXContent.map((item) => ({
+      id: item.id,
+      contentType: item.contentType,
+      title: item.title,
+      slug: item.slug,
+    })) ?? [];
+  const internalLinkPresentationResolved =
+    reviewContext.snapshot?.draft.contentType === "article" &&
+    groundingAudit !== null &&
+    groundingAudit.invalidInternalLinks.length === 0 &&
+    !articleNeedsApprovedInternalLinkInsertion({
+      content: reviewContext.snapshot.draft.content,
+      internalLinks: reviewContext.snapshot.internalLinks,
+      catalog: approvedInternalCatalog,
+    });
+
   const latestReadiness =
     reviewContext.snapshot
       ? loadPersistedReadinessForRun(
@@ -355,6 +373,7 @@ async function hydratePersistedAgentRun(
             currentDraftFingerprint,
             phase5HumanAcceptance: phase5HumanAcceptanceRecord,
             reviewRecord: latestReviewRecord,
+            internalLinkPresentationResolved,
           },
         )
       : null;
