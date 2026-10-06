@@ -146,7 +146,7 @@ describe("Phase 5 safe revision postconditions (Citrix RCE characterization)", (
 
     const revised = buildArticleDraft({
       content:
-        "<p>Verified research establishes affected Citrix NetScaler and Citrix NetScaler ADC scope. Mechanistic exploit details are not established in supplied verified claims.</p>",
+        "<p>The supplied verified evidence does not establish that CVE-2026-88771 is an improper input-validation flaw or enables unauthenticated remote code execution.</p><p>Verified research establishes affected Citrix NetScaler and Citrix NetScaler ADC scope.</p>",
       excerpt: "Verified Citrix NetScaler and ADC inventory scope.",
       seo: {
         ...buildArticleDraft().seo,

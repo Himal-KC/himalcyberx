@@ -1,5 +1,6 @@
 import type { GroundingAuditResult } from "../generation/types";
 import type { GeneratedDraft } from "../generation/types";
+import { enrichUnsupportedTechnicalRevisionInstruction } from "./revision-prompt-core.ts";
 import type { AgentReviewRecord, ReviewFinding, ReviewDraftSnapshot } from "./types";
 
 export const PHASE5_AUTOMATIC_REVISION_VERSION = "phase5-auto-revision-v1";
@@ -223,13 +224,21 @@ function mapFindingToAction(finding: ReviewFinding): RevisionPlanAction | null {
     return null;
   }
 
-  const instruction =
+  const baseInstruction =
     finding.suggestedCorrection?.trim() ||
     `Qualify or remove unsupported wording: ${finding.claimText.trim()}`;
+  const issueType = classifyFindingIssueType(finding);
+  const instruction =
+    issueType === "unsupported_explanation" || issueType === "editorial_scope"
+      ? enrichUnsupportedTechnicalRevisionInstruction(
+          baseInstruction,
+          finding.claimText,
+        )
+      : baseInstruction;
 
   return {
     field: "draft",
-    issueType: classifyFindingIssueType(finding),
+    issueType,
     instruction,
     evidenceClaimIds: [],
     sourceIds: finding.evidenceSourceIds,

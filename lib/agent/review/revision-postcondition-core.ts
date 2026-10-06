@@ -1,43 +1,11 @@
 import type { GeneratedDraft } from "../generation/types";
 import type { RevisionPlan, RevisionPlanAction } from "./automatic-revision-core";
+import {
+  buildAssertionProbesFromFinding,
+  draftRetainsTargetedMechanismAssertion,
+  normalizeRevisionProbeText as normalizeAssertionProbeText,
+} from "./revision-assertion-core.ts";
 import type { AgentReviewRecord, ReviewFinding } from "./types";
-
-const CORRECTION_PROBE_HINT =
-  /improper|input.validation|remote code execution|unauthenticated|\brce\b|gateway and adc|adc and gateway/i;
-
-const PROBE_STOPWORDS = new Set([
-  "the",
-  "a",
-  "an",
-  "that",
-  "this",
-  "these",
-  "those",
-  "with",
-  "without",
-  "from",
-  "into",
-  "about",
-  "main",
-  "factual",
-  "concern",
-  "detailed",
-  "characterization",
-  "vulnerability",
-  "draft",
-  "claim",
-  "statement",
-  "supported",
-  "verified",
-  "research",
-  "supplied",
-  "claims",
-  "full",
-  "technical",
-  "not",
-  "established",
-  "by",
-]);
 
 export function collectRevisionDraftTextSurfaces(
   draft: GeneratedDraft,
@@ -92,88 +60,13 @@ export function collectRevisionDraftTextSurfaces(
 }
 
 export function normalizeRevisionProbeText(value: string): string {
-  return value
-    .replace(/<[^>]+>/g, " ")
-    .replace(/[^\w\s-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function tokenizeProbe(value: string): string[] {
-  return normalizeRevisionProbeText(value)
-    .split(/\s+/)
-    .filter((token) => token.length > 0 && !PROBE_STOPWORDS.has(token));
-}
-
-function buildPhraseProbesFromText(text: string): string[] {
-  const normalized = normalizeRevisionProbeText(text);
-  if (!normalized) {
-    return [];
-  }
-
-  const probes = new Set<string>();
-  probes.add(normalized);
-
-  for (const chunk of normalized.split(/[,;]/)) {
-    const trimmed = chunk.trim();
-    if (trimmed.length >= 24) {
-      probes.add(trimmed);
-    }
-  }
-
-  const tokens = tokenizeProbe(normalized);
-  for (let size = Math.min(6, tokens.length); size >= 3; size -= 1) {
-    for (let index = 0; index <= tokens.length - size; index += 1) {
-      const phrase = tokens.slice(index, index + size).join(" ");
-      if (phrase.length >= 24) {
-        probes.add(phrase);
-      }
-    }
-  }
-
-  return [...probes].sort((left, right) => right.length - left.length);
+  return normalizeAssertionProbeText(value);
 }
 
 export function buildUnsupportedClaimProbesFromFinding(
   finding: ReviewFinding,
 ): string[] {
-  const probes = new Set<string>();
-
-  for (const probe of buildPhraseProbesFromText(finding.claimText)) {
-    probes.add(probe);
-  }
-
-  for (const probe of buildPhraseProbesFromText(finding.explanation)) {
-    probes.add(probe);
-  }
-
-  const correction = finding.suggestedCorrection?.trim() ?? "";
-  if (correction && CORRECTION_PROBE_HINT.test(correction)) {
-    for (const probe of buildPhraseProbesFromText(correction)) {
-      if (CORRECTION_PROBE_HINT.test(probe)) {
-        probes.add(probe);
-      }
-    }
-  }
-
-  return [...probes];
-}
-
-export function draftSurfacesContainProbe(
-  draft: GeneratedDraft,
-  probe: string,
-): boolean {
-  const normalizedProbe = normalizeRevisionProbeText(probe);
-  if (normalizedProbe.length < 12) {
-    return false;
-  }
-
-  const blob = normalizeRevisionProbeText(
-    collectRevisionDraftTextSurfaces(draft).join("\n"),
-  );
-
-  return blob.includes(normalizedProbe);
+  return buildAssertionProbesFromFinding(finding);
 }
 
 function findingForAction(
@@ -216,14 +109,15 @@ export function verifyRevisionPostconditions(input: {
       continue;
     }
 
-    const probes = buildUnsupportedClaimProbesFromFinding(finding);
-    const remaining = probes.filter((probe) =>
-      draftSurfacesContainProbe(input.revisedDraft, probe),
+    const probes = buildAssertionProbesFromFinding(finding);
+    const retained = draftRetainsTargetedMechanismAssertion(
+      input.revisedDraft,
+      probes,
     );
 
-    if (remaining.length > 0) {
+    if (retained) {
       failures.push(
-        `unsupported_claim_still_present:${finding.findingId}:${remaining[0]}`,
+        `unsupported_assertion:${finding.findingId}:${retained.surface}:${retained.probe}`,
       );
       continue;
     }
