@@ -57,6 +57,14 @@ export function sanitizeValidationReason(reason: string): string {
   return reason.replace(/\s+/g, " ").trim().slice(0, 240);
 }
 
+export function sanitizeProductWording(value: string): string {
+  return value
+    .replace(/[^\w\s().,/:-]/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
 export function sanitizeMarkupExcerpt(excerpt: string): string {
   return excerpt.replace(/\s+/g, " ").trim().slice(0, 180);
 }
@@ -259,10 +267,12 @@ export function formatGroundingAuditFailureReason(
         return sanitizeValidationReason(
           `Draft validation failed: patch ID ${token.value ?? "value"} is not supported by verified research.`,
         );
-      case "affected_product":
+      case "affected_product": {
+        const productLabel = sanitizeProductWording(token.value ?? "wording");
         return sanitizeValidationReason(
-          `Draft validation failed: affected product wording for ${token.cveId ?? "the CVE"} is not supported by verified research.`,
+          `Draft validation failed: affected product "${productLabel}" for ${token.cveId ?? "the CVE"} is not supported by verified research.`,
         );
+      }
       case "internal_link_cve":
         return sanitizeValidationReason(
           `Draft validation failed: internal link references CVE ${token.cveId ?? "identifier"} not present on the linked HCX content.`,

@@ -1,10 +1,21 @@
 import type { VerifiedClaim } from "../types";
 import type { AgentContentType } from "../../supabase/types";
+import {
+  addVerifiedAffectedProducts,
+  isAffectedProductSupported,
+  normalizeProduct,
+  splitAffectedProductSegments,
+} from "./product-grounding-core.ts";
 import type {
   GeneratedDraft,
   GroundingAuditResult,
   InternalLinkSuggestion,
 } from "./types";
+
+export {
+  isAffectedProductSupported,
+  normalizeProduct,
+} from "./product-grounding-core.ts";
 
 const CVE_PATTERN = /\bCVE-\d{4}-\d{4,}\b/gi;
 const CVSS_VECTOR_PATTERN = /CVSS:3\.\d\/[^\s,.;)]+/i;
@@ -106,47 +117,6 @@ export function normalizeCvssVector(value: string): string {
 
 export function normalizePatchId(value: string): string {
   return value.trim().toUpperCase();
-}
-
-export function normalizeProduct(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[—–-]/g, " ")
-    .replace(/\s+/g, " ");
-}
-
-function hasVersionSpecificity(value: string): boolean {
-  return /\b(?:\d{2}H\d|\d{4}(?:\s+R\d+)?|\d+\.\d+(?:\.\d+)*)\b/i.test(value);
-}
-
-export function isAffectedProductSupported(
-  value: string,
-  index: VerifiedFactIndex,
-): boolean {
-  if (index.affectedProducts.size === 0) {
-    return true;
-  }
-
-  const normalized = normalizeProduct(value);
-
-  for (const verified of index.affectedProducts) {
-    if (normalized === verified) {
-      return true;
-    }
-
-    if (hasVersionSpecificity(normalized)) {
-      continue;
-    }
-
-    if (!hasVersionSpecificity(verified)) {
-      if (normalized.includes(verified) || verified.includes(normalized)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
 }
 
 function extractCveIds(text: string): string[] {
@@ -363,15 +333,14 @@ export function buildVerifiedFactIndex(
         /affected product as ([^.]+)\./i,
       );
       if (productMatch?.[1]) {
-        index.affectedProducts.add(normalizeProduct(productMatch[1]));
+        addVerifiedAffectedProducts(index.affectedProducts, productMatch[1]);
       }
 
       const includesMatch = claim.statement.match(/including ([^.]+)\./i);
       if (includesMatch?.[1]) {
         for (const part of includesMatch[1].split(/[;,]/)) {
-          const normalized = normalizeProduct(part);
-          if (normalized) {
-            index.affectedProducts.add(normalized);
+          if (part.trim()) {
+            addVerifiedAffectedProducts(index.affectedProducts, part);
           }
         }
       }
@@ -493,16 +462,13 @@ export function extractDraftFacts(
     if (primaryCve) {
       const productMatch = sentence.match(AFFECTED_PRODUCT_PATTERN);
       if (productMatch?.[1]) {
-        for (const part of productMatch[1].split(/[;,]/)) {
-          const trimmed = part.trim();
-          if (trimmed) {
-            pushFact({
-              type: "affected_product",
-              cveId: primaryCve,
-              value: trimmed,
-              raw: productMatch[0],
-            });
-          }
+        for (const part of splitAffectedProductSegments(productMatch[1])) {
+          pushFact({
+            type: "affected_product",
+            cveId: primaryCve,
+            value: part,
+            raw: productMatch[0],
+          });
         }
       }
     }
@@ -560,7 +526,7 @@ export function isDraftFactSupported(
     case "patch_id":
       return index.patchIds.has(normalizePatchId(fact.value));
     case "affected_product":
-      return isAffectedProductSupported(fact.value, index);
+      return isAffectedProductSupported(fact.value, index.affectedProducts);
     default:
       return false;
   }

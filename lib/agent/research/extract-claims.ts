@@ -449,7 +449,7 @@ export function extractClaims({
 
     if (record.affectedProducts.length > 0) {
       const products = record.affectedProducts
-        .slice(0, 3)
+        .slice(0, 8)
         .map(formatCpeProduct)
         .join("; ");
 
