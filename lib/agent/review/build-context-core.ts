@@ -9,7 +9,10 @@ import type {
 import type { PersistedResearchPayload } from "../generation/types";
 import type { AgentRun } from "../../supabase/types";
 import type { EvidenceCatalogEntry } from "./validate-review-core";
+import { filterDiscoveryOnlyContextsForPrompt } from "./discovery-prompt-core";
 import { buildEvidenceClassificationIndex } from "./validate-review-core";
+
+export { filterDiscoveryOnlyContextsForPrompt } from "./discovery-prompt-core";
 
 export function buildAuthoritativeSourceRecords(
   sources: AgentSource[],
@@ -112,6 +115,10 @@ export function serializeReviewContextForPrompt(
   context: ReviewContextPayload,
 ): string {
   const draft = context.draftSnapshot.draft;
+  const discoveryOnlyContexts = filterDiscoveryOnlyContextsForPrompt(
+    context.discoveryContexts,
+    context.authoritativeSources,
+  );
 
   return JSON.stringify(
     {
@@ -144,7 +151,7 @@ export function serializeReviewContextForPrompt(
         discoveryContexts: context.discoveryContexts,
       }),
       uncertainClaims: context.uncertainClaims,
-      discoveryOnlyContexts: context.discoveryContexts.map((item) => ({
+      discoveryOnlyContexts: discoveryOnlyContexts.map((item) => ({
         url: item.url,
         title: item.title,
         publisher: item.publisher ?? null,

@@ -148,6 +148,43 @@ describe("Phase 5 automatic safe revision eligibility", () => {
     assert.ok(result.plan);
   });
 
+  it("includes advisory characterization findings when explanation says claim is not established", () => {
+    const review = buildReview({
+      findings: [
+        {
+          findingId: "F-unsupported-tech",
+          severity: "minor",
+          claimType: "general",
+          claimText:
+            "The detailed characterization of the vulnerability as an improper input-validation flaw enabling unauthenticated remote code execution in both NetScaler ADC and Gateway",
+          status: "partially_supported",
+          evidenceSourceIds: [],
+          explanation:
+            "That full technical characterization is not established by the supplied verified claims.",
+          suggestedCorrection:
+            "Remove or qualify the improper input-validation and unauthenticated remote code execution characterization; limit scope to verified Citrix NetScaler and ADC evidence.",
+        },
+      ],
+      seoReview: { score: 80, summary: "ok", issues: ["Align SEO with verified scope"] },
+    });
+
+    const result = revisionCore.assessAutomaticRevisionEligibility({
+      agentRunId: RUN_ID,
+      review,
+      currentDraftFingerprint: FINGERPRINT_A,
+      groundingAudit: passedGrounding,
+      metadata: null,
+      snapshot: buildSnapshot(),
+    });
+
+    assert.equal(result.status, "eligible");
+    assert.ok(
+      result.plan?.actions.some(
+        (action) => action.findingId === "F-unsupported-tech",
+      ),
+    );
+  });
+
   it("blocks material conflicting claims", () => {
     const review = buildReview({
       findings: [

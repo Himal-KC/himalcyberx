@@ -92,7 +92,7 @@ const EDITORIAL_CLAIM_TYPES = new Set([
 ]);
 
 const NEW_EVIDENCE_PATTERN =
-  /additional research|not established|phase 3 does not|requires new evidence|not supported by verified/i;
+  /additional research|phase 3 does not|requires new evidence|requires expanded phase 3|not supported by verified research/i;
 
 export function buildRevisionIdempotencyKey(
   agentReviewId: string,
@@ -448,10 +448,19 @@ export function assessAutomaticRevisionEligibility(input: {
 
 export function buildRevisionChangeSummary(
   actions: RevisionPlanAction[],
+  verifiedFindingIds: Set<string> | null = null,
 ): string[] {
   const summaries = new Set<string>();
 
   for (const action of actions) {
+    if (
+      verifiedFindingIds &&
+      action.findingId &&
+      !verifiedFindingIds.has(action.findingId)
+    ) {
+      continue;
+    }
+
     switch (action.issueType) {
       case "editorial_scope":
         summaries.add("Title or framing narrowed to match verified evidence");

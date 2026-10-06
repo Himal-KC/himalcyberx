@@ -29,6 +29,7 @@ import {
   contentTableForRevision,
   prepareArticleRevisionContent,
 } from "@/lib/agent/review/revision-save-core";
+import { verifyRevisionPostconditions } from "@/lib/agent/review/revision-postcondition-core";
 import { validateRevisedDraftBeforeSave } from "@/lib/agent/review/revision-validate-core";
 import type { RunReviewResult } from "@/lib/agent/review/types";
 import { getCurrentDraftFingerprintFromSnapshot } from "@/lib/agent/readiness/readiness-gate-core";
@@ -235,6 +236,27 @@ async function executeAutomaticSafeRevision(input: {
     return { ok: false, error: validation.reason };
   }
 
+  const postcondition = verifyRevisionPostconditions({
+    plan: eligibility.plan,
+    review,
+    revisedDraft: validation.draft,
+  });
+
+  if (!postcondition.ok) {
+    const reason =
+      "Safe revision incomplete: targeted unsupported claims remain in the revised draft.";
+    await persistRevisionFailure({
+      supabase: input.supabase,
+      runId: input.agentRunId,
+      existingMetadata,
+      review,
+      previousFingerprint: currentDraftFingerprint,
+      plan: eligibility.plan,
+      reason: `${reason} ${postcondition.failures.join("; ")}`,
+    });
+    return { ok: false, error: reason };
+  }
+
   const reloadBeforeSave = await loadReviewDraftSnapshot(input.supabase, run);
   if (
     !reloadBeforeSave.snapshot ||
@@ -277,7 +299,11 @@ async function executeAutomaticSafeRevision(input: {
     reloaded.snapshot,
   );
 
-  const changeSummary = buildRevisionChangeSummary(eligibility.plan.actions);
+  const verifiedFindingIds = new Set(postcondition.verifiedActionFindingIds);
+  const changeSummary = buildRevisionChangeSummary(
+    eligibility.plan.actions,
+    verifiedFindingIds,
+  );
   const attempts = countAutomaticRevisionAttempts(existingMetadata) + 1;
   const revisionRecord: Phase5AutomaticRevisionRecord = {
     version: "phase5-auto-revision-v1",
