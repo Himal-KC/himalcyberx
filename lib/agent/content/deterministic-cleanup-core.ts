@@ -25,6 +25,17 @@ export interface DeterministicDraftCleanupResult {
   internalLinksChanged: boolean;
 }
 
+export function deterministicCleanupFingerprintGateFailed(input: {
+  previousFingerprint: string;
+  revisedFingerprint: string;
+  structureChanged: boolean;
+}): boolean {
+  return (
+    input.previousFingerprint === input.revisedFingerprint &&
+    input.structureChanged
+  );
+}
+
 export function articleNeedsDeterministicCleanup(input: {
   draft: Extract<GeneratedDraft, { contentType: "article" }>;
   slug: string;

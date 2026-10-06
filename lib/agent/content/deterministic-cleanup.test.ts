@@ -25,6 +25,17 @@ const { evaluateAltTextQuality } = (await import(
   pathToFileURL(join(testDir, "../readiness/readiness-gate-core.ts")).href
 )) as typeof import("../readiness/readiness-gate-core");
 
+const {
+  buildPhase5HumanReviewAcceptanceRecord,
+  isPhase5HumanAcceptanceCurrentlyValid,
+} = (await import(
+  pathToFileURL(join(testDir, "../review/human-acceptance-core.ts")).href
+)) as typeof import("../review/human-acceptance-core");
+
+const fp = (await import(
+  pathToFileURL(join(testDir, "../review/fingerprint-core.ts")).href
+)) as typeof import("../review/fingerprint-core");
+
 const { getCurrentDraftFingerprintFromSnapshot } = (await import(
   pathToFileURL(join(testDir, "../readiness/readiness-gate-core.ts")).href
 )) as typeof import("../readiness/readiness-gate-core");
@@ -71,6 +82,26 @@ function buildArticleDraft(content: string): ArticleDraft {
 }
 
 function buildSnapshot(draft: ArticleDraft): ReviewDraftSnapshot {
+  const reviewFingerprintFields = fp.buildArticleReviewFingerprintFields({
+    row: {
+      title: draft.title,
+      slug: draft.slug,
+      excerpt: draft.excerpt,
+      content: draft.content,
+      category_id: null,
+      seo_title: draft.seo.seoTitle,
+      seo_description: draft.seo.seoDescription,
+      og_title: draft.seo.ogTitle,
+      og_description: draft.seo.ogDescription,
+      seo_keywords: draft.seo.seoKeywords,
+    },
+    metadata: {
+      sourceMappings: draft.sourceMappings,
+      internalLinks: draft.internalLinks,
+      generationWarnings: draft.warnings,
+    },
+  });
+
   return {
     agentRunId: "00000000-0000-4000-8000-000000000001",
     contentId: "00000000-0000-4000-8000-000000000010",
@@ -80,10 +111,10 @@ function buildSnapshot(draft: ArticleDraft): ReviewDraftSnapshot {
     title: draft.title,
     slug: draft.slug,
     draft,
-    sourceMappings: [],
-    internalLinks: [],
-    generationWarnings: [],
-    reviewFingerprintFields: null,
+    sourceMappings: draft.sourceMappings,
+    internalLinks: draft.internalLinks,
+    generationWarnings: draft.warnings,
+    reviewFingerprintFields,
   };
 }
 
@@ -402,7 +433,7 @@ describe("deterministic draft cleanup", () => {
     );
   });
 
-  it("changes draft fingerprint when internal link insertion changes body text", () => {
+  it("keeps Phase 5 fingerprint unchanged when internal link insertion only adds HTML markup", () => {
     const relatedTitle = "Microsoft 365 Phishing Defense Guide";
     const content = `<p>${"Body copy. ".repeat(10)} Read ${relatedTitle} first.</p>`;
     const draft: ArticleDraft = {
@@ -440,6 +471,125 @@ describe("deterministic draft cleanup", () => {
     const after = getCurrentDraftFingerprintFromSnapshot(
       buildSnapshot(cleaned.draft),
     );
-    assert.notEqual(before, after);
+    assert.notEqual(cleaned.draft.content, draft.content);
+    assert.equal(cleaned.internalLinksChanged, true);
+    assert.equal(before, after);
+    assert.equal(
+      cleanupCore.deterministicCleanupFingerprintGateFailed({
+        previousFingerprint: before,
+        revisedFingerprint: after,
+        structureChanged: cleaned.structureChanged,
+      }),
+      false,
+    );
+  });
+
+  it("allows fingerprint-neutral approved internal-link cleanup to pass the post-save gate", () => {
+    const fingerprint = "f".repeat(64);
+    assert.equal(
+      cleanupCore.deterministicCleanupFingerprintGateFailed({
+        previousFingerprint: fingerprint,
+        revisedFingerprint: fingerprint,
+        structureChanged: false,
+      }),
+      false,
+    );
+  });
+
+  it("allows fingerprint-neutral featured-image alt repair to pass the post-save gate", () => {
+    const fingerprint = "a".repeat(64);
+    assert.equal(
+      cleanupCore.deterministicCleanupFingerprintGateFailed({
+        previousFingerprint: fingerprint,
+        revisedFingerprint: fingerprint,
+        structureChanged: false,
+      }),
+      false,
+    );
+  });
+
+  it("fails closed when structure cleanup changed HTML but fingerprint did not", () => {
+    const fingerprint = "b".repeat(64);
+    assert.equal(
+      cleanupCore.deterministicCleanupFingerprintGateFailed({
+        previousFingerprint: fingerprint,
+        revisedFingerprint: fingerprint,
+        structureChanged: true,
+      }),
+      true,
+    );
+  });
+
+  it("keeps Phase 5 human acceptance valid after fingerprint-neutral internal-link cleanup", () => {
+    const relatedTitle = "Microsoft 365 Phishing Defense Guide";
+    const content = `<p>Read ${relatedTitle} during rollout planning.</p>`;
+    const draft: ArticleDraft = {
+      ...buildArticleDraft(content),
+      internalLinks: [
+        {
+          contentId: "00000000-0000-4000-8000-000000000030",
+          contentType: "article",
+          anchorText: relatedTitle,
+          suggestedSection: "Related content",
+        },
+      ],
+    };
+    const beforeSnapshot = buildSnapshot(draft);
+    const fingerprint = getCurrentDraftFingerprintFromSnapshot(beforeSnapshot);
+    const cleaned = cleanupCore.applyArticleDeterministicCleanup({
+      draft,
+      slug: SLUG,
+      featuredImage: FEATURED_URL,
+      featuredImageAlt: altCore.repairFeaturedImageAltText({
+        title: TITLE,
+        slug: SLUG,
+        currentAlt: `${TITLE}: ${TITLE}…`,
+        visualConcept: "Enterprise cloud email security environment",
+        hasFeaturedImage: true,
+      }),
+      approvedInternalCatalog: [
+        {
+          id: "00000000-0000-4000-8000-000000000030",
+          contentType: "article",
+          title: relatedTitle,
+          slug: "microsoft-365-phishing-defense-guide",
+        },
+      ],
+    });
+    const afterFingerprint = getCurrentDraftFingerprintFromSnapshot(
+      buildSnapshot(cleaned.draft),
+    );
+    assert.equal(fingerprint, afterFingerprint);
+
+    const review = {
+      id: "00000000-0000-4000-8000-000000000099",
+      agentRunId: beforeSnapshot.agentRunId,
+      draftFingerprint: fingerprint,
+    } as import("../review/types").AgentReviewRecord;
+
+    const acceptance = buildPhase5HumanReviewAcceptanceRecord({
+      agentRunId: beforeSnapshot.agentRunId,
+      review,
+      currentDraftFingerprint: fingerprint,
+      resolvedBy: "admin-user",
+    });
+
+    assert.equal(
+      isPhase5HumanAcceptanceCurrentlyValid({
+        acceptance,
+        agentRunId: beforeSnapshot.agentRunId,
+        review,
+        currentDraftFingerprint: afterFingerprint,
+      }),
+      true,
+    );
+  });
+
+  it("uses structure-only fingerprint gate in deterministic cleanup engine", () => {
+    assert.match(engineSource, /deterministicCleanupFingerprintGateFailed/);
+    assert.doesNotMatch(
+      engineSource,
+      /internalLinksChanged[\s\S]{0,120}Draft fingerprint did not change/,
+    );
   });
 });

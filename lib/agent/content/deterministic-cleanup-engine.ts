@@ -4,6 +4,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import {
   applyArticleDeterministicCleanup,
   articleNeedsDeterministicCleanup,
+  deterministicCleanupFingerprintGateFailed,
   resolveFeaturedImageAltRepairBrief,
 } from "@/lib/agent/content/deterministic-cleanup-core";
 import type { ApprovedInternalCatalogItem } from "@/lib/agent/content/internal-link-cleanup-core";
@@ -171,8 +172,11 @@ export async function runDeterministicAgentDraftCleanup(input: {
   );
 
   if (
-    revisedFingerprint === previousFingerprint &&
-    (cleanup.structureChanged || cleanup.internalLinksChanged)
+    deterministicCleanupFingerprintGateFailed({
+      previousFingerprint,
+      revisedFingerprint,
+      structureChanged: cleanup.structureChanged,
+    })
   ) {
     return {
       ok: false,
